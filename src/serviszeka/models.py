@@ -23,6 +23,7 @@ from serviszeka.domain.enums import (
     ExternalSystem,
     Impact,
     IncidentStatus,
+    OnHoldReason,
     Priority,
     TicketKind,
     Urgency,
@@ -61,6 +62,10 @@ class Incident(Base):
     resolve_due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     responded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Bekleme nedeni ve SLA duraklatma (yalnızca arayan/tedarikçi beklemesi saati durdurur)
+    on_hold_reason: Mapped[OnHoldReason | None] = mapped_column(Enum(OnHoldReason))
+    sla_paused_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    sla_paused_seconds: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     # Son yapay zekâ sınıflandırmasının güven skoru (0-1)
     ai_confidence: Mapped[float | None] = mapped_column(Float)
     # İyimser kilit / senkron çakışma tespiti için sürüm

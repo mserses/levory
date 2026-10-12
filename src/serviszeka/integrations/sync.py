@@ -6,6 +6,10 @@ Kurallar:
 - Gelen (pull): son imleçten beri değişen uzak kayıtlar yerelde oluşturulur/güncellenir.
 - Çakışma: son senkrondan beri hem yerel sürüm hem uzak updated_at değiştiyse
   SyncEvent 'conflict' yazılır; çözüm politikası 'manual' (varsayılan), 'remote_wins', 'local_wins'.
+- Eşzamanlılık: gelen güncelleme uygulanmadan hemen önce satırın sürümü veritabanından
+  yeniden okunur (PostgreSQL'de SELECT ... FOR UPDATE, SQLite'ta koşullu UPDATE ...
+  WHERE version = :beklenen). Okumadan sonra yerel sürüm değiştiyse kayıt yenilenir ve
+  yerel değişiklik sayılır (çakışma yolu); bir kez yeniden denenir, ezilmez.
 - Döngü önleme: gelen güncellemeden sonra link.last_synced_local_version yeni yerel
   sürüme çekilir, böylece aynı değişiklik geri gönderilmez.
 - Her senkron bir SyncEvent yazar. Motor commit etmez (flush eder).
@@ -16,7 +20,7 @@ from dataclasses import asdict
 from datetime import UTC, datetime
 from typing import Any, Literal
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from serviszeka import audit
@@ -36,7 +40,7 @@ from serviszeka.integrations.base import (
     incident_to_fields,
 )
 from serviszeka.models import ExternalLink, Incident, SyncEvent
-from serviszeka.services.incidents import apply_sla
+from serviszeka.services.incidents import apply_sla, update_sla_pause
 from serviszeka.services.incidents import next_number as next_incident_number
 
 ConflictPolicy = Literal["manual", "remote_wins", "local_wins"]
@@ -136,7 +140,9 @@ class SyncEngine:
         if remote.number:
             link.external_number = remote.number
 
-    def _apply_remote(self, incident: Incident, remote: RemoteTicket) -> dict[str, Any]:
+    def _apply_remote(
+        self, incident: Incident, remote: RemoteTicket
+    ) -> tuple[dict[str, Any], list[tuple[str, dict[str, Any]]]]:
         """Uzak alanları yerel kayda uygular; değişiklik varsa sürümü artırır."""
         changes: dict[str, Any] = {}
         old_status = IncidentStatus(incident.status) if incident.status else None
@@ -159,11 +165,39 @@ class SyncEngine:
         if "priority" in changes:
             # Öncelik değişti: SLA vadeleri yeni önceliğe göre yeniden hesaplanır
             apply_sla(incident)
+        sla_events: list[tuple[str, dict[str, Any]]] = []
         if "status" in changes:
-            _stamp_status(incident, old_status, datetime.now(UTC))
+            now = datetime.now(UTC)
+            sla_events = self._sync_hold_state(incident, changes, now)
+            _stamp_status(incident, old_status, now)
         if changes:
             incident.version = (incident.version or 1) + 1
-        return changes
+        return changes, sla_events
+
+    @staticmethod
+    def _sync_hold_state(
+        incident: Incident, changes: dict[str, Any], now: datetime
+    ) -> list[tuple[str, dict[str, Any]]]:
+        """Beklemeden çıkan kayıtta nedeni temizler, duran SLA saatini sürdürür.
+
+        Uzak sistem bekleme nedeni taşımaz: senkronla beklemeye alınan kayıt saati durdurmaz.
+        Çözüm damgasından önce çalışır (beklemeden doğrudan çözülende de vade ötelenir).
+        """
+        new_status = IncidentStatus(incident.status)
+        previous_reason = incident.on_hold_reason
+
+        def setf(name: str, value: Any) -> None:
+            old = getattr(incident, name)
+            if old != value:
+                changes[name] = {
+                    "old": str(old) if old is not None else None,
+                    "new": str(value) if value is not None else None,
+                }
+                setattr(incident, name, value)
+
+        if new_status != IncidentStatus.ON_HOLD:
+            setf("on_hold_reason", None)
+        return update_sla_pause(incident, new_status, previous_reason, setf, now)
 
     # --- giden ---
 
@@ -326,20 +360,52 @@ class SyncEngine:
 
         incident = await self.session.get(Incident, link.incident_id)
         assert incident is not None
-        if incident.version > link.last_synced_local_version:
-            ev = await self._handle_conflict(incident, link, remote, inbound)
-            return "conflicts" if ev.status == STATUS_CONFLICT else (
-                "errors" if ev.status == STATUS_ERROR else "updated"
-            )
+        for _attempt in range(2):  # eşzamanlı değişiklikte bir kez yeniden dene
+            if incident.version > link.last_synced_local_version:
+                ev = await self._handle_conflict(incident, link, remote, inbound)
+                return "conflicts" if ev.status == STATUS_CONFLICT else (
+                    "errors" if ev.status == STATUS_ERROR else "updated"
+                )
+            if await self._lock_version(incident):
+                await self._apply_inbound(incident, link, remote, inbound)
+                return "updated"
+            # Okuma ile yazma arasında yerel kayıt değişti: güncel hâli yükle
+            await self.session.refresh(incident)
+            await self.session.refresh(link)
 
-        await self._apply_inbound(incident, link, remote, inbound)
-        return "updated"
+        # İki denemede de sürüm kilitlenemedi: üzerine yazmak yerine çakışma say
+        ev = await self._handle_conflict(incident, link, remote, inbound)
+        return "conflicts" if ev.status == STATUS_CONFLICT else (
+            "errors" if ev.status == STATUS_ERROR else "updated"
+        )
+
+    async def _lock_version(self, incident: Incident) -> bool:
+        """İyimser kilit: bellekteki sürüm veritabanındakiyle hâlâ aynıysa satırı kilitler.
+
+        PostgreSQL'de SELECT ... FOR UPDATE satırı commit'e kadar kilitler; SQLite'ta
+        koşullu (etkisiz) UPDATE yazma kilidini alır ve eşleşme yoksa False döner.
+        """
+        expected = incident.version
+        bind = self.session.get_bind()
+        if bind.dialect.name == "postgresql":
+            db_version = await self.session.scalar(
+                select(Incident.version).where(Incident.id == incident.id).with_for_update()
+            )
+            return db_version == expected
+        result = await self.session.execute(
+            update(Incident)
+            .where(Incident.id == incident.id, Incident.version == expected)
+            # updated_at açıkça kendine atanır: aksi halde onupdate sessizce değiştirir
+            .values(version=Incident.version, updated_at=Incident.updated_at)
+            .execution_options(synchronize_session=False)
+        )
+        return result.rowcount == 1
 
     async def _apply_inbound(
         self, incident: Incident, link: ExternalLink, remote: RemoteTicket,
         direction: SyncDirection, message: str = "Yerel kayıt güncellendi",
     ) -> SyncEvent:
-        changes = self._apply_remote(incident, remote)
+        changes, sla_events = self._apply_remote(incident, remote)
         # Döngü önleme: yeni yerel sürüm "senkronlanmış" sayılır, geri gönderilmez.
         self._mark_synced(link, incident, remote)
         await self.session.flush()
@@ -348,6 +414,11 @@ class SyncEngine:
                 self.session, actor=self.actor, action="sync.incident_updated",
                 entity_type="incident", entity_id=incident.id,
                 details={"system": link.system.value, "changes": changes},
+            )
+        for action, details in sla_events:
+            await audit.record(
+                self.session, actor=self.actor, action=action,
+                entity_type="incident", entity_id=incident.id, details=details,
             )
         return await self._event(
             system=link.system, direction=direction, status=STATUS_OK, link=link,

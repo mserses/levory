@@ -6,12 +6,15 @@ from fastapi import FastAPI
 
 from serviszeka import __version__
 from serviszeka.api import audit, incidents, integrations, knowledge
+from serviszeka.config import get_settings
 from serviszeka.db import create_all
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await create_all()
+    # Geliştirmede tablolar otomatik kurulur; üretimde göçler (alembic upgrade head) kullanılır
+    if get_settings().auto_create_schema:
+        await create_all()
     yield
 
 

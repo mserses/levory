@@ -25,6 +25,10 @@ services:
     environment:
       # .env içindeki SQLite adresini compose ortamında Postgres ile ezer
       SZ_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-serviszeka}:${POSTGRES_PASSWORD:-serviszeka}@db:5432/${POSTGRES_DB:-serviszeka}
+      # Şema create_all ile değil göçlerle kurulur
+      SZ_AUTO_CREATE_SCHEMA: "false"
+    # Önce veritabanı göçleri, sonra uygulama
+    command: ["sh", "-c", "alembic upgrade head && exec uvicorn serviszeka.main:app --host 0.0.0.0 --port 8000"]
     ports:
       - "8000:8000"
     depends_on:

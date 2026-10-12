@@ -19,7 +19,8 @@ def _llm_response(**kw):
         "category": "network",
         "service": "VPN",
         "impact": "medium",
-        "urgency": "high",
+        # medium x medium = P3: P3..P5 aralığında kalır, otomatik uygulanabilir
+        "urgency": "medium",
         "assignment_group": "Ağ Ekibi",
         "suggested_resolution": "Sertifikayı yenileyin.",
         "kb_article_ids": [],
@@ -119,7 +120,7 @@ async def test_triage_auto_apply_and_decisions(ctx):
     assert dec["outcome"] == "auto_applied" and dec["sources"] == [kb.id]
 
     updated = (await client.get(f"/incidents/{inc['id']}")).json()
-    assert updated["priority"] == "P2" and updated["assignment_group"] == "Ağ Ekibi"
+    assert updated["priority"] == "P3" and updated["assignment_group"] == "Ağ Ekibi"
     assert updated["version"] == 2
 
     r = await client.get(f"/incidents/{inc['id']}/decisions")

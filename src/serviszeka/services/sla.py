@@ -15,7 +15,7 @@ from typing import Protocol
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from serviszeka.domain.enums import IncidentStatus, Priority
+from serviszeka.domain.enums import IncidentStatus, OnHoldReason, Priority
 from serviszeka.models import Incident
 
 AT_RISK_RATIO = 0.75
@@ -23,6 +23,11 @@ AT_RISK_RATIO = 0.75
 # Çözüm SLA'sının durduğu (artık izlenmeyen) durumlar
 CLOSED_STATUSES: frozenset[IncidentStatus] = frozenset(
     {IncidentStatus.RESOLVED, IncidentStatus.CLOSED, IncidentStatus.CANCELLED}
+)
+
+# SLA saatini durduran bekleme nedenleri (değişiklik/iç bekleme saati durdurmaz)
+PAUSING_HOLD_REASONS: frozenset[OnHoldReason] = frozenset(
+    {OnHoldReason.AWAITING_CALLER, OnHoldReason.AWAITING_VENDOR}
 )
 
 
@@ -101,11 +106,19 @@ class SLAPolicy:
             resolve_due_at=self.calendar.add(start, t.resolve),
         )
 
-    def elapsed_ratio(self, start: datetime, due: datetime, now: datetime) -> float:
-        window = self.calendar.elapsed(start, due)
+    def elapsed_ratio(
+        self,
+        start: datetime,
+        due: datetime,
+        now: datetime,
+        paused: timedelta = timedelta(0),
+    ) -> float:
+        # Vade, duraklatılan süre kadar ötelenmiştir; oran duraklama hariç süreyle hesaplanır
+        window = self.calendar.elapsed(start, due) - paused
         if window <= timedelta(0):
             return 1.0
-        return self.calendar.elapsed(start, now) / window
+        elapsed = max(self.calendar.elapsed(start, now) - paused, timedelta(0))
+        return elapsed / window
 
     def state(
         self,
@@ -114,13 +127,14 @@ class SLAPolicy:
         due: datetime,
         now: datetime,
         completed_at: datetime | None = None,
+        paused: timedelta = timedelta(0),
     ) -> SLAState:
         due = ensure_utc(due)
         if completed_at is not None:
             return SLAState.MET if ensure_utc(completed_at) <= due else SLAState.MISSED
         if ensure_utc(now) > due:
             return SLAState.BREACHED
-        if self.elapsed_ratio(start, due, now) >= self.at_risk_ratio:
+        if self.elapsed_ratio(start, due, now, paused) >= self.at_risk_ratio:
             return SLAState.AT_RISK
         return SLAState.ON_TRACK
 
@@ -132,6 +146,25 @@ def compute_due_dates(
     priority: Priority, start: datetime, policy: SLAPolicy | None = None
 ) -> SLADueDates:
     return (policy or DEFAULT_POLICY).due_dates(priority, start)
+
+
+def is_pausing_reason(reason: OnHoldReason | str | None) -> bool:
+    return reason is not None and OnHoldReason(reason) in PAUSING_HOLD_REASONS
+
+
+def paused_duration(paused_at: datetime, now: datetime) -> timedelta:
+    """Duraklatma başlangıcından bu yana geçen süre (tam saniye, negatif olamaz)."""
+    seconds = int((ensure_utc(now) - ensure_utc(paused_at)).total_seconds())
+    return timedelta(seconds=max(seconds, 0))
+
+
+def shift_due(due: datetime, by: timedelta) -> datetime:
+    """Vadeyi duraklatılan süre kadar ileri öteler."""
+    return ensure_utc(due) + by
+
+
+def is_paused(incident: Incident) -> bool:
+    return incident.sla_paused_at is not None and incident.status not in CLOSED_STATUSES
 
 
 @dataclass(frozen=True)
@@ -153,7 +186,13 @@ def evaluate_incident(
     now = ensure_utc(now)
     if incident.status in CLOSED_STATUSES or incident.created_at is None:
         return []
+    # Saat durmuşken (arayan/tedarikçi beklemesi) saat duraklama anında donar: risk
+    # raporlanmaz, ama duraklamadan önce gerçekleşmiş ihlal gizlenemez
+    paused_now = is_paused(incident)
+    if paused_now:
+        now = ensure_utc(incident.sla_paused_at)
     start = ensure_utc(incident.created_at)
+    paused = timedelta(seconds=incident.sla_paused_seconds or 0)
     checks: list[tuple[SLAMetric, datetime | None, datetime | None]] = [
         (SLAMetric.RESPONSE, incident.response_due_at, incident.responded_at),
         (SLAMetric.RESOLVE, incident.resolve_due_at, incident.resolved_at),
@@ -162,7 +201,9 @@ def evaluate_incident(
     for metric, due, done in checks:
         if due is None or done is not None:
             continue
-        state = policy.state(start=start, due=due, now=now)
+        state = policy.state(start=start, due=due, now=now, paused=paused)
+        if paused_now and state != SLAState.BREACHED:
+            continue
         if state in (SLAState.AT_RISK, SLAState.BREACHED):
             alerts.append(
                 SLAAlert(
@@ -172,7 +213,7 @@ def evaluate_incident(
                     metric=metric,
                     state=state,
                     due_at=ensure_utc(due),
-                    elapsed_ratio=round(policy.elapsed_ratio(start, due, now), 4),
+                    elapsed_ratio=round(policy.elapsed_ratio(start, due, now, paused), 4),
                 )
             )
     return alerts

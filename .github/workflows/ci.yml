@@ -31,3 +31,10 @@ jobs:
 
       - name: Testler
         run: uv run pytest -q
+
+      - name: Göçler (SQLite)
+        env:
+          SZ_DATABASE_URL: sqlite+aiosqlite:///./ci-migrations.db
+        run: |
+          uv run alembic upgrade head
+          uv run alembic check

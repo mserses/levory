@@ -3,8 +3,8 @@
 import pytest
 
 from serviszeka.config import Settings
-from serviszeka.domain.enums import DecisionOutcome, RiskLevel
-from serviszeka.policy import POLICIES, evaluate
+from serviszeka.domain.enums import DecisionOutcome, Priority, RiskLevel
+from serviszeka.policy import POLICIES, evaluate, is_urgent_raise, priority_change_risk
 
 LIVE = Settings(ai_shadow_mode=False, ai_confidence_threshold=0.75)
 SHADOW = Settings(ai_shadow_mode=True, ai_confidence_threshold=0.75)
@@ -99,3 +99,61 @@ def test_default_settings_used(monkeypatch):
         assert d.outcome == DecisionOutcome.SUGGESTED
     finally:
         get_settings.cache_clear()
+
+
+# --- öncelik değişikliği kuralları ------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "current,proposed",
+    [("P5", "P3"), ("P4", "P3"), ("P5", "P4"), ("P3", "P3"), ("P5", "P5")],
+)
+def test_priority_change_within_p3_p5_is_low_risk(current, proposed):
+    risk = priority_change_risk(Priority(current), Priority(proposed))
+    assert risk == RiskLevel.LOW
+    d = evaluate(
+        agent="service_desk", action="set_priority", confidence=0.9, risk=risk, settings=LIVE
+    )
+    assert d.outcome == DecisionOutcome.AUTO_APPLIED
+
+
+@pytest.mark.parametrize(
+    "current,proposed",
+    [
+        ("P5", "P2"),  # P2'ye yükseltme
+        ("P3", "P1"),  # P1'e yükseltme
+        ("P2", "P1"),
+        ("P2", "P3"),  # düşürme
+        ("P3", "P4"),  # bant içinde düşürme
+        ("P1", "P5"),
+        ("P2", "P2"),  # mevcut öncelik bant dışında
+        ("P1", "P1"),
+    ],
+)
+def test_priority_change_outside_rules_needs_approval(current, proposed):
+    risk = priority_change_risk(Priority(current), Priority(proposed))
+    for settings in (LIVE, SHADOW):
+        d = evaluate(
+            agent="service_desk",
+            action="set_priority",
+            confidence=0.99,
+            risk=risk,
+            settings=settings,
+        )
+        assert d.outcome == DecisionOutcome.NEEDS_APPROVAL
+
+
+@pytest.mark.parametrize(
+    "current,proposed,expected",
+    [
+        ("P5", "P2", True),
+        ("P3", "P1", True),
+        ("P2", "P1", True),
+        ("P2", "P2", False),
+        ("P1", "P1", False),
+        ("P5", "P3", False),
+        ("P1", "P3", False),
+    ],
+)
+def test_is_urgent_raise(current, proposed, expected):
+    assert is_urgent_raise(Priority(current), Priority(proposed)) is expected

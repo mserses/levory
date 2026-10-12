@@ -16,6 +16,17 @@ LIVE = Settings(ai_shadow_mode=False, anthropic_api_key=None)
 SHADOW = Settings(ai_shadow_mode=True, anthropic_api_key=None)
 
 
+class FakeNotifier:
+    def __init__(self, fail: bool = False):
+        self.calls: list[tuple[str, dict]] = []
+        self.fail = fail
+
+    async def notify(self, event, payload):
+        self.calls.append((event, payload))
+        if self.fail:
+            raise RuntimeError("webhook kapalı")
+
+
 async def _setup(session):
     vpn = await knowledge.create_article(
         session,
@@ -47,7 +58,7 @@ def _response(**kw):
         "category": "network",
         "service": "VPN",
         "impact": "medium",
-        "urgency": "high",
+        "urgency": "medium",
         "assignment_group": "Ağ Ekibi",
         "suggested_resolution": "Sertifikayı yenileyin.",
         "kb_article_ids": [],
@@ -71,7 +82,7 @@ async def test_auto_apply_when_shadow_off(session):
     refreshed = await svc.get_incident(session, inc.id)
     assert refreshed.category == "network" and refreshed.service == "VPN"
     assert refreshed.assignment_group == "Ağ Ekibi"
-    assert refreshed.priority == Priority.P2  # medium x high
+    assert refreshed.priority == Priority.P3  # medium x medium: P5 -> P3 bant içinde
     assert refreshed.ai_confidence == pytest.approx(0.92)
     assert refreshed.version == 2
     # Çözüm metni asla otomatik yazılmaz
@@ -162,11 +173,17 @@ async def test_pii_masked_in_llm_input_and_decision(session):
 
 async def test_p1_requires_approval_then_approve(session):
     _, inc = await _setup(session)
+    notifier = FakeNotifier()
     decision = await service_desk.triage(
-        session, inc, FakeLLM([_response(impact="high", urgency="high")]), settings=LIVE
+        session,
+        inc,
+        FakeLLM([_response(impact="high", urgency="high")]),
+        settings=LIVE,
+        notifier=notifier,
     )
     assert decision.outcome == DecisionOutcome.NEEDS_APPROVAL
     assert (await svc.get_incident(session, inc.id)).priority == Priority.P5
+    assert len(notifier.calls) == 1
 
     approved = await service_desk.approve_decision(session, decision.id, "sef.ali")
     assert approved.approved_by == "sef.ali" and approved.approved_at is not None
@@ -207,3 +224,189 @@ async def test_decisions_listed(session):
     await service_desk.triage(session, inc, FakeLLM([_response()]), settings=SHADOW)
     rows = await service_desk.list_decisions(session, inc.id)
     assert len(rows) == 1 and isinstance(rows[0], AIDecision)
+
+
+# --- öncelik kuralları ---------------------------------------------------------
+
+
+async def _incident(session, impact="low", urgency="low"):
+    return await svc.create_incident(
+        session,
+        IncidentCreate(title="Ağ yavaş", caller="ali", impact=impact, urgency=urgency),
+        actor="ali",
+    )
+
+
+async def _audit_actions(session):
+    logs = (await session.scalars(select(AuditLog).order_by(AuditLog.seq))).all()
+    return [log.action for log in logs]
+
+
+async def test_raise_to_p2_applies_classification_but_waits_for_priority(session):
+    inc = await _incident(session)  # P5
+    notifier = FakeNotifier()
+    decision = await service_desk.triage(
+        session,
+        inc,
+        FakeLLM([_response(impact="medium", urgency="high")]),  # P2
+        settings=LIVE,
+        notifier=notifier,
+    )
+    assert decision.outcome == DecisionOutcome.NEEDS_APPROVAL
+    assert "P2" in decision.output["policy_reason"]
+    refreshed = await svc.get_incident(session, inc.id)
+    # Öncelik dışı alanlar politika gereği uygulandı, öncelik onay bekliyor
+    assert refreshed.category == "network" and refreshed.assignment_group == "Ağ Ekibi"
+    assert refreshed.priority == Priority.P5
+    assert decision.output["applied"] is False
+    assert set(decision.output["applied_fields"]) == {
+        "kind",
+        "category",
+        "service",
+        "assignment_group",
+    }
+    assert set(decision.output["pending_fields"]) == {"impact", "urgency"}
+    # Tüm öneri karar üzerinde duruyor
+    assert decision.output["proposed"]["urgency"] == "high"
+
+    # Nöbetçi anında uyarıldı
+    assert len(notifier.calls) == 1
+    event, payload = notifier.calls[0]
+    assert event == "incident.priority_raise_pending"
+    assert payload["incident_number"] == inc.number
+    assert payload["current_priority"] == "P5" and payload["proposed_priority"] == "P2"
+    assert payload["decision_id"] == decision.id
+    assert "notification.sent" in await _audit_actions(session)
+
+    await service_desk.approve_decision(session, decision.id, "sef.ali")
+    assert (await svc.get_incident(session, inc.id)).priority == Priority.P2
+    assert await audit.verify_chain(session)
+
+
+async def test_raise_to_p1_in_shadow_mode_needs_approval_and_notifies(session):
+    inc = await _incident(session)
+    notifier = FakeNotifier()
+    decision = await service_desk.triage(
+        session,
+        inc,
+        FakeLLM([_response(impact="high", urgency="high")]),
+        settings=SHADOW,
+        notifier=notifier,
+    )
+    assert decision.outcome == DecisionOutcome.NEEDS_APPROVAL
+    refreshed = await svc.get_incident(session, inc.id)
+    assert refreshed.version == 1 and refreshed.category is None
+    assert [e for e, _ in notifier.calls] == ["incident.priority_raise_pending"]
+
+
+async def test_low_confidence_p1_raise_escalates_and_still_notifies(session):
+    inc = await _incident(session)
+    notifier = FakeNotifier()
+    decision = await service_desk.triage(
+        session,
+        inc,
+        FakeLLM([_response(impact="high", urgency="high", confidence=0.3)]),
+        settings=LIVE,
+        notifier=notifier,
+    )
+    assert decision.outcome == DecisionOutcome.ESCALATED
+    assert (await svc.get_incident(session, inc.id)).version == 1
+    assert len(notifier.calls) == 1
+
+
+async def test_downgrade_within_band_needs_approval(session):
+    inc = await _incident(session, impact="medium", urgency="medium")  # P3
+    notifier = FakeNotifier()
+    decision = await service_desk.triage(
+        session,
+        inc,
+        FakeLLM([_response(impact="low", urgency="medium")]),  # P4
+        settings=LIVE,
+        notifier=notifier,
+    )
+    assert decision.outcome == DecisionOutcome.NEEDS_APPROVAL
+    refreshed = await svc.get_incident(session, inc.id)
+    assert refreshed.priority == Priority.P3 and refreshed.category == "network"
+    assert notifier.calls == []  # düşürme nöbetçiye bildirilmez
+
+    await service_desk.approve_decision(session, decision.id, "sef.ali")
+    assert (await svc.get_incident(session, inc.id)).priority == Priority.P4
+
+
+async def test_downgrade_from_p2_needs_approval(session):
+    inc = await _incident(session, impact="medium", urgency="high")  # P2
+    notifier = FakeNotifier()
+    decision = await service_desk.triage(
+        session,
+        inc,
+        FakeLLM([_response(impact="medium", urgency="medium")]),  # P3
+        settings=LIVE,
+        notifier=notifier,
+    )
+    assert decision.outcome == DecisionOutcome.NEEDS_APPROVAL
+    assert (await svc.get_incident(session, inc.id)).priority == Priority.P2
+    assert notifier.calls == []
+
+
+async def test_raise_within_band_auto_applied_without_notification(session):
+    inc = await _incident(session, impact="low", urgency="medium")  # P4
+    notifier = FakeNotifier()
+    decision = await service_desk.triage(
+        session,
+        inc,
+        FakeLLM([_response(impact="medium", urgency="medium")]),  # P3
+        settings=LIVE,
+        notifier=notifier,
+    )
+    assert decision.outcome == DecisionOutcome.AUTO_APPLIED
+    assert decision.output["applied"] is True
+    assert (await svc.get_incident(session, inc.id)).priority == Priority.P3
+    assert notifier.calls == []
+
+
+async def test_notification_failure_does_not_break_triage(session):
+    inc = await _incident(session)
+    notifier = FakeNotifier(fail=True)
+    decision = await service_desk.triage(
+        session,
+        inc,
+        FakeLLM([_response(impact="high", urgency="high")]),
+        settings=LIVE,
+        notifier=notifier,
+    )
+    assert decision.outcome == DecisionOutcome.NEEDS_APPROVAL
+    assert len(notifier.calls) == 1
+    logs = (await session.scalars(select(AuditLog).order_by(AuditLog.seq))).all()
+    failed = [log for log in logs if log.action == "notification.failed"]
+    assert failed and failed[0].entity_id == decision.id
+    assert "webhook kapalı" in failed[0].details["error"]
+    assert await audit.verify_chain(session)
+
+
+async def test_default_notifier_used_when_not_given(session, caplog):
+    inc = await _incident(session)
+    decision = await service_desk.triage(
+        session, inc, FakeLLM([_response(impact="high", urgency="high")]), settings=LIVE
+    )
+    assert decision.outcome == DecisionOutcome.NEEDS_APPROVAL
+    assert "notification.sent" in await _audit_actions(session)
+
+
+async def test_no_oncall_page_when_priority_fields_unchanged(session):
+    # Uzak sistem önceliği ezmiş (P3) ama etki/aciliyet zaten yüksek/yüksek: AI aynı
+    # etki/aciliyeti önerirse onay bekleyen bir yükseltme yoktur, nöbetçi uyarılmamalı
+    inc = await _incident(session, impact="high", urgency="high")
+    inc.priority = Priority.P3
+    await session.flush()
+    notifier = FakeNotifier()
+    decision = await service_desk.triage(
+        session,
+        inc,
+        FakeLLM([_response(impact="high", urgency="high")]),
+        settings=LIVE,
+        notifier=notifier,
+    )
+    assert decision.outcome == DecisionOutcome.AUTO_APPLIED
+    assert decision.output["pending_fields"] == []
+    assert (await svc.get_incident(session, inc.id)).priority == Priority.P3
+    assert notifier.calls == []

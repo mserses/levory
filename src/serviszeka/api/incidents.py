@@ -14,6 +14,7 @@ from serviszeka.agents import service_desk
 from serviszeka.config import Settings, get_settings
 from serviszeka.db import get_session
 from serviszeka.domain.enums import IncidentStatus, Priority
+from serviszeka.notifications import Notifier, get_notifier
 from serviszeka.services import incidents as svc
 from serviszeka.services import sla
 from serviszeka.services.schemas import (
@@ -44,6 +45,14 @@ def get_app_settings() -> Settings:
 
 LLMDep = Annotated[llm_module.LLMClient, Depends(get_llm_client)]
 SettingsDep = Annotated[Settings, Depends(get_app_settings)]
+
+
+def get_oncall_notifier(settings: SettingsDep) -> Notifier:
+    """Nöbetçi bildirim bağımlılığı (testlerde dependency_overrides ile değiştirilir)."""
+    return get_notifier(settings)
+
+
+NotifierDep = Annotated[Notifier, Depends(get_oncall_notifier)]
 ActorHeader = Annotated[str | None, Header(alias="X-Actor")]
 
 _ETAG_RE = re.compile(r'^\s*(?:W/)?"?(\d+)"?\s*$')
@@ -173,10 +182,16 @@ async def update_incident(
 
 @router.post("/{incident_id}/triage", response_model=AIDecisionRead)
 async def triage_incident(
-    incident_id: str, session: SessionDep, llm: LLMDep, settings: SettingsDep
+    incident_id: str,
+    session: SessionDep,
+    llm: LLMDep,
+    settings: SettingsDep,
+    notifier: NotifierDep,
 ) -> AIDecisionRead:
     incident = await _get_or_404(session, incident_id)
-    decision = await service_desk.triage(session, incident, llm, settings=settings)
+    decision = await service_desk.triage(
+        session, incident, llm, settings=settings, notifier=notifier
+    )
     await session.commit()
     await session.refresh(decision)
     return AIDecisionRead.model_validate(decision)

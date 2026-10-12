@@ -4,6 +4,8 @@
 - Öncelik etki x aciliyet matrisinden hesaplanır; SLA vadeleri öncelikten türetilir.
 - İyimser kilit: expected_version uyuşmazsa VersionConflictError.
 - Her değişiklik sürümü artırır ve denetim zincirine yazılır.
+- ON_HOLD bekleme nedeni ister; arayan/tedarikçi beklemesinde SLA saati durur, beklemeden
+  çıkınca karşılanmamış vadeler duraklatılan süre kadar ötelenir.
 - Fonksiyonlar flush eder, commit etmez.
 """
 
@@ -11,7 +13,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from enum import Enum
 from typing import Any
 
@@ -19,7 +21,14 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from serviszeka import audit
-from serviszeka.domain.enums import Impact, IncidentStatus, Priority, TicketKind, Urgency
+from serviszeka.domain.enums import (
+    Impact,
+    IncidentStatus,
+    OnHoldReason,
+    Priority,
+    TicketKind,
+    Urgency,
+)
 from serviszeka.domain.priority import calculate_priority
 from serviszeka.models import Incident
 from serviszeka.services import sla
@@ -51,6 +60,7 @@ UPDATABLE_FIELDS: frozenset[str] = frozenset(
         "category",
         "kind",
         "status",
+        "on_hold_reason",
         "assignee",
         "assignment_group",
         "resolution",
@@ -65,6 +75,7 @@ _ENUM_FIELDS: Mapping[str, type[Enum]] = {
     "urgency": Urgency,
     "kind": TicketKind,
     "status": IncidentStatus,
+    "on_hold_reason": OnHoldReason,
 }
 
 _NUMBER_RE = re.compile(r"^INC(\d+)$")
@@ -121,8 +132,11 @@ async def next_number(session: AsyncSession) -> str:
 def apply_sla(incident: Incident, policy: sla.SLAPolicy | None = None) -> None:
     start = incident.created_at or _now()
     due = sla.compute_due_dates(incident.priority, start, policy)
-    incident.response_due_at = due.response_due_at
-    incident.resolve_due_at = due.resolve_due_at
+    # Daha önce duraklatılan süre vadelere eklenir (yanıt hedefi yalnızca karşılanmadıysa)
+    paused = timedelta(seconds=incident.sla_paused_seconds or 0)
+    response_shift = paused if incident.responded_at is None else timedelta(0)
+    incident.response_due_at = sla.shift_due(due.response_due_at, response_shift)
+    incident.resolve_due_at = sla.shift_due(due.resolve_due_at, paused)
 
 
 async def create_incident(session: AsyncSession, data: IncidentCreate, actor: str) -> Incident:
@@ -206,6 +220,26 @@ def _check_transition(incident: Incident, new_status: IncidentStatus, resolution
         raise InvalidTransitionError("Olayı çözmek için çözüm (resolution) metni zorunludur.")
 
 
+def _check_hold_reason(
+    old_status: IncidentStatus,
+    new_status: IncidentStatus,
+    norm: Mapping[str, Any],
+    current_reason: OnHoldReason | None,
+) -> None:
+    given = "on_hold_reason" in norm
+    reason = norm["on_hold_reason"] if given else current_reason
+    if new_status == S.ON_HOLD:
+        # Beklemeye geçiş ya da bekleme sırasında nedeni silme: neden zorunlu
+        if reason is None and (old_status != S.ON_HOLD or given):
+            raise InvalidTransitionError(
+                "Olayı beklemeye almak için bekleme nedeni (on_hold_reason) zorunludur."
+            )
+    elif given and norm["on_hold_reason"] is not None:
+        raise InvalidTransitionError(
+            "Bekleme nedeni (on_hold_reason) yalnızca beklemedeki olaya verilebilir."
+        )
+
+
 async def apply_changes(
     session: AsyncSession,
     incident_id: str,
@@ -254,11 +288,15 @@ async def apply_changes(
     new_status = norm.pop("status", old_status)
     resolution = norm.get("resolution", incident.resolution)
     _check_transition(incident, new_status, resolution)
+    _check_hold_reason(old_status, new_status, norm, incident.on_hold_reason)
+    if new_status != S.ON_HOLD:
+        norm.pop("on_hold_reason", None)
     if old_status in (S.CLOSED, S.CANCELLED) and any(
         getattr(incident, k) != v for k, v in norm.items()
     ):
         raise InvalidTransitionError(f"{old_status.value} durumundaki olay değiştirilemez.")
 
+    previous_reason = incident.on_hold_reason
     for name, value in norm.items():
         setf(name, value)
 
@@ -269,8 +307,16 @@ async def apply_changes(
         setf("priority", new_priority)
         start = incident.created_at or now
         due = sla.compute_due_dates(new_priority, start)
-        setf("response_due_at", due.response_due_at)
-        setf("resolve_due_at", due.resolve_due_at)
+        # Daha önce duraklatılan süre yeni vadelere de eklenir
+        paused = timedelta(seconds=incident.sla_paused_seconds or 0)
+        response_shift = paused if incident.responded_at is None else timedelta(0)
+        setf("response_due_at", sla.shift_due(due.response_due_at, response_shift))
+        setf("resolve_due_at", sla.shift_due(due.resolve_due_at, paused))
+
+    # SLA duraklatma/sürdürme (çözüm zamanından önce: doğrudan çözülen olayda da öteleme)
+    if new_status != S.ON_HOLD:
+        setf("on_hold_reason", None)
+    sla_events = _update_sla_pause(incident, new_status, previous_reason, setf, now)
 
     if new_status != old_status:
         setf("status", new_status)
@@ -300,7 +346,64 @@ async def apply_changes(
         entity_id=incident.id,
         details=details,
     )
+    for action, event_details in sla_events:
+        await audit.record(
+            session,
+            actor=actor,
+            action=action,
+            entity_type="incident",
+            entity_id=incident.id,
+            details=event_details,
+        )
     return incident
+
+
+def _update_sla_pause(
+    incident: Incident,
+    new_status: IncidentStatus,
+    previous_reason: OnHoldReason | None,
+    setf: Any,
+    now: datetime,
+) -> list[tuple[str, dict[str, Any]]]:
+    """Bekleme nedenine göre SLA saatini durdurur ya da sürdürür; denetim olaylarını döndürür.
+
+    `previous_reason`: bu güncellemeden önceki (saati durdurmuş) neden; sürdürme kaydına yazılır.
+    """
+    events: list[tuple[str, dict[str, Any]]] = []
+    reason = incident.on_hold_reason if new_status == S.ON_HOLD else None
+    should_pause = sla.is_pausing_reason(reason)
+    paused_at = incident.sla_paused_at
+
+    if paused_at is not None and not should_pause:
+        duration = sla.paused_duration(paused_at, now)
+        total = (incident.sla_paused_seconds or 0) + int(duration.total_seconds())
+        setf("sla_paused_seconds", total)
+        setf("sla_paused_at", None)
+        # Yalnızca henüz karşılanmamış hedefler ötelenir
+        if incident.responded_at is None and incident.response_due_at is not None:
+            setf("response_due_at", sla.shift_due(incident.response_due_at, duration))
+        if incident.resolved_at is None and incident.resolve_due_at is not None:
+            setf("resolve_due_at", sla.shift_due(incident.resolve_due_at, duration))
+        events.append(
+            (
+                "incident.sla_resume",
+                {
+                    "reason": OnHoldReason(previous_reason).value if previous_reason else None,
+                    "paused_at": sla.ensure_utc(paused_at).isoformat(),
+                    "duration_seconds": int(duration.total_seconds()),
+                    "total_paused_seconds": total,
+                },
+            )
+        )
+    elif paused_at is None and should_pause:
+        setf("sla_paused_at", now)
+        events.append(
+            (
+                "incident.sla_pause",
+                {"reason": OnHoldReason(reason).value, "paused_at": sla.ensure_utc(now).isoformat()},
+            )
+        )
+    return events
 
 
 async def update_incident(
@@ -318,4 +421,6 @@ async def update_incident(
 
 # Geriye dönük uyumluluk
 _apply_sla = apply_sla
+# Senkron motoru da aynı duraklatma/sürdürme kuralını kullanır
+update_sla_pause = _update_sla_pause
 next_incident_number = next_number

@@ -272,3 +272,110 @@ async def test_api_status_pull_and_400(session):
         r = await client.post(f"/integrations/conflicts/{c['id']}/resolve", params={"winner": "remote"})
         assert r.status_code == 200
         assert inc.title == "uzakta değişti"
+
+
+async def _file_engine(tmp_path):
+    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
+    from serviszeka import db, models  # noqa: F401
+
+    eng = create_async_engine(f"sqlite+aiosqlite:///{tmp_path / 'sync.db'}")
+    async with eng.begin() as conn:
+        await conn.run_sync(db.Base.metadata.create_all)
+    return eng, async_sessionmaker(eng, expire_on_commit=False)
+
+
+async def _linked_incident(maker, fake) -> str:
+    """Uzakta oluşturulmuş ve senkronlanmış (sürüm 1) bir olay hazırlar."""
+    async with maker() as s0:
+        inc = await _incident(s0)
+        await SyncEngine(s0, [fake]).push(inc)
+        await s0.commit()
+        return inc.id
+
+
+@pytest.mark.parametrize("policy", ["manual", "local_wins"])
+async def test_pull_does_not_overwrite_concurrent_local_update(tmp_path, monkeypatch, policy):
+    from serviszeka.services import incidents as svc
+    from serviszeka.services.schemas import IncidentUpdate
+
+    eng, maker = await _file_engine(tmp_path)
+    fake = FakeConnector()
+    try:
+        inc_id = await _linked_incident(maker, fake)
+        fake.remote_edit("r1", title="Uzak başlık")
+
+        async with maker() as a, maker() as b:
+            real_get = a.get
+            raced = False
+
+            async def racing_get(cls, ident, **kw):
+                nonlocal raced
+                obj = await real_get(cls, ident, **kw)
+                if cls is Incident and not raced:
+                    raced = True
+                    # Okuma ile yazma arasında eşzamanlı bir PATCH commit edilir
+                    await svc.update_incident(b, inc_id, IncidentUpdate(title="Yerel PATCH"), "b", 1)
+                    await b.commit()
+                return obj
+
+            monkeypatch.setattr(a, "get", racing_get)
+            res = await SyncEngine(a, [fake], conflict_policy=policy).pull(
+                ExternalSystem.SERVICENOW
+            )
+            await a.commit()
+            assert raced
+            assert res["updated"] == (1 if policy == "local_wins" else 0)
+            assert res["conflicts"] == (1 if policy == "manual" else 0)
+
+        async with maker() as c:
+            inc = await c.get(Incident, inc_id)
+            assert inc.title == "Yerel PATCH"  # eşzamanlı yerel değişiklik ezilmedi
+            assert inc.version == 2
+            if policy == "manual":
+                [ev] = (await c.scalars(
+                    select(SyncEvent).where(SyncEvent.status == "conflict"))).all()
+                assert ev.payload["local_version"] == 2
+                assert ev.payload["remote"]["title"] == "Uzak başlık"
+            else:
+                assert fake.store["r1"].title == "Yerel PATCH"
+    finally:
+        await eng.dispose()
+
+
+async def test_pull_still_applies_when_no_concurrent_change(tmp_path):
+    eng, maker = await _file_engine(tmp_path)
+    fake = FakeConnector()
+    try:
+        inc_id = await _linked_incident(maker, fake)
+        fake.remote_edit("r1", title="Uzak başlık")
+        async with maker() as a:
+            res = await SyncEngine(a, [fake]).pull(ExternalSystem.SERVICENOW)
+            await a.commit()
+        assert res["updated"] == 1 and res["conflicts"] == 0
+        async with maker() as c:
+            inc = await c.get(Incident, inc_id)
+            assert inc.title == "Uzak başlık" and inc.version == 2
+    finally:
+        await eng.dispose()
+
+
+async def test_pull_without_field_changes_keeps_updated_at(tmp_path):
+    # Sürüm kilidi (SQLite koşullu UPDATE) updated_at'i sessizce değiştirmemeli
+    eng, maker = await _file_engine(tmp_path)
+    fake = FakeConnector()
+    try:
+        inc_id = await _linked_incident(maker, fake)
+        async with maker() as c:
+            before = (await c.get(Incident, inc_id)).updated_at
+        fake.remote_edit("r1")  # yalnızca uzak updated_at ilerler (ör. yorum eklendi)
+        async with maker() as a:
+            res = await SyncEngine(a, [fake]).pull(ExternalSystem.SERVICENOW)
+            await a.commit()
+        assert res["updated"] == 1
+        async with maker() as c:
+            inc = await c.get(Incident, inc_id)
+            assert inc.version == 1
+            assert inc.updated_at == before
+    finally:
+        await eng.dispose()

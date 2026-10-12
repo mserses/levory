@@ -7,6 +7,7 @@ Akış: maskele -> bilgi bankasında ara (ilk 3) -> LLM (hızlı model) -> pydan
 from __future__ import annotations
 
 import json
+import logging
 from datetime import UTC, datetime
 from typing import Any
 
@@ -27,11 +28,16 @@ from serviszeka.domain.enums import (
 from serviszeka.domain.priority import calculate_priority
 from serviszeka.llm import LLMClient, LLMError
 from serviszeka.models import AIDecision, Incident
+from serviszeka.notifications import Notifier, get_notifier
 from serviszeka.privacy import mask_pii
 from serviszeka.services import incidents as incident_service
 
+logger = logging.getLogger(__name__)
+
 AGENT = "service_desk"
 ACTION = "classify"
+PRIORITY_ACTION = "set_priority"
+ONCALL_EVENT = "incident.priority_raise_pending"
 ACTOR = "ai:service_desk"
 KB_TOP_K = 3
 # Uydurma (getirilmeyen) KB kimliği başına güven cezası
@@ -47,6 +53,8 @@ APPLICABLE_FIELDS: tuple[str, ...] = (
     "urgency",
     "assignment_group",
 )
+# Önceliği belirleyen alanlar (service_desk.set_priority politikasına tabi)
+PRIORITY_FIELDS: frozenset[str] = frozenset({"impact", "urgency"})
 
 SYSTEM_PROMPT = """Sen ServisZeka'nın ITIL 4 Hizmet Masası ajanısın.
 Görevin: gelen kaydı sınıflandırmak, etki/aciliyeti belirlemek, doğru destek grubunu
@@ -127,6 +135,14 @@ def assess_risk(priority: Priority) -> RiskLevel:
 
 
 _RISK_RANK = {RiskLevel.LOW: 0, RiskLevel.MEDIUM: 1, RiskLevel.HIGH: 2, RiskLevel.CRITICAL: 3}
+# Parça sonuçları birleştirilirken en kısıtlayıcı olan kazanır
+_OUTCOME_RANK = {
+    DecisionOutcome.AUTO_APPLIED: 0,
+    DecisionOutcome.SUGGESTED: 1,
+    DecisionOutcome.NEEDS_APPROVAL: 2,
+    DecisionOutcome.ESCALATED: 3,
+    DecisionOutcome.REJECTED: 4,
+}
 
 
 def _proposed_changes(result: TriageResult) -> dict[str, Any]:
@@ -187,6 +203,7 @@ async def triage(
     llm: LLMClient,
     *,
     settings: Settings | None = None,
+    notifier: Notifier | None = None,
 ) -> AIDecision:
     """Olayı sınıflandırır; politika izin verirse uygular. Her durumda AIDecision döner."""
     settings = settings or get_settings()
@@ -244,50 +261,90 @@ async def triage(
     if dropped:
         confidence = max(0.0, round(confidence - HALLUCINATION_PENALTY * len(dropped), 4))
 
+    current_priority = Priority(incident.priority)
     proposed_priority = calculate_priority(result.impact, result.urgency)
-    # Risk hem mevcut hem önerilen önceliğe göre: P1 olay otomatik düşürülemez
-    risk = max(
-        assess_risk(proposed_priority),
-        assess_risk(Priority(incident.priority)),
-        key=_RISK_RANK.__getitem__,
-    )
-    verdict = policy.evaluate(
-        agent=AGENT, action=ACTION, confidence=confidence, risk=risk, settings=settings
-    )
-    outcome = verdict.outcome
-    reason = verdict.reason
     proposed = _proposed_changes(result)
+    classify_fields = {k: v for k, v in proposed.items() if k not in PRIORITY_FIELDS}
+    priority_fields = {k: v for k, v in proposed.items() if k in PRIORITY_FIELDS}
+    priority_touched = any(str(getattr(incident, k)) != str(v) for k, v in priority_fields.items())
+
+    # Sınıflandırma (öncelik dışı alanlar): mevcut önceliğe göre risk, büyük olaya dokunulmaz
+    classify_risk = assess_risk(current_priority)
+    verdict = policy.evaluate(
+        agent=AGENT, action=ACTION, confidence=confidence, risk=classify_risk, settings=settings
+    )
+    # Öncelik: yalnızca P3..P5 içinde ve düşürme değilse otomatik; aksi halde onay
+    priority_risk = policy.priority_change_risk(current_priority, proposed_priority)
+    priority_verdict: policy.PolicyDecision | None = None
+    if priority_touched:
+        priority_verdict = policy.evaluate(
+            agent=AGENT,
+            action=PRIORITY_ACTION,
+            confidence=confidence,
+            risk=priority_risk,
+            settings=settings,
+        )
+        if priority_verdict.outcome == DecisionOutcome.NEEDS_APPROVAL:
+            priority_verdict = policy.PolicyDecision(
+                DecisionOutcome.NEEDS_APPROVAL,
+                _priority_reason(current_priority, proposed_priority),
+            )
+
+    outcome, reason = verdict.outcome, verdict.reason
+    if priority_verdict is not None and (
+        _OUTCOME_RANK[priority_verdict.outcome] > _OUTCOME_RANK[outcome]
+    ):
+        outcome, reason = priority_verdict.outcome, priority_verdict.reason
+
+    # Uygulanacak alanlar: her parça kendi politika sonucuna göre
+    to_apply: dict[str, Any] = {}
+    if verdict.outcome == DecisionOutcome.AUTO_APPLIED:
+        to_apply.update(classify_fields)
+        if priority_verdict is None or priority_verdict.outcome == DecisionOutcome.AUTO_APPLIED:
+            to_apply.update(priority_fields)
+
     output: dict[str, Any] = {
         **result.model_dump(mode="json"),
         "kb_article_ids": sources,
         "dropped_kb_ids": dropped,
         "llm_confidence": result.confidence,
         "proposed": proposed,
+        "current_priority": current_priority.value,
         "proposed_priority": proposed_priority.value,
-        "risk": risk.value,
+        "risk": max(classify_risk, priority_risk, key=_RISK_RANK.__getitem__).value,
+        "priority_risk": priority_risk.value,
         "applied": False,
+        "applied_fields": [],
+        "pending_fields": [],
     }
 
-    if outcome == DecisionOutcome.AUTO_APPLIED:
+    if to_apply:
         try:
             await incident_service.apply_changes(
                 session,
                 incident.id,
-                {**proposed, "ai_confidence": confidence},
+                {**to_apply, "ai_confidence": confidence},
                 ACTOR,
                 expected_version=base_version,
                 audit_details={"source": "ai_triage"},
             )
-            output["applied"] = True
+            output["applied_fields"] = sorted(to_apply)
+            output["pending_fields"] = sorted(set(proposed) - set(to_apply))
+            output["applied"] = outcome == DecisionOutcome.AUTO_APPLIED
         except (
             incident_service.VersionConflictError,
             incident_service.InvalidTransitionError,
         ) as exc:
             # Ajan çalışırken kayıt değişti ya da kapalı: insan verisinin üzerine yazılmaz
-            outcome = DecisionOutcome.SUGGESTED
-            reason = f"{exc} Karar öneri olarak bırakıldı."
+            if outcome == DecisionOutcome.AUTO_APPLIED:
+                outcome = DecisionOutcome.SUGGESTED
+                reason = f"{exc} Karar öneri olarak bırakıldı."
+            else:
+                reason = f"{reason} {exc}"
+    if not output["applied_fields"]:
+        output["pending_fields"] = sorted(proposed)
 
-    return await _persist(
+    decision = await _persist(
         session,
         incident=incident,
         outcome=outcome,
@@ -298,6 +355,80 @@ async def triage(
         rationale=result.rationale,
         sources=sources,
         reason=reason,
+    )
+
+    # Yalnızca etki/aciliyet gerçekten değişiyorsa onay bekleyen bir yükseltme vardır
+    if priority_touched and policy.is_urgent_raise(current_priority, proposed_priority):
+        await _notify_oncall(
+            session,
+            notifier or get_notifier(settings),
+            decision=decision,
+            incident=incident,
+            current=current_priority,
+            proposed=proposed_priority,
+            reason=reason,
+        )
+    return decision
+
+
+def _priority_reason(current: Priority, proposed: Priority) -> str:
+    if policy.is_urgent_raise(current, proposed):
+        return (
+            f"Öncelik {current.value} -> {proposed.value} yükseltmesi otomatik uygulanamaz; "
+            "insan onayı gerekli, nöbetçi bilgilendirildi."
+        )
+    if policy.is_downgrade(current, proposed):
+        return (
+            f"Öncelik {current.value} -> {proposed.value} düşürmesi otomatik uygulanamaz; "
+            "insan onayı gerekli."
+        )
+    return (
+        f"Öncelik {current.value} -> {proposed.value} yalnızca P3..P5 içinde otomatik "
+        "değiştirilebilir; insan onayı gerekli."
+    )
+
+
+async def _notify_oncall(
+    session: AsyncSession,
+    notifier: Notifier,
+    *,
+    decision: AIDecision,
+    incident: Incident,
+    current: Priority,
+    proposed: Priority,
+    reason: str,
+) -> None:
+    """P1/P2 yükseltmesini nöbetçiye anında bildirir; hata triage'ı asla bozmaz."""
+    payload = {
+        "incident_id": incident.id,
+        "incident_number": incident.number,
+        "title": mask_pii(incident.title or ""),
+        "current_priority": current.value,
+        "proposed_priority": proposed.value,
+        "decision_id": decision.id,
+        "outcome": DecisionOutcome(decision.outcome).value,
+        "reason": reason,
+    }
+    details: dict[str, Any] = {
+        "event": ONCALL_EVENT,
+        "incident_id": incident.id,
+        "proposed_priority": proposed.value,
+        "notifier": type(notifier).__name__,
+    }
+    try:
+        await notifier.notify(ONCALL_EVENT, payload)
+        action = "notification.sent"
+    except Exception as exc:  # bildirim hatası triage'ı asla durdurmamalı
+        logger.exception("Nöbetçi bildirimi başarısız: %s", incident.number)
+        action = "notification.failed"
+        details["error"] = f"{type(exc).__name__}: {exc}"
+    await audit.record(
+        session,
+        actor=ACTOR,
+        action=action,
+        entity_type="ai_decision",
+        entity_id=decision.id,
+        details=details,
     )
 
 

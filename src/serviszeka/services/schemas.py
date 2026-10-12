@@ -10,6 +10,7 @@ from serviszeka.domain.enums import (
     DecisionOutcome,
     Impact,
     IncidentStatus,
+    OnHoldReason,
     Priority,
     TicketKind,
     Urgency,
@@ -40,6 +41,8 @@ class IncidentUpdate(BaseModel):
     category: str | None = Field(default=None, max_length=100)
     kind: TicketKind | None = None
     status: IncidentStatus | None = None
+    # ON_HOLD durumuna geçişte zorunlu
+    on_hold_reason: OnHoldReason | None = None
     assignee: str | None = Field(default=None, max_length=200)
     assignment_group: str | None = Field(default=None, max_length=100)
     resolution: str | None = None
@@ -73,6 +76,9 @@ class IncidentRead(BaseModel):
     resolve_due_at: UTCDateTime | None
     responded_at: UTCDateTime | None
     resolved_at: UTCDateTime | None
+    on_hold_reason: OnHoldReason | None = None
+    sla_paused_at: UTCDateTime | None = None
+    sla_paused_seconds: int = 0
     ai_confidence: float | None
     version: int
     created_at: UTCDateTime

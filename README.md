@@ -46,6 +46,7 @@
 | `src/serviszeka/integrations/` | ServiceNow ve Jira SM iki yönlü senkronizasyon |
 | `src/serviszeka/api/` | REST uçları: `incidents`, `knowledge`, `integrations`, `audit` |
 | `src/serviszeka/main.py` | FastAPI uygulaması, `/health` |
+| `migrations/` | Alembic veritabanı göçleri (`alembic.ini`, async `env.py`) |
 
 ## Yerelde çalıştırma (uv)
 
@@ -58,6 +59,8 @@ cp .env.example .env          # ayarları düzenleyin (varsayılan: SQLite)
 uv run uvicorn serviszeka.main:app --reload
 ```
 
+Geliştirmede `SZ_AUTO_CREATE_SCHEMA=true` (varsayılan) ile tablolar açılışta `create_all` ile kurulur.
+
 Uygulama `http://localhost:8000` adresinde açılır; API belgeleri `http://localhost:8000/docs`, sağlık kontrolü `http://localhost:8000/health`.
 
 ## Docker Compose ile çalıştırma
@@ -67,7 +70,22 @@ cp .env.example .env
 docker compose up --build
 ```
 
-Bu komut uygulamayı ve PostgreSQL 16'yı (pgvector imajı) ayağa kaldırır. Compose, `SZ_DATABASE_URL` değerini otomatik olarak `postgresql+asyncpg://...@db:5432/...` olarak ayarlar; veriler `pgdata` biriminde kalıcıdır.
+Bu komut uygulamayı ve PostgreSQL 16'yı (pgvector imajı) ayağa kaldırır. Compose, `SZ_DATABASE_URL` değerini otomatik olarak `postgresql+asyncpg://...@db:5432/...` olarak ayarlar; veriler `pgdata` biriminde kalıcıdır. Konteyner açılışta önce `alembic upgrade head`, sonra uvicorn çalıştırır (`SZ_AUTO_CREATE_SCHEMA=false`).
+
+## Veritabanı göçleri (Alembic)
+
+Üretimde şema yalnızca göçlerle kurulur/güncellenir; `SZ_AUTO_CREATE_SCHEMA=false` yapın. Bağlantı adresi `SZ_DATABASE_URL`'den okunur.
+
+```bash
+uv run alembic upgrade head                            # şemayı son sürüme yükselt
+uv run alembic check                                   # modeller ile göçler arasında fark var mı
+uv run alembic revision --autogenerate -m "aciklama"   # model değişikliğinden sonra yeni göç
+uv run alembic downgrade -1                            # bir göç geri al
+```
+
+Göçlerden önce `create_all` ile kurulmuş mevcut veritabanları da doğrudan `alembic upgrade head` ile yükseltilir: `0001` tabloları yalnızca yoksa kurar, `0002` eksik SLA duraklatma sütunlarını ekler (`stamp` gerekmez).
+
+Model (`models.py`) değiştiren her değişiklik bir göç dosyası içermelidir; CI `alembic upgrade head` ve `alembic check` çalıştırır.
 
 ## Testler ve kod kalitesi
 
@@ -76,7 +94,7 @@ uv run pytest            # tüm testler (bellek içi SQLite, harici servis çağ
 uv run ruff check .      # lint
 ```
 
-Testlerde gerçek LLM veya ITSM servisleri çağrılmaz: LLM için `FakeLLM`, HTTP için `httpx.MockTransport` kullanılır. CI (GitHub Actions) her push/PR'da ruff ve pytest çalıştırır.
+Testlerde gerçek LLM veya ITSM servisleri çağrılmaz: LLM için `FakeLLM`, HTTP için `httpx.MockTransport` kullanılır. CI (GitHub Actions) her push/PR'da ruff, pytest ve SQLite üzerinde `alembic upgrade head` + `alembic check` çalıştırır.
 
 ## Yol haritası
 

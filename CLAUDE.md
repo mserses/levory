@@ -9,6 +9,9 @@ uv sync                  # bağımlılıklar
 uv run pytest            # testler (asyncio_mode=auto, bellek içi SQLite)
 uv run ruff check .      # lint
 uv run uvicorn serviszeka.main:app --reload   # yerel sunucu
+uv run alembic upgrade head                   # göçleri uygula (üretimde şema böyle kurulur)
+uv run alembic check                          # modeller ile göçler arasında fark yok mu
+uv run alembic revision --autogenerate -m "..."   # model değişince yeni göç
 ```
 
 ## Mimari kurallar
@@ -19,4 +22,5 @@ uv run uvicorn serviszeka.main:app --reload   # yerel sunucu
 - `audit.record` commit etmez; commit işlemi çağıran servis/endpoint'in sorumluluğundadır.
 - **Gizli bilgileri asla koda yazmayın**; tüm ayarlar `SZ_` önekli ortam değişkenlerinden `config.get_settings()` ile okunur (bkz. `.env.example`).
 - Testlerde gerçek dış servis çağrılmaz: `FakeLLM` ve `httpx.MockTransport` kullanın.
+- **Şema değişikliği = göç**: `models.py` değişince `migrations/versions/` altına Alembic göçü ekleyin; `alembic check` temiz kalmalı. `create_all` yalnızca geliştirme/test içindir (`SZ_AUTO_CREATE_SCHEMA`, varsayılan true); üretimde `SZ_AUTO_CREATE_SCHEMA=false` ve `alembic upgrade head`.
 - Kod/tanımlayıcılar İngilizce; kullanıcıya dönük mesajlar ve kısa yorumlar Türkçe olabilir.

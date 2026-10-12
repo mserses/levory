@@ -33,6 +33,15 @@ class IncidentStatus(StrEnum):
     CANCELLED = "cancelled"
 
 
+class OnHoldReason(StrEnum):
+    """Beklemeye alma nedeni; yalnızca arayan/tedarikçi beklemesi SLA saatini durdurur."""
+
+    AWAITING_CALLER = "awaiting_caller"  # Arayandan bilgi/onay bekleniyor (saat durur)
+    AWAITING_VENDOR = "awaiting_vendor"  # Tedarikçi bekleniyor (saat durur)
+    AWAITING_CHANGE = "awaiting_change"  # Değişiklik bekleniyor (saat işler)
+    INTERNAL = "internal"  # İç bekleme (saat işler)
+
+
 class TicketKind(StrEnum):
     INCIDENT = "incident"
     SERVICE_REQUEST = "service_request"

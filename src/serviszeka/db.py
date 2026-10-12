@@ -12,6 +12,18 @@ from sqlalchemy.orm import DeclarativeBase
 
 from serviszeka.config import get_settings
 
+# Metadata'ya adlandırma kuralı UYGULANMAZ: göç öncesi create_all ile kurulmuş veritabanları
+# varsayılan (PostgreSQL) ya da adsız (SQLite) kısıt adlarıyla çalışıyor; kural eklemek mevcut
+# kurulumlarla yeni kurulumların şemasını ayrıştırır. SQLite'ta adsız bir kısıtı silmesi gereken
+# göç bu kuralı `op.batch_alter_table(..., naming_convention=NAMING_CONVENTION)` ile kullanır.
+NAMING_CONVENTION = {
+    "ix": "ix_%(column_0_label)s",
+    "uq": "uq_%(table_name)s_%(column_0_N_name)s",
+    "ck": "ck_%(table_name)s_%(constraint_name)s",
+    "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
+    "pk": "pk_%(table_name)s",
+}
+
 
 class Base(DeclarativeBase):
     pass
@@ -49,3 +61,12 @@ async def get_session() -> AsyncIterator[AsyncSession]:
     """FastAPI bağımlılığı."""
     async with get_sessionmaker()() as session:
         yield session
+
+
+async def dispose_engine() -> None:
+    """Motoru ve havuzdaki bağlantıları kapatır (testler ve kapanış için)."""
+    global _engine, _sessionmaker
+    if _engine is not None:
+        await _engine.dispose()
+    _engine = None
+    _sessionmaker = None
