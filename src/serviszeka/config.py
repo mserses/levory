@@ -1,6 +1,7 @@
 """Uygulama ayarları (ortam değişkenleri, SZ_ önekiyle)."""
 
 from functools import lru_cache
+from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -27,6 +28,10 @@ class Settings(BaseSettings):
     jira_email: str | None = None
     jira_api_token: str | None = None
     jira_service_desk_id: str | None = None
+    # Boşsa hizmet masasının ilk istek türü kullanılır.
+    jira_request_type_id: str | None = None
+    # Senkron çakışma politikası: manual | remote_wins | local_wins
+    sync_conflict_policy: Literal["manual", "remote_wins", "local_wins"] = "manual"
 
 
 @lru_cache

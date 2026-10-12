@@ -1,0 +1,33 @@
+name: ServisZeka CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: uv kurulumu
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Python kurulumu
+        run: uv python install ${{ matrix.python-version }}
+
+      - name: Bağımlılıklar
+        run: uv sync --frozen --python ${{ matrix.python-version }}
+
+      - name: Ruff
+        run: uv run ruff check .
+
+      - name: Testler
+        run: uv run pytest -q
