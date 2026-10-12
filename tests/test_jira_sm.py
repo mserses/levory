@@ -190,6 +190,7 @@ async def test_list_updated_since_uses_jql_and_paginates():
 
     tickets = await _connector(handler).list_updated_since("2024-05-01T10:00:00.000+0000")
     assert [t.external_id for t in tickets] == ["SD-1", "SD-2"]
-    assert bodies[0]["jql"] == 'project = "SD" AND updated >= "2024/05/01 10:00" ORDER BY updated ASC'
+    # İmleç JQL saat dilimi payı (12 saat) kadar geri alınır
+    assert bodies[0]["jql"] == 'project = "SD" AND updated >= "2024/04/30 22:00" ORDER BY updated ASC'
     assert bodies[1]["nextPageToken"] == "p2"
     assert "updated" in bodies[0]["fields"]

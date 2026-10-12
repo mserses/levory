@@ -216,9 +216,16 @@ async def apply_changes(
     audit_details: Mapping[str, Any] | None = None,
 ) -> Incident:
     """Alan sözlüğünü kurallara göre uygular (update_incident ve ajanlar ortak kullanır)."""
+    # Sürüm kontrolü kimlik haritasındaki bayat kopyaya değil, veritabanına karşı yapılır;
+    # PostgreSQL'de satır kilidi (FOR UPDATE) kontrol ile yazma arasını atomik kılar.
     incident = await get_incident(session, incident_id)
     if incident is None:
         raise IncidentNotFoundError(incident_id)
+    db_version = await session.scalar(
+        select(Incident.version).where(Incident.id == incident_id).with_for_update()
+    )
+    if db_version != incident.version:
+        await session.refresh(incident)  # başka bir işlem kaydı değiştirmiş
     if expected_version is not None and expected_version != incident.version:
         raise VersionConflictError(expected_version, incident.version)
 
@@ -255,9 +262,10 @@ async def apply_changes(
     for name, value in norm.items():
         setf(name, value)
 
-    # Öncelik etki x aciliyetten yeniden hesaplanır; değişirse SLA vadeleri de güncellenir
+    # Öncelik yalnızca etki/aciliyet değiştiğinde yeniden hesaplanır (uzaktan gelen
+    # öncelik ilgisiz bir güncellemede ezilmez); değişirse SLA vadeleri de güncellenir
     new_priority = calculate_priority(incident.impact, incident.urgency)
-    if new_priority != incident.priority:
+    if ("impact" in diff or "urgency" in diff) and new_priority != incident.priority:
         setf("priority", new_priority)
         start = incident.created_at or now
         due = sla.compute_due_dates(new_priority, start)

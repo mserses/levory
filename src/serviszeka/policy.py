@@ -1,5 +1,6 @@
 """Politika motoru: yapay zekânın neyi kendi başına yapabileceğine karar verir."""
 
+import math
 from dataclasses import dataclass
 
 from serviszeka.config import Settings, get_settings
@@ -57,6 +58,12 @@ def evaluate(
         return PolicyDecision(
             DecisionOutcome.REJECTED,
             f"Bilinmeyen eylem: {agent}.{action} izin listesinde yok.",
+        )
+    # NaN/sonsuz/aralık dışı güven skoru eşik kontrolünü atlatamaz
+    if not math.isfinite(confidence) or not 0.0 <= confidence <= 1.0:
+        return PolicyDecision(
+            DecisionOutcome.ESCALATED,
+            f"Geçersiz güven skoru ({confidence}); insana yönlendirildi.",
         )
     if confidence < settings.ai_confidence_threshold:
         return PolicyDecision(

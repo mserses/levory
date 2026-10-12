@@ -109,7 +109,8 @@ class AuditLog(Base):
     entity_type: Mapped[str] = mapped_column(String(50))
     entity_id: Mapped[str] = mapped_column(String(64))
     details: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
-    prev_hash: Mapped[str] = mapped_column(String(64))
+    # Benzersiz: eşzamanlı iki yazıcı aynı önceki kayda bağlanıp zinciri çatallayamaz
+    prev_hash: Mapped[str] = mapped_column(String(64), unique=True)
     hash: Mapped[str] = mapped_column(String(64), unique=True)
 
 

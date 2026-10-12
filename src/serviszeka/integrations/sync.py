@@ -20,7 +20,14 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from serviszeka import audit
-from serviszeka.domain.enums import ExternalSystem, Impact, Priority, SyncDirection, Urgency
+from serviszeka.domain.enums import (
+    ExternalSystem,
+    Impact,
+    IncidentStatus,
+    Priority,
+    SyncDirection,
+    Urgency,
+)
 from serviszeka.domain.priority import calculate_priority
 from serviszeka.integrations.base import (
     ConnectorError,
@@ -40,6 +47,21 @@ STATUS_CONFLICT = "conflict"
 STATUS_ERROR = "error"
 STATUS_SKIPPED = "skipped"
 STATUS_RESOLVED = "resolved"
+
+_DONE_STATUSES = frozenset({IncidentStatus.RESOLVED, IncidentStatus.CLOSED})
+
+
+def _stamp_status(incident: Incident, old: IncidentStatus | None, now: datetime) -> None:
+    """Uzaktan gelen durum için SLA zaman damgaları (ilk yanıt / çözüm)."""
+    new = IncidentStatus(incident.status)
+    if new != IncidentStatus.NEW and incident.responded_at is None:
+        incident.responded_at = now
+    if new in _DONE_STATUSES:
+        if old not in _DONE_STATUSES or incident.resolved_at is None:
+            incident.resolved_at = now
+    elif new != IncidentStatus.CANCELLED:
+        incident.resolved_at = None  # yeniden açıldı
+
 
 def _ticket_snapshot(t: RemoteTicket) -> dict[str, Any]:
     d = asdict(t)
@@ -117,6 +139,7 @@ class SyncEngine:
     def _apply_remote(self, incident: Incident, remote: RemoteTicket) -> dict[str, Any]:
         """Uzak alanları yerel kayda uygular; değişiklik varsa sürümü artırır."""
         changes: dict[str, Any] = {}
+        old_status = IncidentStatus(incident.status) if incident.status else None
 
         def setf(name: str, value: Any) -> None:
             if value is not None and getattr(incident, name) != value:
@@ -133,6 +156,11 @@ class SyncEngine:
         elif "impact" in changes or "urgency" in changes:
             setf("priority", calculate_priority(incident.impact, incident.urgency))
         setf("assignee", remote.assignee)
+        if "priority" in changes:
+            # Öncelik değişti: SLA vadeleri yeni önceliğe göre yeniden hesaplanır
+            apply_sla(incident)
+        if "status" in changes:
+            _stamp_status(incident, old_status, datetime.now(UTC))
         if changes:
             incident.version = (incident.version or 1) + 1
         return changes
@@ -257,6 +285,7 @@ class SyncEngine:
                 if remote.impact and remote.urgency else Priority.P5
             )
             incident = Incident(
+                created_at=datetime.now(UTC),
                 number=await next_incident_number(self.session),
                 title=remote.title or remote.number or remote.external_id,
                 description=remote.description or "",
@@ -269,6 +298,7 @@ class SyncEngine:
             )
             if remote.status is not None:
                 incident.status = remote.status
+                _stamp_status(incident, None, incident.created_at)
             apply_sla(incident)  # içe alınan kayıt da SLA vadesi alır
             self.session.add(incident)
             await self.session.flush()

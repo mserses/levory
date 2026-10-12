@@ -1,7 +1,6 @@
 """ITSM entegrasyon uç noktaları (ServiceNow / Jira SM, iki yönlü senkron)."""
 
 from collections.abc import AsyncIterator
-from datetime import datetime
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -11,7 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from serviszeka.config import Settings, get_settings
 from serviszeka.db import get_session
 from serviszeka.domain.enums import ExternalSystem
-from serviszeka.integrations.base import ITSMConnector
+from serviszeka.domain.types import UTCDateTime
+from serviszeka.integrations.base import ConnectorError, ITSMConnector
 from serviszeka.integrations.jira_sm import JiraSMConnector
 from serviszeka.integrations.servicenow import ServiceNowConnector
 from serviszeka.integrations.sync import CONFLICT_POLICIES, SyncEngine
@@ -99,7 +99,7 @@ class SyncEventOut(BaseModel):
     status: str
     message: str
     payload: dict[str, Any]
-    created_at: datetime
+    created_at: UTCDateTime
 
 
 @router.get("/status", response_model=list[SystemStatus])
@@ -154,6 +154,9 @@ async def resolve(
     if ev is None or ev.status != "conflict":
         raise HTTPException(status_code=404, detail="Açık çakışma kaydı bulunamadı")
     _require(connectors, ev.system)
-    result = await engine.resolve_conflict(event_id, winner)
+    try:
+        result = await engine.resolve_conflict(event_id, winner)
+    except ConnectorError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
     await session.commit()
     return SyncEventOut.model_validate(result)

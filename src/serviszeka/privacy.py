@@ -11,12 +11,13 @@ _EMAIL_RE = re.compile(
     r"(?<![\w.+-])[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}(?![\w-])"
 )
 
-# Telefon: +90 / 0090 / 0 önekli 5xx cep numaraları; boşluk, nokta, tire, parantez.
+# Telefon: +90 / 0090 / 0 önekli ya da öneksiz 5xx cep numaraları; boşluk, nokta, tire, parantez.
 _SEP = r"[ .-]?"
 _PHONE_RE = re.compile(
     r"(?<![\w+])"
-    r"(?:(?:\+|00)90" + _SEP + r"\(?0?|\(?0" + _SEP + r"\(?)"
-    + _SEP + r"5\d{2}\)?" + _SEP + r"\d{3}" + _SEP + r"\d{2}" + _SEP + r"\d{2}"
+    # Önek isteğe bağlı: "532 123 45 67" / "(532) 123-45-67" gibi yazımlar da maskelenir
+    r"(?:(?:(?:\+|00)90" + _SEP + r"\(?0?|\(?0" + _SEP + r"\(?)" + _SEP + r"|\()?"
+    r"5\d{2}\)?" + _SEP + r"\d{3}" + _SEP + r"\d{2}" + _SEP + r"\d{2}"
     r"(?!\w)"
 )
 

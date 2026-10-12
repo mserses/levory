@@ -126,6 +126,9 @@ def assess_risk(priority: Priority) -> RiskLevel:
     return RiskLevel.LOW
 
 
+_RISK_RANK = {RiskLevel.LOW: 0, RiskLevel.MEDIUM: 1, RiskLevel.HIGH: 2, RiskLevel.CRITICAL: 3}
+
+
 def _proposed_changes(result: TriageResult) -> dict[str, Any]:
     data = result.model_dump(mode="json")
     return {k: data[k] for k in APPLICABLE_FIELDS if data.get(k) is not None}
@@ -242,7 +245,12 @@ async def triage(
         confidence = max(0.0, round(confidence - HALLUCINATION_PENALTY * len(dropped), 4))
 
     proposed_priority = calculate_priority(result.impact, result.urgency)
-    risk = assess_risk(proposed_priority)
+    # Risk hem mevcut hem önerilen önceliğe göre: P1 olay otomatik düşürülemez
+    risk = max(
+        assess_risk(proposed_priority),
+        assess_risk(Priority(incident.priority)),
+        key=_RISK_RANK.__getitem__,
+    )
     verdict = policy.evaluate(
         agent=AGENT, action=ACTION, confidence=confidence, risk=risk, settings=settings
     )
@@ -271,8 +279,11 @@ async def triage(
                 audit_details={"source": "ai_triage"},
             )
             output["applied"] = True
-        except incident_service.VersionConflictError as exc:
-            # Ajan çalışırken kayıt değişti: insan verisinin üzerine yazılmaz
+        except (
+            incident_service.VersionConflictError,
+            incident_service.InvalidTransitionError,
+        ) as exc:
+            # Ajan çalışırken kayıt değişti ya da kapalı: insan verisinin üzerine yazılmaz
             outcome = DecisionOutcome.SUGGESTED
             reason = f"{exc} Karar öneri olarak bırakıldı."
 

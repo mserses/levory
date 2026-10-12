@@ -1,6 +1,5 @@
 """Denetim günlüğü uç noktaları."""
 
-from datetime import datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query
@@ -10,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from serviszeka import audit
 from serviszeka.db import get_session
+from serviszeka.domain.types import UTCDateTime
 from serviszeka.models import AuditLog
 
 router = APIRouter(prefix="/audit", tags=["audit"])
@@ -21,7 +21,7 @@ class AuditEntryOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     seq: int
-    occurred_at: datetime
+    occurred_at: UTCDateTime
     actor: str
     action: str
     entity_type: str

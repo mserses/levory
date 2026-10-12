@@ -36,6 +36,10 @@ _UPDATABLE = frozenset(
 )
 
 
+# None ile temizlenemeyen alanlar (PATCH'te null gönderilirse yok sayılır)
+_NON_NULLABLE = frozenset({"title", "body", "is_known_error", "source_incident_ids"})
+
+
 class ArticleNotFoundError(LookupError):
     pass
 
@@ -146,6 +150,8 @@ async def update_article(
     for key, value in data.items():
         if key not in _UPDATABLE:
             raise ValueError(f"Güncellenemez alan: {key}")
+        if value is None and key in _NON_NULLABLE:
+            continue
         if getattr(article, key) != value:
             setattr(article, key, value)
             changed[key] = value if key != "embedding" else "<vector>"

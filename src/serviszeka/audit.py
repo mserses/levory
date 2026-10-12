@@ -9,12 +9,13 @@ import json
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from serviszeka.models import AuditLog
 
 GENESIS_HASH = "0" * 64
+_PG_LOCK_KEY = 0x5A_A0D1  # denetim zinciri danışma kilidi
 
 
 def _normalize_ts(ts: datetime) -> str:
@@ -74,6 +75,9 @@ async def record(
     details: dict | None = None,
 ) -> AuditLog:
     """Yeni denetim kaydı ekler ve flush eder (commit etmez)."""
+    if session.get_bind().dialect.name == "postgresql":
+        # Yazıcıları işlem sonuna kadar sıraya sokar: son hash okuma + ekleme atomik olur
+        await session.execute(text("SELECT pg_advisory_xact_lock(:k)"), {"k": _PG_LOCK_KEY})
     last_hash = await session.scalar(
         select(AuditLog.hash).order_by(AuditLog.seq.desc()).limit(1)
     )

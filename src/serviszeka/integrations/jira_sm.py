@@ -6,7 +6,7 @@
 - Artımlı çekme: /rest/api/3/search/jql ("updated >= ...")
 """
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import httpx
@@ -23,6 +23,10 @@ from serviszeka.integrations.base import (
 )
 
 ISSUE_FIELDS = ["summary", "description", "status", "priority", "assignee", "updated"]
+# JQL tarihleri API kullanıcısının saat diliminde yorumlanır (UTC-12 ... UTC+14). UTC imleç
+# olduğu gibi verilirse UTC'nin batısındaki kullanıcılarda güncellemeler kaçar; bu yüzden
+# imleç en kötü durum farkı kadar geri alınır, tekrarlar senkron motorunda elenir.
+JQL_TZ_MARGIN = timedelta(hours=12)
 
 
 # --- Atlassian Document Format (ADF) <-> düz metin ----------------------------
@@ -128,7 +132,7 @@ def issue_to_ticket(issue: dict[str, Any]) -> RemoteTicket:
     )
 
 
-def to_jql_datetime(ts: str) -> str:
+def to_jql_datetime(ts: str, *, margin: timedelta = timedelta(0)) -> str:
     """Jira zaman damgasını (örn. 2024-05-01T10:15:30.000+0000) JQL biçimine çevirir.
 
     JQL dakika hassasiyetlidir ve kullanıcının saat dilimini kullanır; bu yüzden UTC'ye
@@ -143,7 +147,7 @@ def to_jql_datetime(ts: str) -> str:
             return ts  # zaten JQL biçiminde varsayılır
     if dt.tzinfo is not None:
         dt = dt.astimezone(UTC)
-    return dt.strftime("%Y/%m/%d %H:%M")
+    return (dt - margin).strftime("%Y/%m/%d %H:%M")
 
 
 class JiraSMConnector:
@@ -252,7 +256,7 @@ class JiraSMConnector:
 
     async def list_updated_since(self, since: str | None) -> list[RemoteTicket]:
         # /search/jql sınırsız sorgu kabul etmez; ilk çekimde de alt sınır verilir.
-        since_jql = to_jql_datetime(since) if since else "1970/01/01 00:00"
+        since_jql = to_jql_datetime(since, margin=JQL_TZ_MARGIN) if since else "1970/01/01 00:00"
         jql = f'updated >= "{since_jql}"'
         project = await self._ensure_project_key()
         if project:
