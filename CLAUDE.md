@@ -12,6 +12,8 @@ uv run uvicorn serviszeka.main:app --reload   # yerel sunucu
 uv run alembic upgrade head                   # göçleri uygula (üretimde şema böyle kurulur)
 uv run alembic check                          # modeller ile göçler arasında fark yok mu
 uv run alembic revision --autogenerate -m "..."   # model değişince yeni göç
+uv run python evals/run_eval.py --oracle          # değerlendirme boru hattı duman testi
+uv run python evals/run_eval.py                   # gerçek LLM ile %70 kapısı (SZ_ANTHROPIC_API_KEY gerekir)
 ```
 
 ## Mimari kurallar
@@ -23,4 +25,5 @@ uv run alembic revision --autogenerate -m "..."   # model değişince yeni göç
 - **Gizli bilgileri asla koda yazmayın**; tüm ayarlar `SZ_` önekli ortam değişkenlerinden `config.get_settings()` ile okunur (bkz. `.env.example`).
 - Testlerde gerçek dış servis çağrılmaz: `FakeLLM` ve `httpx.MockTransport` kullanın.
 - **Şema değişikliği = göç**: `models.py` değişince `migrations/versions/` altına Alembic göçü ekleyin; `alembic check` temiz kalmalı. `create_all` yalnızca geliştirme/test içindir (`SZ_AUTO_CREATE_SCHEMA`, varsayılan true); üretimde `SZ_AUTO_CREATE_SCHEMA=false` ve `alembic upgrade head`.
+- Sınıflandırma değerleri (`category`, `service`, `assignment_group`) yalnızca `src/serviszeka/taxonomy.json` listesinden gelir; liste değişirse `evals/data/dataset.jsonl` etiketleri de güncellenmelidir.
 - Kod/tanımlayıcılar İngilizce; kullanıcıya dönük mesajlar ve kısa yorumlar Türkçe olabilir.

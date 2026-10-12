@@ -96,6 +96,17 @@ uv run ruff check .      # lint
 
 Testlerde gerçek LLM veya ITSM servisleri çağrılmaz: LLM için `FakeLLM`, HTTP için `httpx.MockTransport` kullanılır. CI (GitHub Actions) her push/PR'da ruff, pytest ve SQLite üzerinde `alembic upgrade head` + `alembic check` çalıştırır.
 
+## Sınıflandırma değerlendirmesi (Faz 1 kapısı)
+
+Hizmet Masası ajanının doğruluğu, `evals/data/dataset.jsonl` içindeki 200 etiketli Türkçe kayıtla ölçülür. Kapı: kayıtların en az %70'i doğru yönlendirilmeli (kind + category + assignment_group). Değerlendirme gerçek triage akışını gölge modda çalıştırır; maskeleme, sınıf listesi doğrulaması ve politika dahildir, hiçbir kayıt değişmez.
+
+```bash
+uv run python evals/run_eval.py --oracle                  # boru hattı duman testi (LLM'siz)
+SZ_ANTHROPIC_API_KEY=... uv run python evals/run_eval.py  # gerçek ölçüm; kapı geçilmezse çıkış kodu 1
+```
+
+Sonuçlar `evals/results/` altına JSON ve Markdown olarak yazılır. Veri seti sentetiktir; yöntemi ve sınırları `evals/data/DATASET_CARD.md` içinde anlatılır. İzinli değerler `src/serviszeka/taxonomy.json`, etiketleme kuralları `evals/LABELING.md` dosyasındadır.
+
 ## Yol haritası
 
 | Faz | Süre | Kapsam | Geçiş kapısı |

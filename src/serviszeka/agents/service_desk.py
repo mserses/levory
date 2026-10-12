@@ -15,7 +15,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_valida
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from serviszeka import audit, knowledge, policy
+from serviszeka import audit, knowledge, policy, taxonomy
 from serviszeka.config import Settings, get_settings
 from serviszeka.domain.enums import (
     DecisionOutcome,
@@ -42,6 +42,8 @@ ACTOR = "ai:service_desk"
 KB_TOP_K = 3
 # Uydurma (getirilmeyen) KB kimliği başına güven cezası
 HALLUCINATION_PENALTY = 0.2
+# Sınıf listesinde olmayan her değer için güven cezası
+OFF_TAXONOMY_PENALTY = 0.2
 MAX_INPUT_SUMMARY = 4000
 
 # Ajanın olaya uygulayabileceği alanlar (çözüm metni asla otomatik yazılmaz)
@@ -61,16 +63,30 @@ Görevin: gelen kaydı sınıflandırmak, etki/aciliyeti belirlemek, doğru dest
 önermek ve varsa bilgi bankası makalelerine dayanarak çözüm önermek.
 
 Kurallar:
-- kind: "incident" | "service_request" | "question"
-- impact ve urgency: "high" | "medium" | "low"
+- kind: "incident" (çalışan bir şey bozuldu/yavaşladı) | "service_request" (yeni bir şey
+  isteniyor: erişim, yazılım, cihaz, parola sıfırlama) | "question" (nasıl yapılır; bozuk bir şey yok).
+- category, service, assignment_group, impact, urgency: YALNIZCA aşağıdaki listedeki
+  anahtarlardan birini kullan; listede olmayan değer yazma.
+- impact ve urgency kayıtta yazanlara göre belirlenir: etkilenen kişi sayısı yazmıyorsa
+  impact "low"; urgency yalnızca metinde zaman baskısı veya iş durması varsa yükselir.
+- Oltalama, zararlı yazılım veya hesap ele geçirme şüphesi varsa, başka bir hizmetle ilgili
+  görünse bile category "guvenlik" ve assignment_group "security_ops" olur.
+- Basit parola sıfırlama ve sorular "service_desk_l1" grubuna gider.
 - kb_article_ids: YALNIZCA sana verilen bilgi bankası sonuçlarındaki id'leri kullan; uydurma.
 - Emin değilsen confidence değerini düşük ver (0-1 arası).
 - Maskelenmiş kişisel verileri ([TCKN], [EPOSTA] vb.) tahmin etmeye çalışma.
 
+İzinli değerler:
+{taxonomy}
+
 Yanıt şeması (JSON):
-{"kind": str, "category": str|null, "service": str|null, "impact": str, "urgency": str,
- "assignment_group": str|null, "suggested_resolution": str|null,
- "kb_article_ids": [str], "confidence": float, "rationale": str}"""
+{{"kind": str, "category": str, "service": str, "impact": str, "urgency": str,
+ "assignment_group": str, "suggested_resolution": str|null,
+ "kb_article_ids": [str], "confidence": float, "rationale": str}}"""
+
+
+def system_prompt() -> str:
+    return SYSTEM_PROMPT.format(taxonomy=taxonomy.prompt_section())
 
 
 class TriageResult(BaseModel):
@@ -230,7 +246,7 @@ async def triage(
         )
 
     try:
-        raw = await llm.complete_json(system=SYSTEM_PROMPT, user=user_prompt, model=model)
+        raw = await llm.complete_json(system=system_prompt(), user=user_prompt, model=model)
     except LLMError as exc:
         return await escalate(
             f"LLM çağrısı başarısız: {exc}; insana yönlendirildi.", {"error": str(exc)}
@@ -257,9 +273,18 @@ async def triage(
             dropped.append(str(ref))
         elif art_id not in sources:
             sources.append(art_id)
+    # Sınıf listesi doğrulama: listede olmayan değer uygulanmaz, güveni düşürür
+    off_taxonomy: dict[str, str] = {}
+    for field in taxonomy.TAXONOMY_FIELDS:
+        value = getattr(result, field)
+        if value is not None and value not in taxonomy.allowed(field):
+            off_taxonomy[field] = value
+            setattr(result, field, None)
+
     confidence = result.confidence
-    if dropped:
-        confidence = max(0.0, round(confidence - HALLUCINATION_PENALTY * len(dropped), 4))
+    penalty = HALLUCINATION_PENALTY * len(dropped) + OFF_TAXONOMY_PENALTY * len(off_taxonomy)
+    if penalty:
+        confidence = max(0.0, round(confidence - penalty, 4))
 
     current_priority = Priority(incident.priority)
     proposed_priority = calculate_priority(result.impact, result.urgency)
@@ -307,6 +332,7 @@ async def triage(
         **result.model_dump(mode="json"),
         "kb_article_ids": sources,
         "dropped_kb_ids": dropped,
+        "off_taxonomy": off_taxonomy,
         "llm_confidence": result.confidence,
         "proposed": proposed,
         "current_priority": current_priority.value,

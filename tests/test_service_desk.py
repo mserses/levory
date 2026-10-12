@@ -32,7 +32,7 @@ async def _setup(session):
         session,
         title="VPN bağlantı sorunu",
         body="VPN istemcisi bağlanmıyorsa sertifikayı yenileyin ve FortiClient'ı yeniden başlatın.",
-        category="network",
+        category="ag",
         is_known_error=True,
         workaround="Sertifika yenileme",
     )
@@ -55,11 +55,11 @@ async def _setup(session):
 def _response(**kw):
     data = {
         "kind": "incident",
-        "category": "network",
-        "service": "VPN",
+        "category": "ag",
+        "service": "vpn",
         "impact": "medium",
         "urgency": "medium",
-        "assignment_group": "Ağ Ekibi",
+        "assignment_group": "network_ops",
         "suggested_resolution": "Sertifikayı yenileyin.",
         "kb_article_ids": [],
         "confidence": 0.92,
@@ -80,8 +80,8 @@ async def test_auto_apply_when_shadow_off(session):
     assert llm.calls[0]["model"] == LIVE.llm_fast_model
     assert decision.output["applied"] is True
     refreshed = await svc.get_incident(session, inc.id)
-    assert refreshed.category == "network" and refreshed.service == "VPN"
-    assert refreshed.assignment_group == "Ağ Ekibi"
+    assert refreshed.category == "ag" and refreshed.service == "vpn"
+    assert refreshed.assignment_group == "network_ops"
     assert refreshed.priority == Priority.P3  # medium x medium: P5 -> P3 bant içinde
     assert refreshed.ai_confidence == pytest.approx(0.92)
     assert refreshed.version == 2
@@ -188,7 +188,7 @@ async def test_p1_requires_approval_then_approve(session):
     approved = await service_desk.approve_decision(session, decision.id, "sef.ali")
     assert approved.approved_by == "sef.ali" and approved.approved_at is not None
     refreshed = await svc.get_incident(session, inc.id)
-    assert refreshed.priority == Priority.P1 and refreshed.category == "network"
+    assert refreshed.priority == Priority.P1 and refreshed.category == "ag"
     last = await session.scalar(select(AuditLog).order_by(AuditLog.seq.desc()).limit(1))
     assert last.action == "ai_decision.approve" and last.actor == "sef.ali"
 
@@ -256,7 +256,7 @@ async def test_raise_to_p2_applies_classification_but_waits_for_priority(session
     assert "P2" in decision.output["policy_reason"]
     refreshed = await svc.get_incident(session, inc.id)
     # Öncelik dışı alanlar politika gereği uygulandı, öncelik onay bekliyor
-    assert refreshed.category == "network" and refreshed.assignment_group == "Ağ Ekibi"
+    assert refreshed.category == "ag" and refreshed.assignment_group == "network_ops"
     assert refreshed.priority == Priority.P5
     assert decision.output["applied"] is False
     assert set(decision.output["applied_fields"]) == {
@@ -326,7 +326,7 @@ async def test_downgrade_within_band_needs_approval(session):
     )
     assert decision.outcome == DecisionOutcome.NEEDS_APPROVAL
     refreshed = await svc.get_incident(session, inc.id)
-    assert refreshed.priority == Priority.P3 and refreshed.category == "network"
+    assert refreshed.priority == Priority.P3 and refreshed.category == "ag"
     assert notifier.calls == []  # düşürme nöbetçiye bildirilmez
 
     await service_desk.approve_decision(session, decision.id, "sef.ali")
@@ -410,3 +410,22 @@ async def test_no_oncall_page_when_priority_fields_unchanged(session):
     assert decision.output["pending_fields"] == []
     assert (await svc.get_incident(session, inc.id)).priority == Priority.P3
     assert notifier.calls == []
+
+
+async def test_off_taxonomy_values_dropped_and_confidence_lowered(session):
+    _, inc = await _setup(session)
+    llm = FakeLLM([_response(category="Network", assignment_group="Ağ Ekibi")])
+    decision = await service_desk.triage(session, inc, llm, settings=LIVE)
+    assert decision.output["off_taxonomy"] == {"category": "Network", "assignment_group": "Ağ Ekibi"}
+    assert decision.output["category"] is None and decision.output["assignment_group"] is None
+    assert decision.confidence == pytest.approx(0.92 - 2 * service_desk.OFF_TAXONOMY_PENALTY)
+    # Eşik altına düştüğü için uygulanmaz, insana gider
+    assert decision.outcome == DecisionOutcome.ESCALATED
+
+
+async def test_system_prompt_lists_taxonomy(session):
+    _, inc = await _setup(session)
+    llm = FakeLLM([_response()])
+    await service_desk.triage(session, inc, llm, settings=LIVE)
+    system = llm.calls[0]["system"]
+    assert "security_ops" in system and "guvenlik" in system and "{taxonomy}" not in system

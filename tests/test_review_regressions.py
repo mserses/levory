@@ -42,11 +42,11 @@ LIVE = Settings(ai_shadow_mode=False, anthropic_api_key=None)
 def _llm(**kw):
     data = {
         "kind": "incident",
-        "category": "network",
-        "service": "VPN",
+        "category": "ag",
+        "service": "vpn",
         "impact": "low",
         "urgency": "low",
-        "assignment_group": "Ağ Ekibi",
+        "assignment_group": "network_ops",
         "suggested_resolution": None,
         "kb_article_ids": [],
         "confidence": 0.95,
@@ -261,10 +261,10 @@ async def test_audit_and_sync_event_times_are_utc(session):
 
 
 async def test_article_update_with_null_title_is_ignored(session):
-    art = await knowledge.create_article(session, title="VPN", body="Sertifika yenile")
+    art = await knowledge.create_article(session, title="vpn", body="Sertifika yenile")
     await knowledge.update_article(session, art.id, ArticleUpdate(title=None, body=None))
     await session.commit()
-    assert art.title == "VPN" and art.body == "Sertifika yenile"
+    assert art.title == "vpn" and art.body == "Sertifika yenile"
 
 
 # --- denetim zinciri ----------------------------------------------------------------

@@ -1,6 +1,6 @@
 # Etiketleme kuralları
 
-Her kayıt, `taxonomy.json` içindeki anahtarlardan **tam olarak birer değer** alır:
+Her kayıt, `src/serviszeka/taxonomy.json` içindeki anahtarlardan **tam olarak birer değer** alır:
 `kind`, `category`, `service`, `assignment_group`, `impact`, `urgency`.
 
 1. **kind**

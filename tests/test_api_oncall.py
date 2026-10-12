@@ -36,7 +36,7 @@ async def test_triage_p1_raise_notifies_oncall(session):
                 "kind": "incident",
                 "impact": "high",
                 "urgency": "high",
-                "category": "network",
+                "category": "ag",
                 "confidence": 0.95,
             }
         ]

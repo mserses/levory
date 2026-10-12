@@ -16,12 +16,12 @@ from serviszeka.main import app
 def _llm_response(**kw):
     data = {
         "kind": "incident",
-        "category": "network",
-        "service": "VPN",
+        "category": "ag",
+        "service": "vpn",
         "impact": "medium",
         # medium x medium = P3: P3..P5 aralığında kalır, otomatik uygulanabilir
         "urgency": "medium",
-        "assignment_group": "Ağ Ekibi",
+        "assignment_group": "network_ops",
         "suggested_resolution": "Sertifikayı yenileyin.",
         "kb_article_ids": [],
         "confidence": 0.9,
@@ -120,7 +120,7 @@ async def test_triage_auto_apply_and_decisions(ctx):
     assert dec["outcome"] == "auto_applied" and dec["sources"] == [kb.id]
 
     updated = (await client.get(f"/incidents/{inc['id']}")).json()
-    assert updated["priority"] == "P3" and updated["assignment_group"] == "Ağ Ekibi"
+    assert updated["priority"] == "P3" and updated["assignment_group"] == "network_ops"
     assert updated["version"] == 2
 
     r = await client.get(f"/incidents/{inc['id']}/decisions")
@@ -143,7 +143,7 @@ async def test_shadow_triage_then_approve(ctx):
     r = await client.post(url, json={"approver": "sef.ali"})
     assert r.status_code == 200 and r.json()["approved_by"] == "sef.ali"
     after = (await client.get(f"/incidents/{inc['id']}")).json()
-    assert after["category"] == "network" and after["version"] == 2
+    assert after["category"] == "ag" and after["version"] == 2
     assert (await client.post(url, headers={"X-Actor": "baska"})).status_code == 409
     assert (
         await client.post("/incidents/decisions/yok/approve", json={"approver": "a"})

@@ -2,7 +2,7 @@
 
 **Dosya:** `dataset.jsonl` (200 satır, UTF-8, satır başına bir JSON nesnesi)
 **Amaç:** ServisZeka'nın BT kayıtlarını ITIL 4'e uygun sınıflandırmasını (tür, kategori, hizmet, atama grubu, etki, aciliyet) ölçmek.
-**Etiket şeması:** `../taxonomy.json` ve `../LABELING.md`
+**Etiket şeması:** `../../src/serviszeka/taxonomy.json` ve `../LABELING.md`
 
 ## Alanlar
 
