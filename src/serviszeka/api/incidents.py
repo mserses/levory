@@ -11,10 +11,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from serviszeka import llm as llm_module
 from serviszeka.agents import service_desk
+from serviszeka.auth import AgentUser, ApproverUser, ReaderUser, get_current_user
 from serviszeka.config import Settings, get_settings
 from serviszeka.db import get_session
 from serviszeka.domain.enums import IncidentStatus, Priority
-from serviszeka.notifications import Notifier, get_notifier
+from serviszeka.notifications import Notifier, get_notifier, send_pending
 from serviszeka.services import incidents as svc
 from serviszeka.services import sla
 from serviszeka.services.schemas import (
@@ -26,7 +27,10 @@ from serviszeka.services.schemas import (
     SLAAlertRead,
 )
 
-router = APIRouter(prefix="/incidents", tags=["incidents"])
+# Yönlendirici düzeyinde kimlik doğrulama zorunlu; uç noktalar ayrıca rol ister
+router = APIRouter(
+    prefix="/incidents", tags=["incidents"], dependencies=[Depends(get_current_user)]
+)
 
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
 
@@ -53,13 +57,8 @@ def get_oncall_notifier(settings: SettingsDep) -> Notifier:
 
 
 NotifierDep = Annotated[Notifier, Depends(get_oncall_notifier)]
-ActorHeader = Annotated[str | None, Header(alias="X-Actor")]
 
 _ETAG_RE = re.compile(r'^\s*(?:W/)?"?(\d+)"?\s*$')
-
-
-def _actor(x_actor: str | None) -> str:
-    return x_actor or "api"
 
 
 def _etag(version: int) -> str:
@@ -84,9 +83,9 @@ async def _get_or_404(session: AsyncSession, incident_id: str):
 
 @router.post("", response_model=IncidentRead, status_code=status.HTTP_201_CREATED)
 async def create_incident(
-    data: IncidentCreate, session: SessionDep, response: Response, x_actor: ActorHeader = None
+    data: IncidentCreate, session: SessionDep, response: Response, user: AgentUser
 ) -> IncidentRead:
-    incident = await svc.create_incident(session, data, _actor(x_actor))
+    incident = await svc.create_incident(session, data, user.username)
     await session.commit()
     await session.refresh(incident)
     response.headers["ETag"] = _etag(incident.version)
@@ -96,6 +95,7 @@ async def create_incident(
 @router.get("", response_model=list[IncidentRead])
 async def list_incidents(
     session: SessionDep,
+    _user: ReaderUser,
     status_: Annotated[IncidentStatus | None, Query(alias="status")] = None,
     priority: Priority | None = None,
     assignee: str | None = None,
@@ -116,7 +116,9 @@ async def list_incidents(
 
 
 @router.get("/sla/alerts", response_model=list[SLAAlertRead])
-async def sla_alerts(session: SessionDep, now: datetime | None = None) -> list[SLAAlertRead]:
+async def sla_alerts(
+    session: SessionDep, _user: ReaderUser, now: datetime | None = None
+) -> list[SLAAlertRead]:
     alerts = await sla.check_breaches(session, now)
     return [SLAAlertRead.model_validate(a) for a in alerts]
 
@@ -125,18 +127,20 @@ async def sla_alerts(session: SessionDep, now: datetime | None = None) -> list[S
 async def approve_decision(
     decision_id: str,
     session: SessionDep,
+    user: ApproverUser,
     body: ApproveRequest | None = None,
-    x_actor: ActorHeader = None,
 ) -> AIDecisionRead:
-    approver = (body.approver if body else None) or x_actor
-    if not approver:
-        raise HTTPException(
-            status.HTTP_400_BAD_REQUEST, "Onaylayan kişi (approver veya X-Actor) zorunludur."
-        )
+    # Onaylayan her zaman belirteçteki kullanıcıdır; gövde yalnızca doğrulama içindir
+    approver = user.username
+    if body and body.approver and body.approver != approver:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Başkası adına onay verilemez")
     if await service_desk.get_decision(session, decision_id) is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Karar bulunamadı")
     try:
         decision = await service_desk.approve_decision(session, decision_id, approver)
+    except service_desk.StaleDecisionError as exc:
+        await session.commit()  # red denetim kaydı kalıcı olmalı
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
     except service_desk.DecisionError as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
     except svc.InvalidTransitionError as exc:
@@ -147,7 +151,9 @@ async def approve_decision(
 
 
 @router.get("/{incident_id}", response_model=IncidentRead)
-async def get_incident(incident_id: str, session: SessionDep, response: Response) -> IncidentRead:
+async def get_incident(
+    incident_id: str, session: SessionDep, response: Response, _user: ReaderUser
+) -> IncidentRead:
     incident = await _get_or_404(session, incident_id)
     response.headers["ETag"] = _etag(incident.version)
     return IncidentRead.model_validate(incident)
@@ -159,8 +165,8 @@ async def update_incident(
     data: IncidentPatch,
     session: SessionDep,
     response: Response,
+    user: AgentUser,
     if_match: Annotated[str | None, Header()] = None,
-    x_actor: ActorHeader = None,
 ) -> IncidentRead:
     await _get_or_404(session, incident_id)
     expected = _parse_if_match(if_match)
@@ -168,7 +174,7 @@ async def update_incident(
         expected = data.expected_version
     try:
         incident = await svc.update_incident(
-            session, incident_id, data, _actor(x_actor), expected_version=expected
+            session, incident_id, data, user.username, expected_version=expected
         )
     except svc.VersionConflictError as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
@@ -187,18 +193,22 @@ async def triage_incident(
     llm: LLMDep,
     settings: SettingsDep,
     notifier: NotifierDep,
+    _user: AgentUser,
 ) -> AIDecisionRead:
     incident = await _get_or_404(session, incident_id)
-    decision = await service_desk.triage(
-        session, incident, llm, settings=settings, notifier=notifier
-    )
+    decision = await service_desk.triage(session, incident, llm, settings=settings)
     await session.commit()
-    await session.refresh(decision)
-    return AIDecisionRead.model_validate(decision)
+    # expire_on_commit=False: yanıt için yeniden okuma (ve açık işlem) gerekmez
+    result = AIDecisionRead.model_validate(decision)
+    # Nöbetçi yalnızca karar kalıcı olduktan sonra uyarılır; hata yanıtı bozmaz
+    await send_pending(session, notifier)
+    return result
 
 
 @router.get("/{incident_id}/decisions", response_model=list[AIDecisionRead])
-async def list_decisions(incident_id: str, session: SessionDep) -> list[AIDecisionRead]:
+async def list_decisions(
+    incident_id: str, session: SessionDep, _user: ReaderUser
+) -> list[AIDecisionRead]:
     await _get_or_404(session, incident_id)
     rows = await service_desk.list_decisions(session, incident_id)
     return [AIDecisionRead.model_validate(r) for r in rows]

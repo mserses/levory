@@ -3,6 +3,7 @@
 from typing import Any
 
 import pytest
+from _auth import ADMIN
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
@@ -252,7 +253,9 @@ async def test_api_status_pull_and_400(session):
     app.dependency_overrides[get_session] = _session
     app.dependency_overrides[api.get_connectors] = _connectors
 
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://t") as client:
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://t", headers=ADMIN
+    ) as client:
         r = await client.get("/integrations/status")
         assert {s["system"]: s["configured"] for s in r.json()} == {
             "servicenow": True, "jira_sm": False,

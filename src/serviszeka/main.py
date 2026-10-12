@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from serviszeka import __version__
+from serviszeka import __version__, auth
 from serviszeka.api import audit, incidents, integrations, knowledge
 from serviszeka.config import get_settings
 from serviszeka.db import create_all
@@ -12,8 +12,11 @@ from serviszeka.db import create_all
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    settings = get_settings()
+    # Güvensiz kimlik doğrulama ayarıyla (örn. üretimde dev kipi) uygulama açılmaz
+    auth.check_startup(settings)
     # Geliştirmede tablolar otomatik kurulur; üretimde göçler (alembic upgrade head) kullanılır
-    if get_settings().auto_create_schema:
+    if settings.auto_create_schema:
         await create_all()
     yield
 
@@ -25,6 +28,7 @@ app.include_router(integrations.router)
 app.include_router(audit.router)
 
 
+# Kimlik doğrulamasız tek uç nokta (ve /docs, /openapi.json)
 @app.get("/health")
 async def health() -> dict[str, str]:
     return {"status": "ok", "version": __version__}

@@ -6,6 +6,20 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from serviszeka import db
+from serviszeka.config import get_settings
+
+
+@pytest.fixture(autouse=True)
+def _dev_auth(monkeypatch):
+    """API testleri geliştirme kipi belirteçleriyle (`dev:<kullanıcı>:<roller>`) kimlik doğrular.
+
+    OIDC yolu tests/test_auth.py içinde gerçek RSA anahtarları ve sahte JWKS ile sınanır.
+    """
+    monkeypatch.setenv("SZ_AUTH_MODE", "dev")
+    monkeypatch.setenv("SZ_ENVIRONMENT", "development")
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()
 
 
 @pytest.fixture

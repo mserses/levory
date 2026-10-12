@@ -95,6 +95,8 @@ class AIDecision(Base):
     model: Mapped[str] = mapped_column(String(100))
     confidence: Mapped[float] = mapped_column(Float)
     outcome: Mapped[DecisionOutcome] = mapped_column(Enum(DecisionOutcome))
+    # Kararın dayandığı olay sürümü (kendi kısmi uygulamasından sonraki); bayat onayı engeller
+    incident_version: Mapped[int | None] = mapped_column(Integer)
     approved_by: Mapped[str | None] = mapped_column(String(200))
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

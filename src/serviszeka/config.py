@@ -39,6 +39,29 @@ class Settings(BaseSettings):
     # Nöbetçi bildirim webhook'u (boşsa bildirimler yalnızca loglanır)
     oncall_webhook_url: str | None = None
 
+    # Çalışma ortamı. Güvenli varsayılan: production (geliştirme kipi kimlik doğrulaması kapalı).
+    environment: Literal["development", "test", "staging", "production"] = "production"
+
+    # Kimlik doğrulama: oidc (Keycloak / Microsoft Entra ID bearer JWT) | dev
+    # dev kipi yalnızca environment=development iken kabul edilir; aksi halde uygulama açılmaz.
+    auth_mode: Literal["oidc", "dev"] = "oidc"
+    # Belirteç yayıncısı (iss), örn. https://sso.ornek.com/realms/serviszeka veya
+    # https://login.microsoftonline.com/<tenant-id>/v2.0
+    auth_issuer: str | None = None
+    # Beklenen hedef kitle (aud): istemci kimliği / uygulama URI'si
+    auth_audience: str | None = None
+    # Boşsa <issuer>/.well-known/openid-configuration içindeki jwks_uri kullanılır
+    auth_jwks_url: str | None = None
+    # Rollerin okunacağı talep (noktalı yol, örn. realm_access.roles). Boşsa Keycloak
+    # (realm_access.roles, resource_access.<aud>.roles) ve Entra (roles) birlikte okunur.
+    auth_roles_claim: str | None = None
+    # Kullanıcı adı talebi; yoksa upn, email, sub sırasıyla denenir
+    auth_username_claim: str = "preferred_username"
+    # exp/nbf için saat kayması toleransı (saniye)
+    auth_leeway_seconds: int = 30
+    # JWKS / keşif istekleri için zaman aşımı (saniye)
+    auth_http_timeout: float = 3.0
+
 
 @lru_cache
 def get_settings() -> Settings:

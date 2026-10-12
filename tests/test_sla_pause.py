@@ -5,6 +5,7 @@ from datetime import UTC, datetime, timedelta
 
 import httpx
 import pytest
+from _auth import AGENT
 from sqlalchemy import select
 
 from serviszeka import audit, db
@@ -274,7 +275,7 @@ async def client(session) -> AsyncIterator[httpx.AsyncClient]:
 
     app.dependency_overrides[db.get_session] = _get_session
     transport = httpx.ASGITransport(app=app)
-    async with httpx.AsyncClient(transport=transport, base_url="http://test") as c:
+    async with httpx.AsyncClient(transport=transport, base_url="http://test", headers=AGENT) as c:
         yield c
     app.dependency_overrides.clear()
 

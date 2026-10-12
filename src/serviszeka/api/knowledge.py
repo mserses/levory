@@ -2,10 +2,11 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from serviszeka import knowledge
+from serviszeka.auth import AgentUser, ReaderUser, get_current_user
 from serviszeka.db import get_session
 from serviszeka.knowledge.schemas import (
     ArticleCreate,
@@ -16,13 +17,11 @@ from serviszeka.knowledge.schemas import (
     SearchResponse,
 )
 
-router = APIRouter(prefix="/knowledge", tags=["knowledge"])
+router = APIRouter(
+    prefix="/knowledge", tags=["knowledge"], dependencies=[Depends(get_current_user)]
+)
 
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
-
-
-def _actor(x_actor: str | None) -> str:
-    return x_actor or "api"
 
 
 async def _get_or_404(session: AsyncSession, article_id: str):
@@ -36,9 +35,9 @@ async def _get_or_404(session: AsyncSession, article_id: str):
 async def create_article(
     data: ArticleCreate,
     session: SessionDep,
-    x_actor: Annotated[str | None, Header()] = None,
+    user: AgentUser,
 ) -> ArticleOut:
-    article = await knowledge.create_article(session, **data.model_dump(), actor=_actor(x_actor))
+    article = await knowledge.create_article(session, **data.model_dump(), actor=user.username)
     await session.commit()
     await session.refresh(article)
     return ArticleOut.model_validate(article)
@@ -47,6 +46,7 @@ async def create_article(
 @router.get("/articles", response_model=list[ArticleOut])
 async def list_articles(
     session: SessionDep,
+    _user: ReaderUser,
     state: ArticleState | None = None,
     category: str | None = None,
     is_known_error: bool | None = None,
@@ -67,6 +67,7 @@ async def list_articles(
 @router.get("/search", response_model=SearchResponse)
 async def search_articles(
     session: SessionDep,
+    _user: ReaderUser,
     q: Annotated[str, Query(min_length=1)],
     limit: Annotated[int, Query(ge=1, le=50)] = 5,
     category: str | None = None,
@@ -76,7 +77,7 @@ async def search_articles(
 
 
 @router.get("/articles/{article_id}", response_model=ArticleOut)
-async def get_article(article_id: str, session: SessionDep) -> ArticleOut:
+async def get_article(article_id: str, session: SessionDep, _user: ReaderUser) -> ArticleOut:
     return ArticleOut.model_validate(await _get_or_404(session, article_id))
 
 
@@ -85,10 +86,10 @@ async def update_article(
     article_id: str,
     data: ArticleUpdate,
     session: SessionDep,
-    x_actor: Annotated[str | None, Header()] = None,
+    user: AgentUser,
 ) -> ArticleOut:
     await _get_or_404(session, article_id)
-    article = await knowledge.update_article(session, article_id, data, actor=_actor(x_actor))
+    article = await knowledge.update_article(session, article_id, data, actor=user.username)
     await session.commit()
     await session.refresh(article)
     return ArticleOut.model_validate(article)
@@ -109,15 +110,15 @@ async def _transition(session: AsyncSession, article_id: str, fn, actor: str) ->
 async def publish_article(
     article_id: str,
     session: SessionDep,
-    x_actor: Annotated[str | None, Header()] = None,
+    user: AgentUser,
 ) -> ArticleOut:
-    return await _transition(session, article_id, knowledge.publish_article, _actor(x_actor))
+    return await _transition(session, article_id, knowledge.publish_article, user.username)
 
 
 @router.post("/articles/{article_id}/retire", response_model=ArticleOut)
 async def retire_article(
     article_id: str,
     session: SessionDep,
-    x_actor: Annotated[str | None, Header()] = None,
+    user: AgentUser,
 ) -> ArticleOut:
-    return await _transition(session, article_id, knowledge.retire_article, _actor(x_actor))
+    return await _transition(session, article_id, knowledge.retire_article, user.username)

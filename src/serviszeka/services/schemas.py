@@ -99,6 +99,7 @@ class AIDecisionRead(BaseModel):
     model: str
     confidence: float
     outcome: DecisionOutcome
+    incident_version: int | None = None
     approved_by: str | None
     approved_at: UTCDateTime | None
     created_at: UTCDateTime

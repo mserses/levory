@@ -1,6 +1,7 @@
 """Triage uç noktasının nöbetçi bildirim bağımlılığı testleri."""
 
 import httpx
+from _auth import AGENT
 
 from serviszeka import db
 from serviszeka.api import incidents as incidents_api
@@ -49,7 +50,9 @@ async def test_triage_p1_raise_notifies_oncall(session):
     app.dependency_overrides[incidents_api.get_oncall_notifier] = lambda: recorder
     try:
         transport = httpx.ASGITransport(app=app)
-        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        async with httpx.AsyncClient(
+            transport=transport, base_url="http://test", headers=AGENT
+        ) as client:
             inc = (
                 await client.post("/incidents", json={"title": "Tüm ağ çöktü", "caller": "noc"})
             ).json()

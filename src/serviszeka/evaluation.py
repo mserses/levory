@@ -39,13 +39,6 @@ ROUTING_FIELDS: tuple[str, ...] = ("kind", "category", "assignment_group")
 GATE_THRESHOLD = 0.70
 
 
-class _SilentNotifier:
-    """Değerlendirmede nöbetçiye bildirim gitmez."""
-
-    async def notify(self, event: str, payload: dict[str, Any]) -> None:
-        return None
-
-
 @dataclass
 class TicketResult:
     id: str
@@ -155,12 +148,9 @@ async def evaluate(
                                     actor="eval",
                                 )
                                 await session.commit()
+                            # Bildirimler outbox'ta kalır, gönderilmez (commit yok)
                             decision = await service_desk.triage(
-                                session,
-                                incident,
-                                llm,
-                                settings=settings,
-                                notifier=_SilentNotifier(),
+                                session, incident, llm, settings=settings
                             )
                             output = decision.output or {}
                             outcome = decision.outcome.value

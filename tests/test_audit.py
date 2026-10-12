@@ -1,6 +1,7 @@
 """Hash zincirli denetim günlüğü testleri."""
 
 import httpx
+from _auth import ADMIN
 from fastapi import FastAPI
 from sqlalchemy import select, update
 
@@ -94,7 +95,7 @@ async def test_api_list_and_verify(session):
 
     app.dependency_overrides[get_session] = _override
     transport = httpx.ASGITransport(app=app)
-    async with httpx.AsyncClient(transport=transport, base_url="http://t") as client:
+    async with httpx.AsyncClient(transport=transport, base_url="http://t", headers=ADMIN) as client:
         r = await client.get("/audit", params={"limit": 2, "offset": 1})
         assert r.status_code == 200
         body = r.json()

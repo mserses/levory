@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from serviszeka.auth import AdminUser, ApproverUser, get_current_user
 from serviszeka.config import Settings, get_settings
 from serviszeka.db import get_session
 from serviszeka.domain.enums import ExternalSystem
@@ -17,7 +18,10 @@ from serviszeka.integrations.servicenow import ServiceNowConnector
 from serviszeka.integrations.sync import CONFLICT_POLICIES, SyncEngine
 from serviszeka.models import Incident, SyncEvent
 
-router = APIRouter(prefix="/integrations", tags=["integrations"])
+# Pull/push/durum: admin; çakışma listeleme/çözme: approver (admin her şeyi yapabilir)
+router = APIRouter(
+    prefix="/integrations", tags=["integrations"], dependencies=[Depends(get_current_user)]
+)
 
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
 
@@ -103,13 +107,13 @@ class SyncEventOut(BaseModel):
 
 
 @router.get("/status", response_model=list[SystemStatus])
-async def status(connectors: ConnectorsDep) -> list[SystemStatus]:
+async def status(connectors: ConnectorsDep, _user: AdminUser) -> list[SystemStatus]:
     return [SystemStatus(system=s, configured=s in connectors) for s in ExternalSystem]
 
 
 @router.post("/{system}/pull")
 async def pull(
-    system: ExternalSystem, session: SessionDep, connectors: ConnectorsDep
+    system: ExternalSystem, session: SessionDep, connectors: ConnectorsDep, _user: AdminUser
 ) -> dict[str, Any]:
     _require(connectors, system)
     result = await _engine(session, connectors).pull(system)
@@ -122,6 +126,7 @@ async def push(
     incident_id: str,
     session: SessionDep,
     connectors: ConnectorsDep,
+    _user: AdminUser,
     system: ExternalSystem | None = None,
 ) -> list[SyncEventOut]:
     incident = await session.get(Incident, incident_id)
@@ -137,7 +142,9 @@ async def push(
 
 
 @router.get("/conflicts", response_model=list[SyncEventOut])
-async def conflicts(session: SessionDep, connectors: ConnectorsDep) -> list[SyncEventOut]:
+async def conflicts(
+    session: SessionDep, connectors: ConnectorsDep, _user: ApproverUser
+) -> list[SyncEventOut]:
     events = await _engine(session, connectors).list_conflicts()
     return [SyncEventOut.model_validate(e) for e in events]
 
@@ -148,6 +155,7 @@ async def resolve(
     session: SessionDep,
     connectors: ConnectorsDep,
     winner: Annotated[Literal["local", "remote"], Query()],
+    user: ApproverUser,
 ) -> SyncEventOut:
     engine = _engine(session, connectors)
     ev = await session.get(SyncEvent, event_id)
@@ -155,7 +163,7 @@ async def resolve(
         raise HTTPException(status_code=404, detail="Açık çakışma kaydı bulunamadı")
     _require(connectors, ev.system)
     try:
-        result = await engine.resolve_conflict(event_id, winner)
+        result = await engine.resolve_conflict(event_id, winner, actor=user.username)
     except ConnectorError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     await session.commit()

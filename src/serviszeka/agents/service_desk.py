@@ -2,6 +2,9 @@
 
 Akış: maskele -> bilgi bankasında ara (ilk 3) -> LLM (hızlı model) -> pydantic doğrulama
 -> KB kaynak kontrolü -> policy.evaluate -> (AUTO_APPLIED ise) update -> AIDecision + audit.
+
+Nöbetçi bildirimi işlem içinde gönderilmez, outbox'a eklenir: çağıran commit ettikten sonra
+`notifications.send_pending(session, notifier)` ile gönderir.
 """
 
 from __future__ import annotations
@@ -9,13 +12,13 @@ from __future__ import annotations
 import json
 import logging
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, NoReturn
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from serviszeka import audit, knowledge, policy, taxonomy
+from serviszeka import audit, knowledge, notifications, policy, taxonomy
 from serviszeka.config import Settings, get_settings
 from serviszeka.domain.enums import (
     DecisionOutcome,
@@ -28,7 +31,6 @@ from serviszeka.domain.enums import (
 from serviszeka.domain.priority import calculate_priority
 from serviszeka.llm import LLMClient, LLMError
 from serviszeka.models import AIDecision, Incident
-from serviszeka.notifications import Notifier, get_notifier
 from serviszeka.privacy import mask_pii
 from serviszeka.services import incidents as incident_service
 
@@ -120,6 +122,16 @@ class DecisionError(Exception):
     """Karar bulunamadı ya da onaylanamaz durumda."""
 
 
+STALE_DECISION_MESSAGE = "Kayıt öneriden sonra değişti; yeniden triage gerekli"
+
+
+class StaleDecisionError(DecisionError):
+    """Karar verildikten sonra olay değişti; öneri bayat."""
+
+    def __init__(self) -> None:
+        super().__init__(STALE_DECISION_MESSAGE)
+
+
 def _incident_text(incident: Incident) -> str:
     parts = [f"Başlık: {incident.title}", f"Açıklama: {incident.description or '-'}"]
     if incident.service:
@@ -178,6 +190,7 @@ async def _persist(
     rationale: str,
     sources: list[str],
     reason: str,
+    incident_version: int,
 ) -> AIDecision:
     decision = AIDecision(
         incident_id=incident.id,
@@ -190,6 +203,7 @@ async def _persist(
         model=model,
         confidence=confidence,
         outcome=outcome,
+        incident_version=incident_version,
         created_at=datetime.now(UTC),
     )
     session.add(decision)
@@ -208,6 +222,7 @@ async def _persist(
             "model": model,
             "sources": sources,
             "reason": reason,
+            "incident_version": incident_version,
         },
     )
     return decision
@@ -219,9 +234,11 @@ async def triage(
     llm: LLMClient,
     *,
     settings: Settings | None = None,
-    notifier: Notifier | None = None,
 ) -> AIDecision:
-    """Olayı sınıflandırır; politika izin verirse uygular. Her durumda AIDecision döner."""
+    """Olayı sınıflandırır; politika izin verirse uygular. Her durumda AIDecision döner.
+
+    Nöbetçi bildirimi outbox'a eklenir; commit sonrası `notifications.send_pending` gönderir.
+    """
     settings = settings or get_settings()
     model = settings.llm_fast_model
     base_version = incident.version
@@ -243,6 +260,7 @@ async def triage(
             rationale="",
             sources=[],
             reason=reason,
+            incident_version=base_version,
         )
 
     try:
@@ -344,9 +362,11 @@ async def triage(
         "pending_fields": [],
     }
 
+    # Kararın dayandığı sürüm: kendi kısmi uygulamasından sonraki sürüm
+    decision_version = base_version
     if to_apply:
         try:
-            await incident_service.apply_changes(
+            applied_incident = await incident_service.apply_changes(
                 session,
                 incident.id,
                 {**to_apply, "ai_confidence": confidence},
@@ -354,6 +374,7 @@ async def triage(
                 expected_version=base_version,
                 audit_details={"source": "ai_triage"},
             )
+            decision_version = applied_incident.version
             output["applied_fields"] = sorted(to_apply)
             output["pending_fields"] = sorted(set(proposed) - set(to_apply))
             output["applied"] = outcome == DecisionOutcome.AUTO_APPLIED
@@ -381,13 +402,13 @@ async def triage(
         rationale=result.rationale,
         sources=sources,
         reason=reason,
+        incident_version=decision_version,
     )
 
     # Yalnızca etki/aciliyet gerçekten değişiyorsa onay bekleyen bir yükseltme vardır
     if priority_touched and policy.is_urgent_raise(current_priority, proposed_priority):
-        await _notify_oncall(
+        _stage_oncall(
             session,
-            notifier or get_notifier(settings),
             decision=decision,
             incident=incident,
             current=current_priority,
@@ -414,9 +435,8 @@ def _priority_reason(current: Priority, proposed: Priority) -> str:
     )
 
 
-async def _notify_oncall(
+def _stage_oncall(
     session: AsyncSession,
-    notifier: Notifier,
     *,
     decision: AIDecision,
     incident: Incident,
@@ -424,7 +444,7 @@ async def _notify_oncall(
     proposed: Priority,
     reason: str,
 ) -> None:
-    """P1/P2 yükseltmesini nöbetçiye anında bildirir; hata triage'ı asla bozmaz."""
+    """P1/P2 yükseltmesini nöbetçi outbox'ına ekler; gönderim commit sonrasıdır."""
     payload = {
         "incident_id": incident.id,
         "incident_number": incident.number,
@@ -435,26 +455,16 @@ async def _notify_oncall(
         "outcome": DecisionOutcome(decision.outcome).value,
         "reason": reason,
     }
-    details: dict[str, Any] = {
-        "event": ONCALL_EVENT,
-        "incident_id": incident.id,
-        "proposed_priority": proposed.value,
-        "notifier": type(notifier).__name__,
-    }
-    try:
-        await notifier.notify(ONCALL_EVENT, payload)
-        action = "notification.sent"
-    except Exception as exc:  # bildirim hatası triage'ı asla durdurmamalı
-        logger.exception("Nöbetçi bildirimi başarısız: %s", incident.number)
-        action = "notification.failed"
-        details["error"] = f"{type(exc).__name__}: {exc}"
-    await audit.record(
+    notifications.stage(
         session,
-        actor=ACTOR,
-        action=action,
-        entity_type="ai_decision",
-        entity_id=decision.id,
-        details=details,
+        notifications.PendingNotification(
+            event=ONCALL_EVENT,
+            payload=payload,
+            actor=ACTOR,
+            entity_type="ai_decision",
+            entity_id=decision.id,
+            details={"incident_id": incident.id, "proposed_priority": proposed.value},
+        ),
     )
 
 
@@ -488,14 +498,25 @@ async def approve_decision(session: AsyncSession, decision_id: str, approver: st
     if decision.incident_id is None:
         raise DecisionError("Karar bir olaya bağlı değil.")
 
+    # Sürüm kontrolü apply_changes içinde veritabanına karşı (satır kilidiyle) yapılır
+    base_version = decision.incident_version
     proposed = dict((decision.output or {}).get("proposed") or {})
-    await incident_service.apply_changes(
-        session,
-        decision.incident_id,
-        {**proposed, "ai_confidence": decision.confidence},
-        approver,
-        audit_details={"source": "ai_triage_approval", "decision_id": decision.id},
-    )
+    if base_version is None:
+        # Eski karar (0003 öncesi): dayandığı sürüm bilinmiyor, bayatlık doğrulanamaz
+        current = await incident_service.get_incident(session, decision.incident_id)
+        await _reject_stale(session, decision, approver, None, current and current.version)
+    try:
+        await incident_service.apply_changes(
+            session,
+            decision.incident_id,
+            {**proposed, "ai_confidence": decision.confidence},
+            approver,
+            expected_version=base_version,
+            audit_details={"source": "ai_triage_approval", "decision_id": decision.id},
+        )
+    except incident_service.VersionConflictError as exc:
+        # Karar verildikten sonra kayıt değişti: insan verisinin üzerine yazılmaz
+        await _reject_stale(session, decision, approver, base_version, exc.actual)
     decision.approved_by = approver
     decision.approved_at = datetime.now(UTC)
     decision.output = {**(decision.output or {}), "applied": True}
@@ -509,3 +530,27 @@ async def approve_decision(session: AsyncSession, decision_id: str, approver: st
         details={"incident_id": decision.incident_id, "applied": proposed},
     )
     return decision
+
+
+async def _reject_stale(
+    session: AsyncSession,
+    decision: AIDecision,
+    approver: str,
+    decision_version: int | None,
+    incident_version: int | None,
+) -> NoReturn:
+    """Bayat onay reddini denetime yazar ve StaleDecisionError yükseltir (commit çağıranda)."""
+    await audit.record(
+        session,
+        actor=approver,
+        action="ai_decision.approve_rejected",
+        entity_type="ai_decision",
+        entity_id=decision.id,
+        details={
+            "incident_id": decision.incident_id,
+            "reason": "stale_decision",
+            "decision_version": decision_version,
+            "incident_version": incident_version,
+        },
+    )
+    raise StaleDecisionError()

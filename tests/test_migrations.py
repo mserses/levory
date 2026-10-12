@@ -161,3 +161,30 @@ def test_upgrade_database_built_by_current_create_all(alembic_cfg):
     _create_all(sync_url)
     command.upgrade(cfg, "head")
     _assert_matches_metadata(sync_url)
+
+
+def test_upgrade_adds_decision_incident_version_to_existing_database(alembic_cfg):
+    # 0003 öncesi veritabanı (ai_decisions.incident_version yok): eski kararlar NULL kalır
+    cfg, sync_url = alembic_cfg
+    _create_all(sync_url)
+    engine = create_engine(sync_url)
+    try:
+        with engine.begin() as conn:
+            conn.exec_driver_sql("ALTER TABLE ai_decisions DROP COLUMN incident_version")
+            conn.exec_driver_sql(
+                "INSERT INTO ai_decisions (id, incident_id, agent, action, input_summary, "
+                "output, rationale, sources, model, confidence, outcome, created_at) VALUES "
+                "('d1', 'i1', 'service_desk', 'classify', '', '{}', '', '[]', 'm', 0.5, "
+                "'SUGGESTED', '2026-01-01 00:00:00')"
+            )
+    finally:
+        engine.dispose()
+    command.upgrade(cfg, "head")
+    _assert_matches_metadata(sync_url)
+    engine = create_engine(sync_url)
+    try:
+        with engine.connect() as conn:
+            row = conn.exec_driver_sql("SELECT id, incident_version FROM ai_decisions").one()
+        assert tuple(row) == ("d1", None)
+    finally:
+        engine.dispose()

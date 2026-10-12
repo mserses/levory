@@ -4,6 +4,7 @@ from collections.abc import AsyncIterator
 
 import httpx
 import pytest
+from _auth import ADMIN, AGENT, APPROVER, dev_headers
 
 import serviszeka.llm as llm_module
 from serviszeka import db, knowledge
@@ -44,7 +45,10 @@ async def ctx(session):
     app.dependency_overrides[incidents_api.get_llm_client] = lambda: state["llm"]
     app.dependency_overrides[incidents_api.get_app_settings] = lambda: state["settings"]
     transport = httpx.ASGITransport(app=app)
-    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+    # Varsayılan kimlik: agent rolündeki "ayse" (dev kipi belirteci)
+    async with httpx.AsyncClient(
+        transport=transport, base_url="http://test", headers=AGENT
+    ) as client:
         yield client, state, session
     app.dependency_overrides.clear()
 
@@ -52,7 +56,7 @@ async def ctx(session):
 async def _create(client, **kw):
     body = {"title": "VPN bağlanamıyorum", "description": "Evden bağlantı yok", "caller": "ayse"}
     body.update(kw)
-    r = await client.post("/incidents", json=body, headers={"X-Actor": "ayse"})
+    r = await client.post("/incidents", json=body)
     assert r.status_code == 201, r.text
     return r
 
@@ -126,7 +130,7 @@ async def test_triage_auto_apply_and_decisions(ctx):
     r = await client.get(f"/incidents/{inc['id']}/decisions")
     assert [d["id"] for d in r.json()] == [dec["id"]]
 
-    audit_resp = (await client.get("/audit/verify")).json()
+    audit_resp = (await client.get("/audit/verify", headers=ADMIN)).json()
     assert audit_resp == {"valid": True}
 
 
@@ -139,14 +143,16 @@ async def test_shadow_triage_then_approve(ctx):
     assert (await client.get(f"/incidents/{inc['id']}")).json()["version"] == 1
 
     url = f"/incidents/decisions/{dec['id']}/approve"
-    assert (await client.post(url)).status_code == 400  # onaylayan yok
-    r = await client.post(url, json={"approver": "sef.ali"})
+    assert (await client.post(url, headers={"Authorization": ""})).status_code == 401
+    assert (await client.post(url)).status_code == 403  # agent onaylayamaz
+    r = await client.post(url, json={"approver": "sef.ali"}, headers=APPROVER)
     assert r.status_code == 200 and r.json()["approved_by"] == "sef.ali"
     after = (await client.get(f"/incidents/{inc['id']}")).json()
     assert after["category"] == "ag" and after["version"] == 2
-    assert (await client.post(url, headers={"X-Actor": "baska"})).status_code == 409
+    baska = dev_headers("baska", "approver")
+    assert (await client.post(url, headers=baska)).status_code == 409
     assert (
-        await client.post("/incidents/decisions/yok/approve", json={"approver": "a"})
+        await client.post("/incidents/decisions/yok/approve", headers=APPROVER)
     ).status_code == 404
 
 

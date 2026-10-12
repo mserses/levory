@@ -3,7 +3,7 @@
 import pytest
 from sqlalchemy import select
 
-from serviszeka import audit, knowledge
+from serviszeka import audit, knowledge, notifications
 from serviszeka.agents import service_desk
 from serviszeka.config import Settings
 from serviszeka.domain.enums import DecisionOutcome, IncidentStatus, Priority
@@ -25,6 +25,15 @@ class FakeNotifier:
         self.calls.append((event, payload))
         if self.fail:
             raise RuntimeError("webhook kapalı")
+
+
+async def _triage_and_notify(session, inc, llm, *, settings, notifier):
+    """Triage + commit + outbox gönderimi (API akışıyla aynı sıra)."""
+    decision = await service_desk.triage(session, inc, llm, settings=settings)
+    assert notifier.calls == []  # commit öncesi nöbetçiye gitmez
+    await session.commit()
+    await notifications.send_pending(session, notifier)
+    return decision
 
 
 async def _setup(session):
@@ -174,7 +183,7 @@ async def test_pii_masked_in_llm_input_and_decision(session):
 async def test_p1_requires_approval_then_approve(session):
     _, inc = await _setup(session)
     notifier = FakeNotifier()
-    decision = await service_desk.triage(
+    decision = await _triage_and_notify(
         session,
         inc,
         FakeLLM([_response(impact="high", urgency="high")]),
@@ -245,7 +254,7 @@ async def _audit_actions(session):
 async def test_raise_to_p2_applies_classification_but_waits_for_priority(session):
     inc = await _incident(session)  # P5
     notifier = FakeNotifier()
-    decision = await service_desk.triage(
+    decision = await _triage_and_notify(
         session,
         inc,
         FakeLLM([_response(impact="medium", urgency="high")]),  # P2
@@ -286,7 +295,7 @@ async def test_raise_to_p2_applies_classification_but_waits_for_priority(session
 async def test_raise_to_p1_in_shadow_mode_needs_approval_and_notifies(session):
     inc = await _incident(session)
     notifier = FakeNotifier()
-    decision = await service_desk.triage(
+    decision = await _triage_and_notify(
         session,
         inc,
         FakeLLM([_response(impact="high", urgency="high")]),
@@ -302,7 +311,7 @@ async def test_raise_to_p1_in_shadow_mode_needs_approval_and_notifies(session):
 async def test_low_confidence_p1_raise_escalates_and_still_notifies(session):
     inc = await _incident(session)
     notifier = FakeNotifier()
-    decision = await service_desk.triage(
+    decision = await _triage_and_notify(
         session,
         inc,
         FakeLLM([_response(impact="high", urgency="high", confidence=0.3)]),
@@ -317,7 +326,7 @@ async def test_low_confidence_p1_raise_escalates_and_still_notifies(session):
 async def test_downgrade_within_band_needs_approval(session):
     inc = await _incident(session, impact="medium", urgency="medium")  # P3
     notifier = FakeNotifier()
-    decision = await service_desk.triage(
+    decision = await _triage_and_notify(
         session,
         inc,
         FakeLLM([_response(impact="low", urgency="medium")]),  # P4
@@ -336,7 +345,7 @@ async def test_downgrade_within_band_needs_approval(session):
 async def test_downgrade_from_p2_needs_approval(session):
     inc = await _incident(session, impact="medium", urgency="high")  # P2
     notifier = FakeNotifier()
-    decision = await service_desk.triage(
+    decision = await _triage_and_notify(
         session,
         inc,
         FakeLLM([_response(impact="medium", urgency="medium")]),  # P3
@@ -351,7 +360,7 @@ async def test_downgrade_from_p2_needs_approval(session):
 async def test_raise_within_band_auto_applied_without_notification(session):
     inc = await _incident(session, impact="low", urgency="medium")  # P4
     notifier = FakeNotifier()
-    decision = await service_desk.triage(
+    decision = await _triage_and_notify(
         session,
         inc,
         FakeLLM([_response(impact="medium", urgency="medium")]),  # P3
@@ -367,7 +376,7 @@ async def test_raise_within_band_auto_applied_without_notification(session):
 async def test_notification_failure_does_not_break_triage(session):
     inc = await _incident(session)
     notifier = FakeNotifier(fail=True)
-    decision = await service_desk.triage(
+    decision = await _triage_and_notify(
         session,
         inc,
         FakeLLM([_response(impact="high", urgency="high")]),
@@ -389,6 +398,9 @@ async def test_default_notifier_used_when_not_given(session, caplog):
         session, inc, FakeLLM([_response(impact="high", urgency="high")]), settings=LIVE
     )
     assert decision.outcome == DecisionOutcome.NEEDS_APPROVAL
+    await session.commit()
+    # Webhook tanımlı değilse varsayılan bildirici loglar
+    await notifications.send_pending(session, notifications.get_notifier(LIVE))
     assert "notification.sent" in await _audit_actions(session)
 
 
@@ -399,7 +411,7 @@ async def test_no_oncall_page_when_priority_fields_unchanged(session):
     inc.priority = Priority.P3
     await session.flush()
     notifier = FakeNotifier()
-    decision = await service_desk.triage(
+    decision = await _triage_and_notify(
         session,
         inc,
         FakeLLM([_response(impact="high", urgency="high")]),
@@ -416,7 +428,10 @@ async def test_off_taxonomy_values_dropped_and_confidence_lowered(session):
     _, inc = await _setup(session)
     llm = FakeLLM([_response(category="Network", assignment_group="Ağ Ekibi")])
     decision = await service_desk.triage(session, inc, llm, settings=LIVE)
-    assert decision.output["off_taxonomy"] == {"category": "Network", "assignment_group": "Ağ Ekibi"}
+    assert decision.output["off_taxonomy"] == {
+        "category": "Network",
+        "assignment_group": "Ağ Ekibi",
+    }
     assert decision.output["category"] is None and decision.output["assignment_group"] is None
     assert decision.confidence == pytest.approx(0.92 - 2 * service_desk.OFF_TAXONOMY_PENALTY)
     # Eşik altına düştüğü için uygulanmaz, insana gider

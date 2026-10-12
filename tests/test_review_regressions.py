@@ -6,6 +6,7 @@ from datetime import timedelta
 
 import httpx
 import pytest
+from _auth import APPROVER
 from fastapi import FastAPI
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -236,7 +237,7 @@ async def test_resolve_conflict_connector_error_returns_502(session):
     app.dependency_overrides[db.get_session] = _get_session
     app.dependency_overrides[integrations_api.get_connectors] = _connectors
     async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=app), base_url="http://t"
+        transport=httpx.ASGITransport(app=app), base_url="http://t", headers=APPROVER
     ) as client:
         r = await client.post(f"/integrations/conflicts/{ev.id}/resolve?winner=local")
     assert r.status_code == 502, r.text

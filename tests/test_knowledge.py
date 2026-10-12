@@ -2,6 +2,7 @@
 
 import httpx
 import pytest
+from _auth import dev_headers
 from fastapi import FastAPI
 
 from serviszeka import audit, db, knowledge
@@ -145,7 +146,9 @@ async def client(session):
 
     app.dependency_overrides[db.get_session] = _override
     async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=app), base_url="http://test"
+        transport=httpx.ASGITransport(app=app),
+        base_url="http://test",
+        headers=dev_headers("mehmet", "agent"),
     ) as c:
         yield c
 
@@ -154,7 +157,6 @@ async def test_api_flow(client):
     r = await client.post(
         "/knowledge/articles",
         json={"title": "VPN bağlantı sorunu", "body": "VPN istemcisini yeniden başlatın."},
-        headers={"X-Actor": "mehmet"},
     )
     assert r.status_code == 201, r.text
     art = r.json()

@@ -32,6 +32,7 @@
 
 | Modül | Sorumluluk |
 |---|---|
+| `src/serviszeka/auth.py` | OIDC bearer JWT doğrulama (JWKS), `CurrentUser`, `require_roles()` |
 | `src/serviszeka/config.py` | `SZ_` önekli ortam değişkenlerinden ayarlar (`get_settings()`) |
 | `src/serviszeka/db.py` | Async motor, oturum fabrikası, `get_session()` bağımlılığı |
 | `src/serviszeka/models.py` | `Incident`, `AIDecision`, `AuditLog`, `KnowledgeArticle`, `ExternalLink`, `SyncEvent` |
@@ -61,7 +62,37 @@ uv run uvicorn serviszeka.main:app --reload
 
 Geliştirmede `SZ_AUTO_CREATE_SCHEMA=true` (varsayılan) ile tablolar açılışta `create_all` ile kurulur.
 
+Varsayılan ayarlar güvenlidir (`SZ_ENVIRONMENT=production`, `SZ_AUTH_MODE=oidc`): kimlik sağlayıcı (`SZ_AUTH_ISSUER`, `SZ_AUTH_AUDIENCE`) tanımlanmadan uygulama açılmaz. Yerel denemede geliştirme kipini `.env` içinde açıkça seçin (bkz. [Kimlik doğrulama](#kimlik-doğrulama-ve-yetkilendirme)):
+
+```bash
+SZ_ENVIRONMENT=development
+SZ_AUTH_MODE=dev
+curl -H "Authorization: Bearer dev:ayse:agent" http://localhost:8000/incidents
+```
+
 Uygulama `http://localhost:8000` adresinde açılır; API belgeleri `http://localhost:8000/docs`, sağlık kontrolü `http://localhost:8000/health`.
+
+## Kimlik doğrulama ve yetkilendirme
+
+`GET /health` ve API belgeleri (`/docs`, `/openapi.json`) dışındaki **tüm** uçlar `Authorization: Bearer <JWT>` ister. Belirteç bir OIDC sağlayıcısından (Keycloak, Microsoft Entra ID) gelir ve şöyle doğrulanır:
+
+- İmza, yayıncının JWKS anahtarlarıyla doğrulanır. JWKS adresi `SZ_AUTH_JWKS_URL`'den ya da `<issuer>/.well-known/openid-configuration` keşfinden alınır. Anahtarlar önbelleğe alınır; bilinmeyen `kid` gelince (en fazla 30 sn'de bir) yenilenir. İstek zaman aşımı kısadır (`SZ_AUTH_HTTP_TIMEOUT`).
+- Yalnızca `RS256` / `ES256` kabul edilir; `none` ve `HS*` her zaman reddedilir.
+- `iss`, `aud`, `exp` zorunludur; `exp`/`nbf` için küçük bir saat kayması toleransı vardır (`SZ_AUTH_LEEWAY_SECONDS`).
+- Kullanıcı adı `SZ_AUTH_USERNAME_CLAIM` (varsayılan `preferred_username`), yoksa `upn` → `email` → `sub` talebinden okunur. Denetim kayıtlarındaki aktör ve onaylayan her zaman bu addır; `X-Actor` başlığı artık yok sayılır.
+- Roller varsayılan olarak Keycloak `realm_access.roles` (+ `resource_access.<aud>.roles`) ve Entra `roles` taleplerinden okunur; `SZ_AUTH_ROLES_CLAIM` ile başka bir yol seçilebilir.
+
+Eksik/geçersiz belirteç → `401` (`WWW-Authenticate: Bearer`), yetersiz rol → `403`.
+
+| Rol | Yetki |
+|---|---|
+| `agent` | Olay ve bilgi makalesi okuma/oluşturma/güncelleme, triage başlatma |
+| `approver` | Yapay zekâ kararlarını onaylama, senkron çakışmalarını listeleme/çözme; olay ve makaleleri okuma |
+| `admin` | Her şey: entegrasyon durumu, pull/push, denetim günlüğü (`/audit`) dahil; diğer tüm rolleri kapsar |
+
+Karar onayında (`POST /incidents/decisions/{id}/approve`) onaylayan belirteçteki kullanıcıdır; gövdede farklı bir `approver` gönderilirse `403` döner.
+
+**Geliştirme kipi.** `SZ_AUTH_MODE=dev` iken `Authorization: Bearer dev:<kullanıcı>:<rol1,rol2>` kabul edilir ve **hiçbir imza doğrulanmaz**. Bu kip yalnızca `SZ_ENVIRONMENT=development` ile çalışır; başka bir ortamda uygulama açılışta hata verip durur. Üretimde asla kullanmayın.
 
 ## Docker Compose ile çalıştırma
 
@@ -70,7 +101,7 @@ cp .env.example .env
 docker compose up --build
 ```
 
-Bu komut uygulamayı ve PostgreSQL 16'yı (pgvector imajı) ayağa kaldırır. Compose, `SZ_DATABASE_URL` değerini otomatik olarak `postgresql+asyncpg://...@db:5432/...` olarak ayarlar; veriler `pgdata` biriminde kalıcıdır. Konteyner açılışta önce `alembic upgrade head`, sonra uvicorn çalıştırır (`SZ_AUTO_CREATE_SCHEMA=false`).
+`.env` içinde OIDC ayarlarını (`SZ_AUTH_ISSUER`, `SZ_AUTH_AUDIENCE`) doldurun; aksi halde uygulama açılmaz. Bu komut uygulamayı ve PostgreSQL 16'yı (pgvector imajı) ayağa kaldırır. Compose, `SZ_DATABASE_URL` değerini otomatik olarak `postgresql+asyncpg://...@db:5432/...` olarak ayarlar; veriler `pgdata` biriminde kalıcıdır. Konteyner açılışta önce `alembic upgrade head`, sonra uvicorn çalıştırır (`SZ_AUTO_CREATE_SCHEMA=false`).
 
 ## Veritabanı göçleri (Alembic)
 
