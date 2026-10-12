@@ -1,0 +1,123 @@
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-4);
+}
+.extras {
+  flex: 1 1 100%;
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+  justify-items: start;
+}
+.extras > * {
+  max-width: 100%;
+}
+.section {
+  display: grid;
+  gap: var(--space-1);
+  width: 100%;
+}
+.sectionTitle {
+  margin: 0;
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+  font-weight: var(--weight-semibold);
+}
+.tableWrap {
+  overflow-x: auto;
+  max-width: 100%;
+}
+.diff {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+.diff th,
+.diff td {
+  text-align: start;
+  padding: var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+.diff thead th {
+  color: var(--color-text-muted);
+  font-weight: var(--weight-semibold);
+  background: var(--color-surface-muted);
+}
+.diff tbody th {
+  font-weight: var(--weight-medium);
+  white-space: nowrap;
+}
+.changed {
+  font-weight: var(--weight-semibold);
+}
+.notice {
+  margin: 0;
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  border: 1px solid var(--tone-warning-border);
+  background: var(--tone-warning-bg);
+  color: var(--tone-warning-fg);
+}
+.notice[data-tone='danger'] {
+  border-color: var(--tone-danger-border);
+  background: var(--tone-danger-bg);
+  color: var(--tone-danger-fg);
+}
+.inlineList {
+  margin: var(--space-1) 0 0;
+  padding-inline-start: var(--space-5);
+}
+
+/* Dar ekran: her alan bir blok; hücre başlıkları data-label ile */
+@media (max-width: 600px) {
+  .diff thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+  .diff,
+  .diff tbody {
+    display: block;
+  }
+  .diff tr {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-1) var(--space-3);
+    padding: var(--space-2) 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .diff th,
+  .diff td {
+    display: block;
+    padding: 0;
+    border: 0;
+    min-width: 0;
+  }
+  .diff tbody th {
+    grid-column: 1 / -1;
+    white-space: normal;
+  }
+  .diff td[data-label='Durum'] {
+    grid-column: 1 / -1;
+  }
+  .diff td::before {
+    content: attr(data-label);
+    display: block;
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+  }
+  .diff td[data-label='Durum']::before {
+    display: none;
+  }
+}

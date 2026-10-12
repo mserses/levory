@@ -42,10 +42,13 @@
 | `src/serviszeka/policy.py` | Politika motoru: `evaluate()` → `PolicyDecision` |
 | `src/serviszeka/audit.py` | Hash zincirli denetim kaydı: `record()`, `verify_chain()` |
 | `src/serviszeka/privacy.py` | KVKK PII maskeleme: `mask_pii()` |
-| `src/serviszeka/llm/` | `LLMClient` protokolü, `AnthropicLLM`, testler için `FakeLLM` |
+| `src/serviszeka/llm/` | `LLMClient` protokolü, `AnthropicLLM`, testler için `FakeLLM`, geliştirme için `SZ_LLM_PROVIDER=fake` |
 | `src/serviszeka/knowledge/` | Bilgi makaleleri ve arama (`search`, `create_article`) |
 | `src/serviszeka/integrations/` | ServiceNow ve Jira SM iki yönlü senkronizasyon |
-| `src/serviszeka/api/` | REST uçları: `incidents`, `knowledge`, `integrations`, `audit` |
+| `src/serviszeka/api/` | REST uçları: `incidents`, `knowledge`, `integrations`, `audit`, `me` |
+| `src/serviszeka/cors.py` | `SZ_CORS_ORIGINS` ayarından beslenen CORS ara katmanı |
+| `src/serviszeka/openapi_export.py` | OpenAPI şemasını portal tip üretimi için dışa aktarır |
+| `portal/` | Web portalı (Vite + React + TypeScript); bkz. `portal/README.md` |
 | `src/serviszeka/main.py` | FastAPI uygulaması, `/health` |
 | `migrations/` | Alembic veritabanı göçleri (`alembic.ini`, async `env.py`) |
 
@@ -72,6 +75,50 @@ curl -H "Authorization: Bearer dev:ayse:agent" http://localhost:8000/incidents
 
 Uygulama `http://localhost:8000` adresinde açılır; API belgeleri `http://localhost:8000/docs`, sağlık kontrolü `http://localhost:8000/health`.
 
+**API anahtarı olmadan triage.** Yerel denemede `SZ_LLM_PROVIDER=fake` ile yapay zekâ sınıflandırması, Anthropic yerine anahtar kelime kurallarına dayalı deterministik bir istemciyle çalışır (ör. "tüm şirket" + "çöktü" → etki/aciliyet yüksek → P1 önerisi, onay gerekli). Maskeleme, KB kaynak doğrulama, politika ve denetim zinciri gerçek akıştaki gibi işler; kararlarda model `fake-deterministic` görünür. Bu ayar **yalnızca** `SZ_ENVIRONMENT=development` iken kabul edilir; başka ortamda uygulama açılmaz.
+
+## Web portalı
+
+`portal/` altında Vite + React 18 + TypeScript (strict) ile yazılmış Türkçe arayüz: self-servis talep (`/talep`, `/taleplerim`), destek uzmanı çalışma alanı (`/kayitlar`), onay kutusu (`/onaylar`), bilgi bankası (`/bilgi-bankasi`) ve yönetim (`/yonetim/denetim`, `/yonetim/entegrasyonlar`). Ayrıntılar, ekran sahipliği ve kurallar: [`portal/README.md`](portal/README.md).
+
+Gereksinim: Node 22 ve npm.
+
+```bash
+# 1) API (ayrı terminal, serviszeka/ kökünde) — dev kimlik doğrulaması + sahte LLM
+SZ_ENVIRONMENT=development SZ_AUTH_MODE=dev SZ_LLM_PROVIDER=fake \
+SZ_CORS_ORIGINS=http://localhost:5173 \
+  uv run uvicorn serviszeka.main:app --reload
+
+# 2) Portal
+cd portal
+npm ci
+cp .env.example .env.local     # VITE_AUTH_MODE=dev, VITE_API_BASE_URL=http://localhost:8000
+npm run dev                    # http://localhost:5173 → /giris'te kullanıcı adı + rol seçin
+```
+
+Kontroller ve testler (`portal/` içinde):
+
+```bash
+npm run typecheck && npm run lint && npm test -- --run && npm run build
+npm run e2e        # Playwright: gerçek API (geçici SQLite, dev kimlik, sahte LLM) + Vite
+npm run sync:api   # API değişince: openapi.json, src/api/schema.d.ts ve taksonomi kopyası
+```
+
+Uçtan uca senaryolar (`portal/e2e/`): son kullanıcı talep açar ve Taleplerim'de görür; uzman yapay zekâ ile sınıflandırır (P1 önerisi → onay gerekli), onaylayıcı onaylar, uzman güncel önceliği görür; bayat öneri onayı 409 "yeniden triage gerekli" gösterir; bilgi bankası makalesi oluşturulur, yayınlanır ve aranır; yönetici denetim zincirini doğrular. `npm run e2e` API'yi (`127.0.0.1:8765`) ve Vite'ı (`127.0.0.1:5180`) kendisi başlatır; her çalıştırma boş bir geçici veritabanıyla başlar. Tarayıcı olarak Playwright'ın Chromium'u kullanılır (`npx playwright install chromium`; kurulu bir tarayıcı varsa `PLAYWRIGHT_BROWSERS_PATH`). Derlenmiş imaja karşı koşmak için: `E2E_WEB_URL=http://127.0.0.1:8080 npm run e2e`.
+
+**Üretim imajı.** `portal/Dockerfile` çok aşamalıdır: Node 22 ile derler, nginx ile (root olmayan kullanıcı, 8080) statik SPA olarak sunar. Bilinmeyen yollar `index.html`'e düşer (istemci tarafı yönlendirme); `/assets/` uzun süre önbelleklenir, `index.html` her seferinde doğrulanır, kaynak haritaları imaja girmez. Her yanıtta güvenlik başlıkları (`Content-Security-Policy`, `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy`, `Cross-Origin-Opener-Policy`, HSTS) bulunur. CSP sıkıdır: betik ve stil yalnızca kendi kökeninden (`'unsafe-inline'` yok); `connect-src` / `frame-src` / `form-action` için yalnızca çalışma zamanında verilen `PORTAL_API_ORIGIN` ve `PORTAL_OIDC_ORIGIN` kökenleri eklenir. `VITE_*` derleme argümanları pakete gömülür (gizli bilgi değildir).
+
+```bash
+docker build -t serviszeka-portal portal \
+  --build-arg VITE_API_BASE_URL=https://api.ornek.com \
+  --build-arg VITE_OIDC_AUTHORITY=https://sso.ornek.com/realms/serviszeka \
+  --build-arg VITE_OIDC_CLIENT_ID=serviszeka-portal
+docker run -p 8080:8080 -e PORTAL_API_ORIGIN=https://api.ornek.com \
+  -e PORTAL_OIDC_ORIGIN=https://sso.ornek.com serviszeka-portal
+```
+
+OIDC istemcisinde (public client, PKCE) yönlendirme adresleri `<portal-kökeni>/auth/callback` ve `<portal-kökeni>/auth/silent` (sessiz yenileme; yalnızca bu sayfa aynı kökenden çerçevelenebilir), çıkış dönüşü `<portal-kökeni>/giris` olarak kayıtlı olmalı; API'de `SZ_CORS_ORIGINS` portal kökenini içermelidir.
+
 ## Kimlik doğrulama ve yetkilendirme
 
 `GET /health` ve API belgeleri (`/docs`, `/openapi.json`) dışındaki **tüm** uçlar `Authorization: Bearer <JWT>` ister. Belirteç bir OIDC sağlayıcısından (Keycloak, Microsoft Entra ID) gelir ve şöyle doğrulanır:
@@ -89,10 +136,22 @@ Eksik/geçersiz belirteç → `401` (`WWW-Authenticate: Bearer`), yetersiz rol �
 | `agent` | Olay ve bilgi makalesi okuma/oluşturma/güncelleme, triage başlatma |
 | `approver` | Yapay zekâ kararlarını onaylama, senkron çakışmalarını listeleme/çözme; olay ve makaleleri okuma |
 | `admin` | Her şey: entegrasyon durumu, pull/push, denetim günlüğü (`/audit`) dahil; diğer tüm rolleri kapsar |
+| `requester` | Self-servis son kullanıcı: `POST /incidents` (arayan her zaman kendi kullanıcı adıdır; gövdedeki `caller` ve `impact` yok sayılır) ve yalnızca arayanı kendisi olan olayları `GET /incidents` / `GET /incidents/{id}` ile görür (başkasınınki `404`). Yapay zekâ kararlarını, triage'ı, SLA uyarılarını, bilgi bankasını göremez; yanıtlarda `ai_confidence` her zaman `null` döner |
+
+Rolü olmayan ama kimliği doğrulanmış her kullanıcı `GET /me` ile `{username, roles, ai_confidence_threshold}` bilgisini alabilir (web portalı gezinmeyi buna göre kurar, güven göstergesi eşiği `SZ_AI_CONFIDENCE_THRESHOLD`'dan gelir).
+
+Portal için ek uçlar:
+
+- `GET /incidents?mine=true` — arayanı (caller) oturumdaki kullanıcı olan kayıtlar (tüm roller; `requester` için her zaman açık).
+- `GET /incidents/decisions?outcome=needs_approval&outcome=suggested&outcome=escalated&limit=50&offset=0` — olaylar arası onay kutusu (`approver`/`admin`): henüz onaylanmamış kararlar, en yeni önce; her satırda `incident_number`, `incident_title`, `incident_priority`, `incident_status`, `incident_current_version` bulunur. `outcome` verilmezse üçü birden.
 
 Karar onayında (`POST /incidents/decisions/{id}/approve`) onaylayan belirteçteki kullanıcıdır; gövdede farklı bir `approver` gönderilirse `403` döner.
 
 **Geliştirme kipi.** `SZ_AUTH_MODE=dev` iken `Authorization: Bearer dev:<kullanıcı>:<rol1,rol2>` kabul edilir ve **hiçbir imza doğrulanmaz**. Bu kip yalnızca `SZ_ENVIRONMENT=development` ile çalışır; başka bir ortamda uygulama açılışta hata verip durur. Üretimde asla kullanmayın.
+
+**CORS.** Web portalı API'yi başka bir kökenden çağırıyorsa `SZ_CORS_ORIGINS` ile izinli kökenleri verin (virgülle ayrılmış veya JSON dizi, örn. `SZ_CORS_ORIGINS=http://localhost:5173`). Boşsa (varsayılan) CORS başlıkları eklenmez. `Authorization`, `If-Match` başlıklarına izin verilir; `ETag` portal tarafından okunabilir (`expose`). Çerez kullanılmadığı için `allow_credentials` kapalıdır.
+
+**OpenAPI dışa aktarımı** (portal tip üretimi için): `uv run python -m serviszeka.openapi_export > portal/openapi.json`. Ayrıntılar: [`portal/README.md`](portal/README.md).
 
 ## Docker Compose ile çalıştırma
 
@@ -101,7 +160,7 @@ cp .env.example .env
 docker compose up --build
 ```
 
-`.env` içinde OIDC ayarlarını (`SZ_AUTH_ISSUER`, `SZ_AUTH_AUDIENCE`) doldurun; aksi halde uygulama açılmaz. Bu komut uygulamayı ve PostgreSQL 16'yı (pgvector imajı) ayağa kaldırır. Compose, `SZ_DATABASE_URL` değerini otomatik olarak `postgresql+asyncpg://...@db:5432/...` olarak ayarlar; veriler `pgdata` biriminde kalıcıdır. Konteyner açılışta önce `alembic upgrade head`, sonra uvicorn çalıştırır (`SZ_AUTO_CREATE_SCHEMA=false`).
+`.env` içinde OIDC ayarlarını (`SZ_AUTH_ISSUER`, `SZ_AUTH_AUDIENCE`) ve portal için `PORTAL_OIDC_AUTHORITY` / `PORTAL_OIDC_ORIGIN` değerlerini doldurun; aksi halde uygulama açılmaz. Bu komut API'yi (`:8000`), web portalını (`http://localhost:8080`, nginx) ve PostgreSQL 16'yı (pgvector imajı) ayağa kaldırır. API'nin CORS listesi varsayılan olarak portal kökenini (`http://localhost:8080`) içerir; farklı bir adres için `.env`'de `SZ_CORS_ORIGINS` ve `PORTAL_API_BASE_URL` verin. Compose, `SZ_DATABASE_URL` değerini otomatik olarak `postgresql+asyncpg://...@db:5432/...` olarak ayarlar; veriler `pgdata` biriminde kalıcıdır. Konteyner açılışta önce `alembic upgrade head`, sonra uvicorn çalıştırır (`SZ_AUTO_CREATE_SCHEMA=false`).
 
 ## Veritabanı göçleri (Alembic)
 
@@ -125,7 +184,7 @@ uv run pytest            # tüm testler (bellek içi SQLite, harici servis çağ
 uv run ruff check .      # lint
 ```
 
-Testlerde gerçek LLM veya ITSM servisleri çağrılmaz: LLM için `FakeLLM`, HTTP için `httpx.MockTransport` kullanılır. CI (GitHub Actions) her push/PR'da ruff, pytest ve SQLite üzerinde `alembic upgrade head` + `alembic check` çalıştırır.
+Testlerde gerçek LLM veya ITSM servisleri çağrılmaz: LLM için `FakeLLM`, HTTP için `httpx.MockTransport` kullanılır. CI (GitHub Actions) her push/PR'da ruff, pytest ve SQLite üzerinde `alembic upgrade head` + `alembic check` çalıştırır; `portal` işi OpenAPI/tip/taksonomi kopyasının güncel olduğunu denetler, typecheck, lint, Prettier, birim testleri, derleme, Playwright E2E ve portal Docker imajı derlemesini koşar.
 
 ## Sınıflandırma değerlendirmesi (Faz 1 kapısı)
 

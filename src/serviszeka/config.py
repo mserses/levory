@@ -1,9 +1,11 @@
 """Uygulama ayarları (ortam değişkenleri, SZ_ önekiyle)."""
 
+import json
 from functools import lru_cache
-from typing import Literal
+from typing import Annotated, Any, Literal
 
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import field_validator
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -16,6 +18,10 @@ class Settings(BaseSettings):
 
     # LLM
     anthropic_api_key: str | None = None
+    # LLM sağlayıcısı: anthropic (varsayılan) | fake. fake, API anahtarı olmadan deterministik
+    # sınıflandırma döndürür (yerel deneme ve E2E testleri); yalnızca environment=development
+    # iken kabul edilir, aksi halde uygulama açılmaz.
+    llm_provider: Literal["anthropic", "fake"] = "anthropic"
     llm_reasoning_model: str = "claude-opus-5-5"
     llm_fast_model: str = "claude-haiku-5-5"
     # Yapay zekâ kararları bu güven eşiğinin altındaysa insana yönlendirilir.
@@ -61,6 +67,21 @@ class Settings(BaseSettings):
     auth_leeway_seconds: int = 30
     # JWKS / keşif istekleri için zaman aşımı (saniye)
     auth_http_timeout: float = 3.0
+
+    # CORS: tarayıcıdan API'ye erişebilecek kökenler (örn. web portalı). Boşsa CORS kapalı.
+    # Ortam değişkeninde virgülle ayrılmış liste ya da JSON dizisi:
+    #   SZ_CORS_ORIGINS=http://localhost:5173,https://portal.ornek.com
+    cors_origins: Annotated[list[str], NoDecode] = []
+
+    @field_validator("cors_origins", mode="before")
+    @classmethod
+    def _split_origins(cls, value: Any) -> Any:
+        if isinstance(value, str):
+            text = value.strip()
+            if text.startswith("["):
+                return json.loads(text)
+            return [o.strip().rstrip("/") for o in text.split(",") if o.strip()]
+        return value
 
 
 @lru_cache

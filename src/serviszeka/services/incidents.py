@@ -191,10 +191,13 @@ async def list_incidents(
     priority: Priority | str | None = None,
     assignee: str | None = None,
     assignment_group: str | None = None,
+    caller: str | None = None,
     limit: int = 50,
     offset: int = 0,
 ) -> list[Incident]:
     stmt = select(Incident)
+    if caller is not None:
+        stmt = stmt.where(Incident.caller == caller)
     if status is not None:
         stmt = stmt.where(Incident.status == IncidentStatus(status))
     if priority is not None:

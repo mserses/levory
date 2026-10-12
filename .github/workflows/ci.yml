@@ -38,3 +38,80 @@ jobs:
         run: |
           uv run alembic upgrade head
           uv run alembic check
+
+  portal:
+    name: portal (typecheck, lint, test, build, E2E)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: portal
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: uv kurulumu
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Python kurulumu (OpenAPI dışa aktarımı ve E2E backend'i)
+        run: uv python install 3.12
+
+      - name: Backend bağımlılıkları
+        run: uv sync --frozen --python 3.12
+
+      - name: Node kurulumu
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: portal/package-lock.json
+
+      - name: Bağımlılıklar
+        run: npm ci
+
+      - name: OpenAPI, tipler ve taksonomi güncel mi
+        run: |
+          npm run sync:api
+          git diff --exit-code -- openapi.json src/api/schema.d.ts src/lib/taxonomy.json
+
+      - name: Tip denetimi
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Biçim
+        run: npm run format:check
+
+      - name: Birim testleri
+        run: npm test -- --run
+
+      - name: Derleme
+        run: npm run build
+
+      - name: Playwright tarayıcısı
+        run: npx playwright install --with-deps chromium
+
+      - name: Uçtan uca testler (gerçek backend + sahte LLM)
+        run: npm run e2e
+
+      - name: E2E raporu
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            portal/playwright-report
+            portal/test-results
+          retention-days: 7
+
+      - name: Portal Docker imajı (nginx + CSP)
+        run: docker build -t serviszeka-portal:ci .
+
+      - name: Portal imajı güvenlik başlıkları (CSP, çerçeveleme, önbellek)
+        run: |
+          docker run -d --name portal-ci -p 18080:8080 serviszeka-portal:ci
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:18080/healthz >/dev/null && break; sleep 1; done
+          sh scripts/check-nginx-headers.sh http://127.0.0.1:18080
+          docker rm -f portal-ci

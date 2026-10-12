@@ -29,6 +29,18 @@ class IncidentCreate(BaseModel):
     kind: TicketKind | None = None
 
 
+class IncidentCreateRequest(IncidentCreate):
+    """POST /incidents gövdesi.
+
+    ``caller`` agent için zorunludur; agent olmayan kullanıcıda (self-servis ``requester``,
+    ``requester`` + ``approver``) yok sayılır ve belirteçteki kullanıcı adı kullanılır. Agent
+    olmayan kullanıcı ``impact`` belirleyemez (kurum geneli etkiyi son kullanıcı beyan edemez;
+    triage/agent belirler).
+    """
+
+    caller: str | None = Field(default=None, min_length=1, max_length=200)  # type: ignore[assignment]
+
+
 class IncidentUpdate(BaseModel):
     """Kısmi güncelleme: yalnızca gönderilen alanlar uygulanır (exclude_unset)."""
 
@@ -103,6 +115,17 @@ class AIDecisionRead(BaseModel):
     approved_by: str | None
     approved_at: UTCDateTime | None
     created_at: UTCDateTime
+
+
+class DecisionInboxItem(AIDecisionRead):
+    """Onay kutusu satırı: karar + bağlı olayın numarası/başlığı."""
+
+    incident_number: str | None = None
+    incident_title: str | None = None
+    incident_priority: Priority | None = None
+    incident_status: IncidentStatus | None = None
+    # Olayın güncel sürümü; karar sürümünden farklıysa onay 409 (yeniden triage) döner
+    incident_current_version: int | None = None
 
 
 class ApproveRequest(BaseModel):

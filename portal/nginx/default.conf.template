@@ -1,0 +1,59 @@
+# ServisZeka portalı: SPA sunumu. Şablon; açılışta envsubst ile /etc/nginx/conf.d'ye yazılır.
+
+# Çerçeveleme: portal hiçbir yerde çerçevelenemez; tek istisna OIDC sessiz yenileme sayfası
+# (/auth/silent), oidc-client-ts onu aynı kökenden gizli bir iframe'de açar. Ham istek yolu
+# eşlenir (try_files'ın index.html'e iç yönlendirmesi $uri'yi değiştirir).
+map $request_uri $sz_frame_ancestors {
+    default "'none'";
+    "~^/auth/silent(\?|$)" "'self'";
+}
+map $request_uri $sz_frame_options {
+    default "DENY";
+    "~^/auth/silent(\?|$)" "SAMEORIGIN";
+}
+
+server {
+    listen 8080;
+    server_name _;
+    root /usr/share/nginx/html;
+
+    server_tokens off;
+    charset utf-8;
+    client_max_body_size 1m;
+
+    gzip on;
+    gzip_types text/css application/javascript application/json image/svg+xml;
+    gzip_min_length 1024;
+
+    # Sağlık denetimi (konteyner HEALTHCHECK)
+    location = /healthz {
+        access_log off;
+        default_type text/plain;
+        return 200 "ok\n";
+    }
+
+    # Parmak izli paketler: uzun süreli önbellek
+    location /assets/ {
+        include /etc/nginx/conf.d/security-headers.inc;
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
+        try_files $uri =404;
+    }
+
+    # index.html her zaman yeniden doğrulanır (yeni sürüm hemen görünür)
+    location = /index.html {
+        include /etc/nginx/conf.d/security-headers.inc;
+        add_header Cache-Control "no-cache" always;
+    }
+
+    # Gizli dosyalar ve kaynak haritaları sunulmaz
+    location ~ /\.|\.map$ {
+        return 404;
+    }
+
+    # SPA geri dönüşü: bilinmeyen yollar index.html'e (istemci tarafı yönlendirme)
+    location / {
+        include /etc/nginx/conf.d/security-headers.inc;
+        add_header Cache-Control "no-cache" always;
+        try_files $uri $uri/ /index.html;
+    }
+}

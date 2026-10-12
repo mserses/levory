@@ -7,6 +7,8 @@ Roller:
 - ``agent``: olay ve bilgi bankası okuma/oluşturma/güncelleme, triage başlatma
 - ``approver``: yapay zekâ kararlarını onaylama, senkron çakışmalarını çözme
 - ``admin``: her şey (entegrasyon pull/push, denetim günlüğü dahil); tüm rolleri kapsar
+- ``requester``: self-servis son kullanıcı; yalnızca kendi adına kayıt açar ve yalnızca
+  arayanı (caller) kendisi olan kayıtları görür. Yapay zekâ kararlarını (iç ayrıntılar) göremez.
 """
 
 from __future__ import annotations
@@ -29,6 +31,7 @@ log = logging.getLogger(__name__)
 ROLE_AGENT = "agent"
 ROLE_APPROVER = "approver"
 ROLE_ADMIN = "admin"
+ROLE_REQUESTER = "requester"
 
 # Simetrik (HS*) ve imzasız ('none') algoritmalar asla kabul edilmez
 ALLOWED_ALGORITHMS: dict[str, str] = {"RS256": "RSA", "ES256": "EC"}
@@ -57,6 +60,11 @@ class CurrentUser:
     def has_any(self, *roles: str) -> bool:
         # admin tüm rolleri kapsar
         return ROLE_ADMIN in self.roles or any(r in self.roles for r in roles)
+
+    @property
+    def is_requester_only(self) -> bool:
+        """Yalnızca self-servis yetkisi var (agent/approver/admin değil): kendi kayıtlarıyla sınırlı."""
+        return not self.has_any(ROLE_AGENT, ROLE_APPROVER)
 
 
 def check_startup(settings: Settings) -> None:
@@ -367,3 +375,9 @@ AgentUser = Annotated[CurrentUser, Depends(require_roles(ROLE_AGENT))]
 ReaderUser = Annotated[CurrentUser, Depends(require_roles(ROLE_AGENT, ROLE_APPROVER))]
 ApproverUser = Annotated[CurrentUser, Depends(require_roles(ROLE_APPROVER))]
 AdminUser = Annotated[CurrentUser, Depends(require_roles(ROLE_ADMIN))]
+# Olay açma: agent veya self-servis requester (requester yalnızca kendi adına)
+CreatorUser = Annotated[CurrentUser, Depends(require_roles(ROLE_AGENT, ROLE_REQUESTER))]
+# Olay okuma: requester yalnızca arayanı kendisi olan kayıtları görür (uç noktada süzülür)
+IncidentViewerUser = Annotated[
+    CurrentUser, Depends(require_roles(ROLE_AGENT, ROLE_APPROVER, ROLE_REQUESTER))
+]

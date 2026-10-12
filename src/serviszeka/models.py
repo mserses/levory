@@ -47,7 +47,8 @@ class Incident(Base):
     kind: Mapped[TicketKind] = mapped_column(Enum(TicketKind), default=TicketKind.INCIDENT)
     title: Mapped[str] = mapped_column(String(300))
     description: Mapped[str] = mapped_column(Text, default="")
-    caller: Mapped[str] = mapped_column(String(200), default="")
+    # Self-servis "kayıtlarım" ve ?mine=true süzgeci için indeksli
+    caller: Mapped[str] = mapped_column(String(200), default="", index=True)
     category: Mapped[str | None] = mapped_column(String(100))
     service: Mapped[str | None] = mapped_column(String(100))
     impact: Mapped[Impact] = mapped_column(Enum(Impact), default=Impact.LOW)
@@ -94,7 +95,8 @@ class AIDecision(Base):
     sources: Mapped[list[str]] = mapped_column(JSON, default=list)  # bilgi bankası makale id'leri
     model: Mapped[str] = mapped_column(String(100))
     confidence: Mapped[float] = mapped_column(Float)
-    outcome: Mapped[DecisionOutcome] = mapped_column(Enum(DecisionOutcome))
+    # Olaylar arası onay kutusu (GET /incidents/decisions) için indeksli
+    outcome: Mapped[DecisionOutcome] = mapped_column(Enum(DecisionOutcome), index=True)
     # Kararın dayandığı olay sürümü (kendi kısmi uygulamasından sonraki); bayat onayı engeller
     incident_version: Mapped[int | None] = mapped_column(Integer)
     approved_by: Mapped[str | None] = mapped_column(String(200))

@@ -143,6 +143,11 @@ class AnthropicLLM:
 def get_llm(settings: Settings | None = None) -> LLMClient:
     """Üretim istemcisini döndürür; API anahtarı yoksa açık bir hata verir."""
     settings = settings or get_settings()
+    if settings.llm_provider == "fake":
+        from serviszeka.llm.fake import DeterministicFakeLLM, check_provider
+
+        check_provider(settings)
+        return DeterministicFakeLLM()
     if not settings.anthropic_api_key:
         raise LLMError(
             "LLM yapılandırılmamış: SZ_ANTHROPIC_API_KEY ortam değişkenini ayarlayın"

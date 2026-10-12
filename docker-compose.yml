@@ -1,4 +1,4 @@
-# ServisZeka: uygulama + PostgreSQL 16 (pgvector)
+# ServisZeka: API + web portalı (nginx) + PostgreSQL 16 (pgvector)
 services:
   db:
     image: pgvector/pgvector:pg16
@@ -27,6 +27,8 @@ services:
       SZ_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-serviszeka}:${POSTGRES_PASSWORD:-serviszeka}@db:5432/${POSTGRES_DB:-serviszeka}
       # Şema create_all ile değil göçlerle kurulur
       SZ_AUTO_CREATE_SCHEMA: "false"
+      # Portalın kökeni CORS listesinde olmalı (.env'de SZ_CORS_ORIGINS verilmişse o kullanılır)
+      SZ_CORS_ORIGINS: ${SZ_CORS_ORIGINS:-http://localhost:8080}
     # Önce veritabanı göçleri, sonra uygulama
     command: ["sh", "-c", "alembic upgrade head && exec uvicorn serviszeka.main:app --host 0.0.0.0 --port 8000"]
     ports:
@@ -34,6 +36,26 @@ services:
     depends_on:
       db:
         condition: service_healthy
+
+  # Web portalı: derlenmiş SPA'yı güvenlik başlıkları ve sıkı CSP ile sunan nginx (root değil)
+  portal:
+    build:
+      context: ./portal
+      args:
+        # VITE_* derleme anında pakete gömülür (gizli bilgi değildir)
+        VITE_API_BASE_URL: ${PORTAL_API_BASE_URL:-http://localhost:8000}
+        VITE_AUTH_MODE: ${PORTAL_AUTH_MODE:-oidc}
+        VITE_OIDC_AUTHORITY: ${PORTAL_OIDC_AUTHORITY:-}
+        VITE_OIDC_CLIENT_ID: ${PORTAL_OIDC_CLIENT_ID:-serviszeka-portal}
+    restart: unless-stopped
+    environment:
+      # CSP connect-src / frame-src / form-action için izinli kökenler (çalışma zamanı)
+      PORTAL_API_ORIGIN: ${PORTAL_API_BASE_URL:-http://localhost:8000}
+      PORTAL_OIDC_ORIGIN: ${PORTAL_OIDC_ORIGIN:-}
+    ports:
+      - "8080:8080"
+    depends_on:
+      - app
 
 volumes:
   pgdata:

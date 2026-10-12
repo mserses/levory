@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any, NoReturn
 
@@ -240,7 +241,8 @@ async def triage(
     Nöbetçi bildirimi outbox'a eklenir; commit sonrası `notifications.send_pending` gönderir.
     """
     settings = settings or get_settings()
-    model = settings.llm_fast_model
+    # Sahte (fake) sağlayıcı karar kaydında kendi adını taşır; gerçek istemci hızlı modeli
+    model = getattr(llm, "model_name", None) or settings.llm_fast_model
     base_version = incident.version
     masked = mask_pii(_incident_text(incident))
     hits = await knowledge.search(
@@ -479,6 +481,32 @@ async def list_decisions(session: AsyncSession, incident_id: str) -> list[AIDeci
         .order_by(AIDecision.created_at.desc())
     )
     return list((await session.scalars(stmt)).all())
+
+
+INBOX_OUTCOMES = (
+    DecisionOutcome.NEEDS_APPROVAL,
+    DecisionOutcome.SUGGESTED,
+    DecisionOutcome.ESCALATED,
+)
+
+
+async def list_inbox(
+    session: AsyncSession,
+    outcomes: Sequence[DecisionOutcome] = INBOX_OUTCOMES,
+    *,
+    limit: int = 50,
+    offset: int = 0,
+) -> list[tuple[AIDecision, Incident | None]]:
+    """Olaylar arası karar kutusu: henüz onaylanmamış kararlar, en yeni önce."""
+    stmt = (
+        select(AIDecision, Incident)
+        .outerjoin(Incident, AIDecision.incident_id == Incident.id)
+        .where(AIDecision.outcome.in_(list(outcomes)), AIDecision.approved_by.is_(None))
+        .order_by(AIDecision.created_at.desc(), AIDecision.id.desc())
+        .limit(limit)
+        .offset(offset)
+    )
+    return [(d, i) for d, i in (await session.execute(stmt)).all()]
 
 
 APPROVABLE_OUTCOMES = frozenset({DecisionOutcome.NEEDS_APPROVAL, DecisionOutcome.SUGGESTED})
