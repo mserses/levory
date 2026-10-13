@@ -35,17 +35,17 @@
 | `src/serviszeka/auth.py` | OIDC bearer JWT doğrulama (JWKS), `CurrentUser`, `require_roles()` |
 | `src/serviszeka/config.py` | `SZ_` önekli ortam değişkenlerinden ayarlar (`get_settings()`) |
 | `src/serviszeka/db.py` | Async motor, oturum fabrikası, `get_session()` bağımlılığı |
-| `src/serviszeka/models.py` | `Incident`, `AIDecision`, `AuditLog`, `KnowledgeArticle`, `ExternalLink`, `SyncEvent` |
+| `src/serviszeka/models.py` | `Incident`, `AIDecision`, `AuditLog`, `KnowledgeArticle`, `ExternalLink`, `SyncEvent`; Faz 2: `ConfigurationItem`, `CIRelationship`, `ChangeRequest`, `ChangeApproval`, `StandardChangeTemplate`, `ChangeFreezeWindow`, `incident_cis` (olay ↔ CI), `CMDBExternalRef` |
 | `src/serviszeka/domain/` | Enum'lar ve ITIL etki × aciliyet öncelik matrisi (`calculate_priority`) |
-| `src/serviszeka/services/` | Olay yaşam döngüsü (oluştur, güncelle, iyimser kilitleme) |
-| `src/serviszeka/agents/` | Hizmet masası / olay ajanları (öneri üretir, uygulamaz) |
+| `src/serviszeka/services/` | Olay yaşam döngüsü (oluştur, güncelle, iyimser kilitleme); `cmdb` (CI, ilişkiler, etki analizi); `changes` (değişiklik durum makinesi, CAB/ECAB, takvim/çakışma, risk) — bkz. [`docs/faz2.md`](docs/faz2.md) |
+| `src/serviszeka/agents/` | Hizmet masası / olay ajanı (`service_desk`, triage) ve değişiklik risk ajanı (`change_risk`); politika izin vermedikçe yalnızca önerir |
 | `src/serviszeka/policy.py` | Politika motoru: `evaluate()` → `PolicyDecision` |
 | `src/serviszeka/audit.py` | Hash zincirli denetim kaydı: `record()`, `verify_chain()` |
 | `src/serviszeka/privacy.py` | KVKK PII maskeleme: `mask_pii()` |
-| `src/serviszeka/llm/` | `LLMClient` protokolü, `AnthropicLLM`, testler için `FakeLLM`, geliştirme için `SZ_LLM_PROVIDER=fake` |
+| `src/serviszeka/llm/` | `LLMClient` protokolü, `AnthropicLLM`, testler için `FakeLLM`, geliştirme/E2E için `SZ_LLM_PROVIDER=fake` (triage sınıflandırması + değişiklik risk anlatısı) |
 | `src/serviszeka/knowledge/` | Bilgi makaleleri ve arama (`search`, `create_article`) |
-| `src/serviszeka/integrations/` | ServiceNow ve Jira SM iki yönlü senkronizasyon |
-| `src/serviszeka/api/` | REST uçları: `incidents`, `knowledge`, `integrations`, `audit`, `me` |
+| `src/serviszeka/integrations/` | ServiceNow ve Jira SM iki yönlü senkronizasyon; ServiceNow CMDB çekimi (`servicenow_cmdb`, `POST /integrations/servicenow/cmdb/pull`); Jira Assets yalnızca arayüz taslağı |
+| `src/serviszeka/api/` | REST uçları: `incidents`, `knowledge`, `integrations`, `audit`, `me`, `cmdb`, `changes` |
 | `src/serviszeka/cors.py` | `SZ_CORS_ORIGINS` ayarından beslenen CORS ara katmanı |
 | `src/serviszeka/openapi_export.py` | OpenAPI şemasını portal tip üretimi için dışa aktarır |
 | `portal/` | Web portalı (Vite + React + TypeScript); bkz. `portal/README.md` |
@@ -79,7 +79,7 @@ Uygulama `http://localhost:8000` adresinde açılır; API belgeleri `http://loca
 
 ## Web portalı
 
-`portal/` altında Vite + React 18 + TypeScript (strict) ile yazılmış Türkçe arayüz: self-servis talep (`/talep`, `/taleplerim`), destek uzmanı çalışma alanı (`/kayitlar`), onay kutusu (`/onaylar`), bilgi bankası (`/bilgi-bankasi`) ve yönetim (`/yonetim/denetim`, `/yonetim/entegrasyonlar`). Ayrıntılar, ekran sahipliği ve kurallar: [`portal/README.md`](portal/README.md).
+`portal/` altında Vite + React 18 + TypeScript (strict) ile yazılmış Türkçe arayüz: self-servis talep (`/talep`, `/taleplerim`), destek uzmanı çalışma alanı (`/kayitlar`), onay kutusu (`/onaylar`), bilgi bankası (`/bilgi-bankasi`), değişiklik yönetimi (`/degisiklikler` liste + takvim, `/degisiklikler/yeni`, `/degisiklikler/:id` risk/CAB/geçişler), CMDB (`/cmdb`, `/cmdb/:id` etki grafiği) ve yönetim (`/yonetim/denetim`, `/yonetim/entegrasyonlar`). Ayrıntılar, ekran sahipliği ve kurallar: [`portal/README.md`](portal/README.md).
 
 Gereksinim: Node 22 ve npm.
 
@@ -104,7 +104,7 @@ npm run e2e        # Playwright: gerçek API (geçici SQLite, dev kimlik, sahte 
 npm run sync:api   # API değişince: openapi.json, src/api/schema.d.ts ve taksonomi kopyası
 ```
 
-Uçtan uca senaryolar (`portal/e2e/`): son kullanıcı talep açar ve Taleplerim'de görür; uzman yapay zekâ ile sınıflandırır (P1 önerisi → onay gerekli), onaylayıcı onaylar, uzman güncel önceliği görür; bayat öneri onayı 409 "yeniden triage gerekli" gösterir; bilgi bankası makalesi oluşturulur, yayınlanır ve aranır; yönetici denetim zincirini doğrular. `npm run e2e` API'yi (`127.0.0.1:8765`) ve Vite'ı (`127.0.0.1:5180`) kendisi başlatır; her çalıştırma boş bir geçici veritabanıyla başlar. Tarayıcı olarak Playwright'ın Chromium'u kullanılır (`npx playwright install chromium`; kurulu bir tarayıcı varsa `PLAYWRIGHT_BROWSERS_PATH`). Derlenmiş imaja karşı koşmak için: `E2E_WEB_URL=http://127.0.0.1:8080 npm run e2e`.
+Uçtan uca senaryolar (`portal/e2e/`): son kullanıcı talep açar ve Taleplerim'de görür; uzman yapay zekâ ile sınıflandırır (P1 önerisi → onay gerekli), onaylayıcı onaylar, uzman güncel önceliği görür; bayat öneri onayı 409 "yeniden triage gerekli" gösterir; bilgi bankası makalesi oluşturulur, yayınlanır ve aranır; yönetici denetim zincirini doğrular. Faz 2: change_manager bağımlısı olan bir CMDB CI'ı için normal RFC açar (canlı etki önizlemesi) → yapay zekâ riski değerlendirir → gönderir → CAB'a yollar; talep eden oy veremez (arayüz + API 403), iki CAB üyesi onaylar → zamanlanır; aynı CI'da çakışan ikinci değişiklik zamanlanamaz → uygulanır → PIR ile kapatılır (`change-flow`); şablondan standart değişiklik düşük riskte CAB'ı atlar, aynı şablon kritiklik-1 prod CI'da normal'e çevrilir ve CAB'sız zamanlanamaz (`standard-change`); son kullanıcı `/degisiklikler` ve `/cmdb`'ye ulaşamaz, API 403 (`requester-change-access`). `npm run e2e` API'yi (`127.0.0.1:8765`) ve Vite'ı (`127.0.0.1:5180`) kendisi başlatır; her çalıştırma boş bir geçici veritabanıyla başlar. Tarayıcı olarak Playwright'ın Chromium'u kullanılır (`npx playwright install chromium`; kurulu bir tarayıcı varsa `PLAYWRIGHT_BROWSERS_PATH`). Derlenmiş imaja karşı koşmak için: `E2E_WEB_URL=http://127.0.0.1:8080 npm run e2e`.
 
 **Üretim imajı.** `portal/Dockerfile` çok aşamalıdır: Node 22 ile derler, nginx ile (root olmayan kullanıcı, 8080) statik SPA olarak sunar. Bilinmeyen yollar `index.html`'e düşer (istemci tarafı yönlendirme); `/assets/` uzun süre önbelleklenir, `index.html` her seferinde doğrulanır, kaynak haritaları imaja girmez. Her yanıtta güvenlik başlıkları (`Content-Security-Policy`, `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy`, `Cross-Origin-Opener-Policy`, HSTS) bulunur. CSP sıkıdır: betik ve stil yalnızca kendi kökeninden (`'unsafe-inline'` yok); `connect-src` / `frame-src` / `form-action` için yalnızca çalışma zamanında verilen `PORTAL_API_ORIGIN` ve `PORTAL_OIDC_ORIGIN` kökenleri eklenir. `VITE_*` derleme argümanları pakete gömülür (gizli bilgi değildir).
 
@@ -133,10 +133,14 @@ Eksik/geçersiz belirteç → `401` (`WWW-Authenticate: Bearer`), yetersiz rol �
 
 | Rol | Yetki |
 |---|---|
-| `agent` | Olay ve bilgi makalesi okuma/oluşturma/güncelleme, triage başlatma |
+| `agent` | Olay ve bilgi makalesi okuma/oluşturma/güncelleme, triage başlatma; değişiklik açma, kendi taslağını gönderme, atandığı değişikliği uygulama, risk değerlendirmesi başlatma; CMDB okuma |
 | `approver` | Yapay zekâ kararlarını onaylama, senkron çakışmalarını listeleme/çözme; olay ve makaleleri okuma |
 | `admin` | Her şey: entegrasyon durumu, pull/push, denetim günlüğü (`/audit`) dahil; diğer tüm rolleri kapsar |
+| `change_manager` | Değişiklik açma, yetkilendirme/zamanlama/kapatma, CAB oyu ve ECAB onayı (kendi talebi/uygulayıcısı olduğu değişiklik hariç), yapay zekâ risk önerisini onaylama, CMDB yazma, standart değişiklik şablonları ve dondurma pencereleri |
+| `cab` | Değişiklik Danışma Kurulu: değişiklikleri ve CMDB'yi okur, değişiklikleri onaylar/reddeder (talep eden ve uygulayıcı kendi değişikliğini asla onaylayamaz) |
 | `requester` | Self-servis son kullanıcı: `POST /incidents` (arayan her zaman kendi kullanıcı adıdır; gövdedeki `caller` ve `impact` yok sayılır) ve yalnızca arayanı kendisi olan olayları `GET /incidents` / `GET /incidents/{id}` ile görür (başkasınınki `404`). Yapay zekâ kararlarını, triage'ı, SLA uyarılarını, bilgi bankasını göremez; yanıtlarda `ai_confidence` her zaman `null` döner |
+
+`requester` ve yalnızca `approver` rolündeki kullanıcı değişiklik (`/changes`) ve CMDB (`/cmdb`) uçlarını göremez. Faz 2 servis API'si, durum makinesi ve kapı kuralları: [`docs/faz2.md`](docs/faz2.md).
 
 Rolü olmayan ama kimliği doğrulanmış her kullanıcı `GET /me` ile `{username, roles, ai_confidence_threshold}` bilgisini alabilir (web portalı gezinmeyi buna göre kurar, güven göstergesi eşiği `SZ_AI_CONFIDENCE_THRESHOLD`'dan gelir).
 
@@ -196,6 +200,24 @@ SZ_ANTHROPIC_API_KEY=... uv run python evals/run_eval.py  # gerçek ölçüm; ka
 ```
 
 Sonuçlar `evals/results/` altına JSON ve Markdown olarak yazılır. Veri seti sentetiktir; yöntemi ve sınırları `evals/data/DATASET_CARD.md` içinde anlatılır. İzinli değerler `src/serviszeka/taxonomy.json`, etiketleme kuralları `evals/LABELING.md` dosyasındadır.
+
+## Faz 2 kapısı
+
+Kapı: **hiçbir riskli eylem onaysız çalışmıyor.** Kanıt `tests/test_gate_no_unapproved_risk.py` (ve `tests/test_changes.py` içindeki `test_gate_*`):
+
+```bash
+uv run pytest tests/test_gate_no_unapproved_risk.py -q
+```
+
+1. **Politika tablosu (kapsamlı ızgara).** `policy.POLICIES` içindeki her (ajan, eylem), her risk seviyesi, güven değerleri (0, eşik altı/üstü, 1, aralık dışı, NaN, ±sonsuz), eşikler (0 / 0,75 / 1) ve gölge mod açık/kapalı için `policy.evaluate` çağrılır. HIGH/CRITICAL hiçbir zaman `auto_applied` olmaz (yalnızca `needs_approval` / `escalated`); "asla otomatik" eylemler (`change.execute`, `change.approve`, `incident.resolve`) hiçbir koşulda otomatik uygulanmaz; otomatik uygulama yalnızca gölge mod kapalı, geçerli güven ≥ eşik ve risk ≤ eylemin sınırı iken olur. Tabloda HIGH/CRITICAL'e kadar otomatik izin veren eylem bulunamaz, değişiklik ajanlarının sınırı en fazla LOW'dur; listede olmayan eylem reddedilir.
+2. **Statik tarama (sezgisel).** `src/serviszeka/agents/*.py` AST ile taranır. Veritabanına yazan modül (`session.add/flush/...` ya da adı `apply_` / `update_` / `set_` / `_set_` ile başlayan bir uygulama çağrısı) `policy.evaluate`, `AIDecision(...)` ve `audit.record` içermelidir; uygulama çağrısı içeren her fonksiyonda uygulamadan önce `policy.evaluate` çağrılmalı ve fonksiyon `AUTO_APPLIED` sonucuna bakmalıdır. Tek istisna insan onayı yoludur (`approver`/`user` parametresi alıp `approved_by` yazan fonksiyon). Ajanlar `transition`, `record_approval`, `approve_ai_decision` çağıramaz ve `anthropic`'i doğrudan içe aktaramaz. Kural basit bir sezgiseldir, kod incelemesinin yerine geçmez; denetleyicinin bu ihlalleri gerçekten yakaladığı sentetik kaynaklarla ayrıca sınanır.
+3. **Davranış (API üzerinden).** Gölge mod kapalı, güven eşiği 0 olsa bile: `ai:` önekli aktör (yönetici rolleriyle bile) değişiklik durumunu değiştiremez, CAB onayı veremez, yapay zekâ kararını onaylayamaz; risk ajanı (`POST /changes/{id}/assess`) durumu hiç değiştirmez ve onay kaydı oluşturmaz. Normal değişiklik gerekli CAB onayları olmadan (0 ya da 1/2 onay, talep eden/uygulayıcı kendi onayı sayılmaz) `scheduled`/`implement`'e ulaşamaz; durum veritabanında zorla `scheduled` yapılsa bile uygulama anında yetki yeniden denetlenir. Yüksek riskli standart değişiklik normal'e çevrilir ve CAB'ı atlayamaz; risk sonradan zorla yükseltilirse uygulanamaz. Acil (ve başarısız) değişiklik PIR (`review_notes`; boş/boşluk kabul edilmez) olmadan kapanamaz; ECAB için CAB onayı yetmez, change_manager onayı gerekir. Triage P1/P2'yi onaysız uygulayamaz (`needs_approval`; öncelik değişmez, yalnızca onaylayıcı uygular). Bir kontrol testi aynı akışın gerekli onaylarla uygulamaya ulaştığını gösterir.
+
+**Değişiklik risk ajanı** (`agents/change_risk.py`, `POST /changes/{id}/assess`, agent/change_manager): önce belgelenmiş deterministik skor (tür, CMDB etki analizinden en yüksek kritiklik ve etkilenen iş hizmeti sayısı, prod, aynı CI'larda son 180 günde başarısız değişiklik oranı, son 30 günde kök CI'lara bağlı olaylar (`incident_cis`; bağ yoksa 0 ve kararda not edilir), eksik/zayıf geri dönüş planı); ardından LLM (hızlı model, `serviszeka.llm`) yalnızca Türkçe anlatı + kontrol listesi yazar ve gerekçeli en fazla ±10 düzeltme önerebilir; nihai skor 0–100'e kırpılır. Karar `AIDecision` (`change_risk.assess_risk`; girdiler, deterministik döküm, LLM çıktısı) ve denetim kaydı olarak saklanır; risk alanlarını yalnızca `policy.evaluate` `auto_applied` derse yazar (yükseltme). Düşürme `needs_approval` olur ve `POST /changes/decisions/{id}/approve` ile change_manager onaylar. Yalnızca `draft`/`assess` durumunda çalışır (aksi halde 422). `SZ_LLM_PROVIDER=fake` (geliştirme/E2E) deterministik skordan türetilmiş bir anlatı ve kontrol listesi döndürür (düzeltme her zaman 0), böylece "Riski değerlendir" API anahtarı olmadan da çalışır.
+
+4. **Uçtan uca (portal + gerçek API).** `portal/e2e/change-flow.spec.ts`, `standard-change.spec.ts`, `requester-change-access.spec.ts`: talep eden kendi değişikliğine oy veremez (API 403), 1 onayla zamanlama reddedilir (422), CAB üyesi zamanlayamaz, aynı CI'da çakışan değişiklik zamanlanamaz (409, çakışma diyaloğu), kritiklik-1 prod CI'daki "standart" değişiklik normal'e çevrilir ve doğrudan zamanlanamaz (422), son kullanıcı değişiklik/CMDB ekranlarına ve uçlarına erişemez.
+
+Ayarlar: `SZ_CAB_MIN_APPROVALS` (varsayılan 2, en az 1) normal değişiklik için gereken CAB onayıdır; aynı onaylayanın eşzamanlı ikinci oyu tekil kısıtla durdurulur ve `409` döner.
 
 ## Yol haritası
 

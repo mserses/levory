@@ -2,6 +2,8 @@ export { api, buildUrl, configureApiClient, request, requestWithMeta } from './c
 export type { ApiResponse, QueryParams, RequestOptions } from './client';
 export { ApiError, errorMessage, isApiError } from './errors';
 export type { FieldError } from './errors';
+export { changesApi, scheduleConflictsOf } from './changes';
+export { cmdbApi } from './cmdb';
 export { decisionsApi } from './decisions';
 export { incidentsApi } from './incidents';
 export { knowledgeApi } from './knowledge';

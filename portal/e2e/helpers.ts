@@ -1,6 +1,15 @@
-import { expect, type Browser, type Page } from '@playwright/test';
+import { expect, type APIRequestContext, type Browser, type Page } from '@playwright/test';
 
-export type E2ERole = 'requester' | 'agent' | 'approver' | 'admin';
+const ALL_ROLES = ['requester', 'agent', 'approver', 'change_manager', 'cab', 'admin'] as const;
+export type E2ERole = (typeof ALL_ROLES)[number];
+
+/** Backend adresi (Playwright `webServer` ile aynı port) */
+export const API = `http://127.0.0.1:${process.env.E2E_API_PORT ?? '8765'}`;
+
+/** Dev kimlik doğrulaması belirteci: `Bearer dev:<kullanıcı>:<roller>` */
+export const bearer = (user: string, roles: string) => ({
+  Authorization: `Bearer dev:${user}:${roles}`,
+});
 
 /** Her rol ayrı tarayıcı bağlamında (ayrı sessionStorage) dev girişiyle oturum açar. */
 export async function loginAs(browser: Browser, username: string, roles: E2ERole[]): Promise<Page> {
@@ -17,7 +26,7 @@ export async function loginAs(browser: Browser, username: string, roles: E2ERole
   });
   await page.goto('/giris');
   await page.getByLabel('Kullanıcı adı').fill(username);
-  for (const role of ['requester', 'agent', 'approver', 'admin'] as const) {
+  for (const role of ALL_ROLES) {
     const box = page.getByRole('checkbox', { name: new RegExp(`\\(${role}\\)`) });
     await box.setChecked(roles.includes(role));
   }
@@ -46,4 +55,51 @@ export function idFromUrl(page: Page): string {
   const id = new URL(page.url()).pathname.split('/').pop();
   if (!id) throw new Error(`URL'de kimlik yok: ${page.url()}`);
   return id;
+}
+
+/** Tarayıcı saat diliminde (playwright.config: Europe/Istanbul) datetime-local değeri */
+export function localInput(date: Date, timeZone = 'Europe/Istanbul'): string {
+  return new Intl.DateTimeFormat('sv-SE', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
+    .format(date)
+    .replace(' ', 'T');
+}
+
+/** API'den JSON gövdesiyle POST; beklenen durum kodunu doğrular */
+export async function apiPost<T>(
+  request: APIRequestContext,
+  path: string,
+  headers: Record<string, string>,
+  data: unknown,
+  expected = 201,
+): Promise<T> {
+  const response = await request.post(`${API}${path}`, { headers, data });
+  expect(response.status(), `${path}: ${await response.text()}`).toBe(expected);
+  return (await response.json()) as T;
+}
+
+export interface ChangeSnapshot {
+  number: string;
+  state: string;
+  change_type: string;
+  version: number;
+  risk_level: string | null;
+}
+
+/** Değişikliğin sunucudaki durumu/türü (UI geçişlerinden sonra doğrulama için) */
+export async function changeOf(
+  request: APIRequestContext,
+  id: string,
+  headers: Record<string, string>,
+): Promise<ChangeSnapshot> {
+  const response = await request.get(`${API}/changes/${id}`, { headers });
+  expect(response.ok()).toBeTruthy();
+  return (await response.json()) as ChangeSnapshot;
 }

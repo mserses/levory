@@ -22,6 +22,11 @@ const IncidentDetailPage = lazy(() => import('@/features/incidents/IncidentDetai
 const ApprovalsPage = lazy(() => import('@/features/approvals/ApprovalsPage'));
 const KnowledgeListPage = lazy(() => import('@/features/knowledge/KnowledgeListPage'));
 const KnowledgeArticlePage = lazy(() => import('@/features/knowledge/KnowledgeArticlePage'));
+const ChangeListPage = lazy(() => import('@/features/changes/ChangeListPage'));
+const NewChangePage = lazy(() => import('@/features/changes/NewChangePage'));
+const ChangeDetailPage = lazy(() => import('@/features/changes/ChangeDetailPage'));
+const CmdbListPage = lazy(() => import('@/features/cmdb/CmdbListPage'));
+const CIDetailPage = lazy(() => import('@/features/cmdb/CIDetailPage'));
 const AuditPage = lazy(() => import('@/features/admin/AuditPage'));
 const IntegrationsPage = lazy(() => import('@/features/admin/IntegrationsPage'));
 
@@ -56,6 +61,17 @@ export function AppRoutes() {
           path="bilgi-bankasi/:id"
           element={guard(ROUTE_ROLES.knowledge, <KnowledgeArticlePage />)}
         />
+        <Route path="degisiklikler" element={guard(ROUTE_ROLES.changes, <ChangeListPage />)} />
+        <Route
+          path="degisiklikler/yeni"
+          element={guard(ROUTE_ROLES.newChange, <NewChangePage />)}
+        />
+        <Route
+          path="degisiklikler/:id"
+          element={guard(ROUTE_ROLES.changes, <ChangeDetailPage />)}
+        />
+        <Route path="cmdb" element={guard(ROUTE_ROLES.cmdb, <CmdbListPage />)} />
+        <Route path="cmdb/:id" element={guard(ROUTE_ROLES.cmdb, <CIDetailPage />)} />
         <Route path="yonetim/denetim" element={guard(ROUTE_ROLES.audit, <AuditPage />)} />
         <Route
           path="yonetim/entegrasyonlar"

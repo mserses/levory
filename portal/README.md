@@ -49,10 +49,14 @@ Bitirmeden önce dördü de yeşil olmalı: `npm run typecheck && npm run lint &
 (`127.0.0.1:5180`). Her çalıştırma boş veritabanıyla başlar; senaryolar seri koşar ve her rol ayrı tarayıcı bağlamında
 `/giris` dev formuyla oturum açar. Senaryo sonunda sayfada yakalanmamış JS/konsol hatası olmadığı da doğrulanır.
 
-| Dosya                         | Senaryo                                                                                                  |
-| ----------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `e2e/incident-flow.spec.ts`   | Talep → Taleplerim; triage (P1 önerisi, onay gerekli) → onay → uzman P1'i görür; bayat onay → 409 mesajı |
-| `e2e/knowledge-admin.spec.ts` | Makale oluştur + yayınla + ara (`<mark>` vurgusu); yönetici denetim zincirini doğrular                   |
+| Dosya                                 | Senaryo                                                                                                                                                                                                              |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `e2e/incident-flow.spec.ts`           | Talep → Taleplerim; triage (P1 önerisi, onay gerekli) → onay → uzman P1'i görür; bayat onay → 409 mesajı                                                                                                             |
+| `e2e/knowledge-admin.spec.ts`         | Makale oluştur + yayınla + ara (`<mark>` vurgusu); yönetici denetim zincirini doğrular                                                                                                                               |
+| `e2e/requester-isolation.spec.ts`     | Son kullanıcı başkasının kaydını göremez, arayanı taklit edemez (arayüz + API)                                                                                                                                       |
+| `e2e/change-flow.spec.ts`             | change_manager bağımlısı olan CI için normal RFC → risk (sahte LLM) → gönder → CAB; talep eden oy veremez (403), iki CAB oyu → zamanla; çakışan ikinci değişiklik zamanlanamaz (409 diyaloğu) → uygula → PIR → kapat |
+| `e2e/standard-change.spec.ts`         | Şablondan standart değişiklik düşük riskte CAB'ı atlar; aynı şablon kritiklik-1 prod CI'da normal'e çevrilir, CAB'sız zamanlanamaz (422)                                                                             |
+| `e2e/requester-change-access.spec.ts` | Son kullanıcı `/degisiklikler`, `/cmdb` göremez (menü + yetkisiz sayfası); değişiklik/CMDB uçları 403                                                                                                                |
 
 - Tarayıcı: `@playwright/test` sürümüyle eşleşen Chromium (`npx playwright install chromium`; CI'da `--with-deps`).
 - Derlenmiş imaja karşı: `E2E_WEB_URL=http://127.0.0.1:8080 npm run e2e` (Vite başlatılmaz; imaj
@@ -109,19 +113,26 @@ src/
     approvals/         /onaylar
     knowledge/         /bilgi-bankasi, /bilgi-bankasi/:id
     admin/             /yonetim/denetim, /yonetim/entegrasyonlar
+    changes/           /degisiklikler, /degisiklikler/yeni, /degisiklikler/:id
+    cmdb/              /cmdb, /cmdb/:id
 ```
 
-| Rota                      | Sayfa dosyası                                 | Roller (`ROUTE_ROLES`)     | Ana uç nokta                                         |
-| ------------------------- | --------------------------------------------- | -------------------------- | ---------------------------------------------------- |
-| `/talep`                  | `features/self-service/NewRequestPage.tsx`    | requester, agent           | `POST /incidents`                                    |
-| `/taleplerim`             | `features/self-service/MyRequestsPage.tsx`    | requester, agent, approver | `GET /incidents?mine=true`                           |
-| `/kayitlar`               | `features/incidents/IncidentQueuePage.tsx`    | agent, approver            | `GET /incidents`                                     |
-| `/kayitlar/:id`           | `features/incidents/IncidentDetailPage.tsx`   | agent, approver            | `GET/PATCH /incidents/{id}`, `/triage`, `/decisions` |
-| `/onaylar`                | `features/approvals/ApprovalsPage.tsx`        | approver                   | `GET /incidents/decisions`, `POST …/approve`         |
-| `/bilgi-bankasi`          | `features/knowledge/KnowledgeListPage.tsx`    | agent, approver            | `GET /knowledge/articles`, `/knowledge/search`       |
-| `/bilgi-bankasi/:id`      | `features/knowledge/KnowledgeArticlePage.tsx` | agent, approver            | `GET /knowledge/articles/{id}`                       |
-| `/yonetim/denetim`        | `features/admin/AuditPage.tsx`                | admin                      | `GET /audit`, `/audit/verify`                        |
-| `/yonetim/entegrasyonlar` | `features/admin/IntegrationsPage.tsx`         | admin                      | `/integrations/*`                                    |
+| Rota                      | Sayfa dosyası                                 | Roller (`ROUTE_ROLES`)     | Ana uç nokta                                                          |
+| ------------------------- | --------------------------------------------- | -------------------------- | --------------------------------------------------------------------- |
+| `/talep`                  | `features/self-service/NewRequestPage.tsx`    | requester, agent           | `POST /incidents`                                                     |
+| `/taleplerim`             | `features/self-service/MyRequestsPage.tsx`    | requester, agent, approver | `GET /incidents?mine=true`                                            |
+| `/kayitlar`               | `features/incidents/IncidentQueuePage.tsx`    | agent, approver            | `GET /incidents`                                                      |
+| `/kayitlar/:id`           | `features/incidents/IncidentDetailPage.tsx`   | agent, approver            | `GET/PATCH /incidents/{id}`, `/triage`, `/decisions`                  |
+| `/onaylar`                | `features/approvals/ApprovalsPage.tsx`        | approver                   | `GET /incidents/decisions`, `POST …/approve`                          |
+| `/bilgi-bankasi`          | `features/knowledge/KnowledgeListPage.tsx`    | agent, approver            | `GET /knowledge/articles`, `/knowledge/search`                        |
+| `/bilgi-bankasi/:id`      | `features/knowledge/KnowledgeArticlePage.tsx` | agent, approver            | `GET /knowledge/articles/{id}`                                        |
+| `/yonetim/denetim`        | `features/admin/AuditPage.tsx`                | admin                      | `GET /audit`, `/audit/verify`                                         |
+| `/yonetim/entegrasyonlar` | `features/admin/IntegrationsPage.tsx`         | admin                      | `/integrations/*`                                                     |
+| `/degisiklikler`          | `features/changes/ChangeListPage.tsx`         | agent, change_manager, cab | `GET /changes`, `/changes/calendar`, `/approvals`                     |
+| `/degisiklikler/yeni`     | `features/changes/NewChangePage.tsx`          | agent, change_manager      | `POST /changes`, `/cmdb/impact`, `/changes/templates`                 |
+| `/degisiklikler/:id`      | `features/changes/ChangeDetailPage.tsx`       | agent, change_manager, cab | `/changes/{id}`, `/transition`, `/approvals`, `/assess`, `/decisions` |
+| `/cmdb`                   | `features/cmdb/CmdbListPage.tsx`              | agent, change_manager, cab | `GET /cmdb/cis`                                                       |
+| `/cmdb/:id`               | `features/cmdb/CIDetailPage.tsx`              | agent, change_manager, cab | `/cmdb/cis/{id}`, `/relationships`, `/impact`                         |
 
 `admin` her rolü kapsar. Rol yetmezse `RequireRole` 403 sayfası gösterir; **asıl yetki kontrolü backend'dedir**.
 

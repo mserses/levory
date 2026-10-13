@@ -92,9 +92,18 @@ class IncidentRead(BaseModel):
     sla_paused_at: UTCDateTime | None = None
     sla_paused_seconds: int = 0
     ai_confidence: float | None
+    # Etkilenen yapılandırma öğeleri (CMDB CI id'leri); self-servis kullanıcıya boş döner
+    ci_ids: list[str] = Field(default_factory=list)
     version: int
     created_at: UTCDateTime
     updated_at: UTCDateTime
+
+
+class IncidentCIsUpdate(BaseModel):
+    """PUT /incidents/{id}/cis gövdesi: etkilenen CI kümesi (verilen küme eskisinin yerini alır)."""
+
+    ci_ids: list[str] = Field(max_length=100)
+    expected_version: int | None = Field(default=None, ge=1)
 
 
 class AIDecisionRead(BaseModel):
@@ -102,6 +111,8 @@ class AIDecisionRead(BaseModel):
 
     id: str
     incident_id: str | None
+    # Değişiklik kararları (ör. change.assess_risk) olay yerine değişikliğe bağlıdır
+    change_id: str | None = None
     agent: str
     action: str
     input_summary: str

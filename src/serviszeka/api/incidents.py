@@ -26,12 +26,14 @@ from serviszeka.config import Settings, get_settings
 from serviszeka.db import get_session
 from serviszeka.domain.enums import DecisionOutcome, IncidentStatus, Priority
 from serviszeka.notifications import Notifier, get_notifier, send_pending
+from serviszeka.services import cmdb, sla
 from serviszeka.services import incidents as svc
-from serviszeka.services import sla
+from serviszeka.services.cmdb_schemas import CIRead
 from serviszeka.services.schemas import (
     AIDecisionRead,
     ApproveRequest,
     DecisionInboxItem,
+    IncidentCIsUpdate,
     IncidentCreate,
     IncidentCreateRequest,
     IncidentPatch,
@@ -99,8 +101,8 @@ async def _get_or_404(session: AsyncSession, incident_id: str, user: CurrentUser
 def _read(incident, user: CurrentUser) -> IncidentRead:
     out = IncidentRead.model_validate(incident)
     if user.is_requester_only:
-        # Self-servis kullanıcı yapay zekâ iç ayrıntılarını görmez
-        out = out.model_copy(update={"ai_confidence": None})
+        # Self-servis kullanıcı yapay zekâ ve CMDB iç ayrıntılarını görmez
+        out = out.model_copy(update={"ai_confidence": None, "ci_ids": []})
     return out
 
 
@@ -254,6 +256,44 @@ async def update_incident(
     except svc.VersionConflictError as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
     except svc.InvalidTransitionError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    await session.commit()
+    await session.refresh(incident)
+    response.headers["ETag"] = _etag(incident.version)
+    return IncidentRead.model_validate(incident)
+
+
+@router.get("/{incident_id}/cis", response_model=list[CIRead])
+async def list_incident_cis(
+    incident_id: str, session: SessionDep, _user: AgentUser
+) -> list[CIRead]:
+    """Olaydan etkilenen yapılandırma öğeleri (CMDB)."""
+    await _get_or_404(session, incident_id)
+    rows = await svc.list_affected_cis(session, incident_id)
+    return [CIRead.model_validate(r) for r in rows]
+
+
+@router.put("/{incident_id}/cis", response_model=IncidentRead)
+async def set_incident_cis(
+    incident_id: str,
+    body: IncidentCIsUpdate,
+    session: SessionDep,
+    response: Response,
+    user: AgentUser,
+    if_match: Annotated[str | None, Header()] = None,
+) -> IncidentRead:
+    """Etkilenen CI kümesini değiştirir; sürüm artar (bekleyen yapay zekâ önerisi bayatlar)."""
+    await _get_or_404(session, incident_id)
+    expected = _parse_if_match(if_match)
+    if expected is None:
+        expected = body.expected_version
+    try:
+        incident = await svc.set_affected_cis(
+            session, incident_id, body.ci_ids, user.username, expected_version=expected
+        )
+    except svc.VersionConflictError as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
+    except (svc.InvalidTransitionError, cmdb.CINotFoundError) as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
     await session.commit()
     await session.refresh(incident)

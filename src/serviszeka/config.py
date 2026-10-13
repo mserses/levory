@@ -4,7 +4,7 @@ import json
 from functools import lru_cache
 from typing import Annotated, Any, Literal
 
-from pydantic import field_validator
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     ai_confidence_threshold: float = 0.75
     # Gölge mod: ajanlar önerir ama uygulamaz.
     ai_shadow_mode: bool = True
+
+    # Değişiklik yönetimi: normal değişikliğin yetkilendirilmesi için gereken en az CAB onayı
+    cab_min_approvals: int = Field(default=2, ge=1)
 
     # ITSM entegrasyonları
     servicenow_instance_url: str | None = None

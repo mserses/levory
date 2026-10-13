@@ -32,6 +32,17 @@ POLICIES: dict[tuple[str, str], ActionPolicy] = {
     ("knowledge", "draft_article"): ActionPolicy(RiskLevel.LOW, "Bilgi makalesi taslağı"),
     ("incident", "resolve"): ActionPolicy(None, "Olayı çözüldü olarak kapatma"),
     ("change", "execute"): ActionPolicy(None, "Değişikliği uygulama (asla otomatik)"),
+    # Faz 2: yapay zekâ yalnızca risk skoru/seviyesi önerir. Riski yükselten öneri LOW risktir
+    # (gölge mod kapalı + güven yeterliyse uygulanır); düşüren öneri HIGH -> insan onayı.
+    # Durum geçişi asla bu eylemle yapılmaz (services/changes.propose_ai_risk).
+    ("change", "assess_risk"): ActionPolicy(
+        RiskLevel.LOW, "Değişiklik risk skoru/seviyesi önerisi (yalnızca yükseltme otomatik)"
+    ),
+    ("change", "approve"): ActionPolicy(None, "Değişikliği CAB adına onaylama (asla otomatik)"),
+    # Değişiklik risk ajanı (agents/change_risk): change.assess_risk ile aynı kural
+    ("change_risk", "assess_risk"): ActionPolicy(
+        RiskLevel.LOW, "Ajan risk değerlendirmesi (yalnızca yükseltme otomatik)"
+    ),
 }
 
 

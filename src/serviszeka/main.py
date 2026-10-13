@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from serviszeka import __version__, auth
-from serviszeka.api import audit, incidents, integrations, knowledge, me
+from serviszeka.api import audit, changes, cmdb, incidents, integrations, knowledge, me
 from serviszeka.config import get_settings
 from serviszeka.cors import SettingsCORSMiddleware
 from serviszeka.db import create_all
@@ -33,6 +33,8 @@ app.include_router(incidents.router)
 app.include_router(knowledge.router)
 app.include_router(integrations.router)
 app.include_router(audit.router)
+app.include_router(cmdb.router)
+app.include_router(changes.router)
 
 
 # Kimlik doğrulamasız tek uç nokta (ve /docs, /openapi.json)

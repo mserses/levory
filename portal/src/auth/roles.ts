@@ -1,5 +1,5 @@
 /** Roller backend ile aynıdır (serviszeka.auth). admin tüm rolleri kapsar. */
-export const ROLES = ['requester', 'agent', 'approver', 'admin'] as const;
+export const ROLES = ['requester', 'agent', 'approver', 'change_manager', 'cab', 'admin'] as const;
 export type Role = (typeof ROLES)[number];
 
 export function isRole(value: string): value is Role {
@@ -13,7 +13,10 @@ export function hasAnyRole(userRoles: readonly string[], required: readonly Role
   return required.some((r) => userRoles.includes(r));
 }
 
-/** Yalnızca self-servis kullanıcı mı (backend `is_requester_only` ile aynı mantık)? */
+/**
+ * Yalnızca self-servis kullanıcı mı (backend `is_requester_only` ile aynı mantık)? Olay ekranları
+ * için geçerlidir: yalnızca cab/change_manager olan kullanıcı da olaylarda self-servis sayılır.
+ */
 export function isRequesterOnly(userRoles: readonly string[]): boolean {
   return !hasAnyRole(userRoles, ['agent', 'approver']);
 }

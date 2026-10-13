@@ -39,6 +39,17 @@ jobs:
           uv run alembic upgrade head
           uv run alembic check
 
+      - name: Göçler (Faz 1 şemasından yükseltme ve geri alma)
+        env:
+          SZ_DATABASE_URL: sqlite+aiosqlite:///./ci-upgrade.db
+        run: |
+          uv run alembic upgrade 0004
+          uv run alembic upgrade head
+          uv run alembic check
+          uv run alembic downgrade 0004
+          uv run alembic upgrade head
+          uv run alembic check
+
   portal:
     name: portal (typecheck, lint, test, build, E2E)
     runs-on: ubuntu-latest

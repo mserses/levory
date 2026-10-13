@@ -7,6 +7,9 @@ Roller:
 - ``agent``: olay ve bilgi bankası okuma/oluşturma/güncelleme, triage başlatma
 - ``approver``: yapay zekâ kararlarını onaylama, senkron çakışmalarını çözme
 - ``admin``: her şey (entegrasyon pull/push, denetim günlüğü dahil); tüm rolleri kapsar
+- ``change_manager``: değişiklik yönetimi (yetkilendirme, zamanlama, ECAB onayı), CMDB yazma,
+  standart değişiklik şablonları ve dondurma pencereleri
+- ``cab``: Değişiklik Danışma Kurulu üyesi; değişiklikleri okur ve onaylar/reddeder
 - ``requester``: self-servis son kullanıcı; yalnızca kendi adına kayıt açar ve yalnızca
   arayanı (caller) kendisi olan kayıtları görür. Yapay zekâ kararlarını (iç ayrıntılar) göremez.
 """
@@ -32,6 +35,8 @@ ROLE_AGENT = "agent"
 ROLE_APPROVER = "approver"
 ROLE_ADMIN = "admin"
 ROLE_REQUESTER = "requester"
+ROLE_CHANGE_MANAGER = "change_manager"
+ROLE_CAB = "cab"
 
 # Simetrik (HS*) ve imzasız ('none') algoritmalar asla kabul edilmez
 ALLOWED_ALGORITHMS: dict[str, str] = {"RS256": "RSA", "ES256": "EC"}
@@ -381,3 +386,16 @@ CreatorUser = Annotated[CurrentUser, Depends(require_roles(ROLE_AGENT, ROLE_REQU
 IncidentViewerUser = Annotated[
     CurrentUser, Depends(require_roles(ROLE_AGENT, ROLE_APPROVER, ROLE_REQUESTER))
 ]
+# Değişiklik yönetimi: requester (self-servis) ve yalnızca approver olan kullanıcı göremez
+ChangeViewerUser = Annotated[
+    CurrentUser, Depends(require_roles(ROLE_AGENT, ROLE_CHANGE_MANAGER, ROLE_CAB))
+]
+ChangeCreatorUser = Annotated[
+    CurrentUser, Depends(require_roles(ROLE_AGENT, ROLE_CHANGE_MANAGER))
+]
+ChangeManagerUser = Annotated[CurrentUser, Depends(require_roles(ROLE_CHANGE_MANAGER))]
+# CAB onayı: CAB üyesi veya değişiklik yöneticisi (ECAB)
+CabUser = Annotated[CurrentUser, Depends(require_roles(ROLE_CAB, ROLE_CHANGE_MANAGER))]
+# CMDB: agent/CAB/değişiklik yöneticisi okur, yalnızca değişiklik yöneticisi yazar
+CMDBReaderUser = ChangeViewerUser
+CMDBWriterUser = ChangeManagerUser

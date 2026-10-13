@@ -1,0 +1,219 @@
+.sectionTitle {
+  margin: 0;
+  font-size: var(--text-lg);
+}
+.filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: var(--space-4);
+  align-items: end;
+}
+.search {
+  display: flex;
+  gap: var(--space-2);
+  align-items: end;
+  grid-column: span 2;
+  min-width: 0;
+}
+.search > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+@media (max-width: 480px) {
+  .search {
+    grid-column: auto;
+  }
+}
+.tableWrap {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  overflow-x: auto;
+}
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+.table caption {
+  text-align: start;
+  padding: var(--space-2) var(--space-3);
+  font-weight: var(--weight-semibold);
+}
+.table th {
+  text-align: start;
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-muted);
+  background: var(--color-surface-muted);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+}
+.table td {
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: top;
+}
+.table tbody tr:last-child td {
+  border-bottom: 0;
+}
+.grid {
+  display: grid;
+  gap: var(--space-6);
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+}
+@media (min-width: 1024px) {
+  .grid {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  }
+}
+.fields {
+  display: grid;
+  grid-template-columns: minmax(7rem, max-content) minmax(0, 1fr);
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+}
+.fields dt {
+  color: var(--color-text-muted);
+}
+.fields dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.panelHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.linkList {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.linkList li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* Etki grafiği */
+.graphWrap {
+  display: grid;
+  gap: var(--space-2);
+  overflow-x: auto;
+  padding: var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-muted);
+}
+.graph {
+  display: block;
+  max-width: none;
+}
+.edge {
+  stroke: var(--color-border-strong);
+  stroke-width: 1.5;
+}
+.arrow {
+  fill: var(--color-border-strong);
+}
+.node {
+  cursor: default;
+}
+.node[role='link'] {
+  cursor: pointer;
+}
+.node:focus {
+  outline: none;
+}
+.nodeRect {
+  fill: var(--tone-neutral-bg);
+  stroke: var(--tone-neutral-border);
+  stroke-width: 1.5;
+}
+.node[data-root='true'] .nodeRect {
+  stroke-width: 3;
+  stroke-dasharray: 4 3;
+}
+.node:focus-visible .nodeRect,
+.node[role='link']:hover .nodeRect {
+  stroke: var(--color-focus);
+  stroke-width: 3;
+}
+.nodeName {
+  fill: var(--color-text);
+  font-size: 13px;
+  font-weight: 600;
+}
+.nodeMeta {
+  fill: var(--color-text-muted);
+  font-size: 11px;
+}
+.critPill {
+  fill: var(--color-surface);
+  stroke: currentColor;
+}
+.critText {
+  fill: var(--color-text);
+  font-size: 11px;
+  font-weight: 700;
+}
+.node[data-criticality='1'] .nodeRect,
+.legend [data-criticality='1'] .legendSwatch {
+  fill: var(--tone-danger-bg);
+  stroke: var(--tone-danger-border);
+  background: var(--tone-danger-bg);
+  border-color: var(--tone-danger-border);
+}
+.node[data-criticality='2'] .nodeRect,
+.legend [data-criticality='2'] .legendSwatch {
+  fill: var(--tone-warning-bg);
+  stroke: var(--tone-warning-border);
+  background: var(--tone-warning-bg);
+  border-color: var(--tone-warning-border);
+}
+.node[data-criticality='3'] .nodeRect,
+.legend [data-criticality='3'] .legendSwatch {
+  fill: var(--tone-info-bg);
+  stroke: var(--tone-info-border);
+  background: var(--tone-info-bg);
+  border-color: var(--tone-info-border);
+}
+.node[data-criticality='4'] .nodeRect,
+.legend [data-criticality='4'] .legendSwatch {
+  fill: var(--tone-neutral-bg);
+  stroke: var(--tone-neutral-border);
+  background: var(--tone-neutral-bg);
+  border-color: var(--tone-neutral-border);
+}
+.node:focus-visible .nodeRect {
+  stroke: var(--color-focus);
+}
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-sm);
+}
+.legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.legendSwatch {
+  display: inline-block;
+  width: 0.9rem;
+  height: 0.9rem;
+  border: 1.5px solid;
+  border-radius: var(--radius-sm);
+}

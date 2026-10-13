@@ -38,6 +38,393 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/changes': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Changes */
+    get: operations['list_changes_changes_get'];
+    put?: never;
+    /** Create Change */
+    post: operations['create_change_changes_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/changes/calendar': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Change Calendar
+     * @description [from, to) aralığına değen değişiklikler (taslak/iptal/red hariç) + dondurma pencereleri.
+     */
+    get: operations['change_calendar_changes_calendar_get'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/changes/decisions/{decision_id}/approve': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Approve Decision
+     * @description Yapay zekâ risk önerisini onaylar (yalnızca risk alanları uygulanır, durum değişmez).
+     */
+    post: operations['approve_decision_changes_decisions__decision_id__approve_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/changes/freeze-windows': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Freeze Windows */
+    get: operations['list_freeze_windows_changes_freeze_windows_get'];
+    put?: never;
+    /** Create Freeze Window */
+    post: operations['create_freeze_window_changes_freeze_windows_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/changes/freeze-windows/{window_id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** Delete Freeze Window */
+    delete: operations['delete_freeze_window_changes_freeze_windows__window_id__delete'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/changes/templates': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Templates */
+    get: operations['list_templates_changes_templates_get'];
+    put?: never;
+    /** Create Template */
+    post: operations['create_template_changes_templates_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/changes/templates/{template_id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /** Update Template */
+    patch: operations['update_template_changes_templates__template_id__patch'];
+    trace?: never;
+  };
+  '/changes/{change_id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Change */
+    get: operations['get_change_changes__change_id__get'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /** Update Change */
+    patch: operations['update_change_changes__change_id__patch'];
+    trace?: never;
+  };
+  '/changes/{change_id}/approvals': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Approvals */
+    get: operations['list_approvals_changes__change_id__approvals_get'];
+    put?: never;
+    /** Create Approval */
+    post: operations['create_approval_changes__change_id__approvals_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/changes/{change_id}/assess': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Assess Risk
+     * @description Yapay zekâ risk değerlendirmesi (agents/change_risk). Yalnızca risk alanları, politika izin
+     *     verirse yazılır; durum geçişi ve onay asla yapılmaz. Riski düşüren öneri change_manager onayı
+     *     bekler (`POST /changes/decisions/{id}/approve`).
+     */
+    post: operations['assess_risk_changes__change_id__assess_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/changes/{change_id}/conflicts': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Conflicts
+     * @description Planlanan penceredeki dondurma ve aynı-CI çakışmaları (zamanlama öncesi kontrol).
+     */
+    get: operations['conflicts_changes__change_id__conflicts_get'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/changes/{change_id}/decisions': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Decisions */
+    get: operations['list_decisions_changes__change_id__decisions_get'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/changes/{change_id}/impact': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Change Impact
+     * @description Etkilenen CI'ların CMDB etki analizi (CAB değerlendirmesi için).
+     */
+    get: operations['change_impact_changes__change_id__impact_get'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/changes/{change_id}/transition': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Transition
+     * @description Durum geçişi. Kim hangi geçişi yapabilir, servis katmanı denetler (403).
+     */
+    post: operations['transition_changes__change_id__transition_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/cmdb/cis': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Cis */
+    get: operations['list_cis_cmdb_cis_get'];
+    put?: never;
+    /** Create Ci */
+    post: operations['create_ci_cmdb_cis_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/cmdb/cis/{ci_id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Ci */
+    get: operations['get_ci_cmdb_cis__ci_id__get'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /** Update Ci */
+    patch: operations['update_ci_cmdb_cis__ci_id__patch'];
+    trace?: never;
+  };
+  '/cmdb/cis/{ci_id}/impact': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Ci Impact */
+    get: operations['ci_impact_cmdb_cis__ci_id__impact_get'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/cmdb/cis/{ci_id}/relationships': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Relationships */
+    get: operations['list_relationships_cmdb_cis__ci_id__relationships_get'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/cmdb/impact': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Impact
+     * @description Verilen CI'lar değişirse kim etkilenir (yukarı yönlü bağımlılar, döngü güvenli).
+     */
+    post: operations['impact_cmdb_impact_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/cmdb/relationships': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Create Relationship */
+    post: operations['create_relationship_cmdb_relationships_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/cmdb/relationships/{rel_id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** Delete Relationship */
+    delete: operations['delete_relationship_cmdb_relationships__rel_id__delete'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/health': {
     parameters: {
       query?: never;
@@ -145,6 +532,30 @@ export interface paths {
     patch: operations['update_incident_incidents__incident_id__patch'];
     trace?: never;
   };
+  '/incidents/{incident_id}/cis': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Incident Cis
+     * @description Olaydan etkilenen yapılandırma öğeleri (CMDB).
+     */
+    get: operations['list_incident_cis_incidents__incident_id__cis_get'];
+    /**
+     * Set Incident Cis
+     * @description Etkilenen CI kümesini değiştirir; sürüm artar (bekleyen yapay zekâ önerisi bayatlar).
+     */
+    put: operations['set_incident_cis_incidents__incident_id__cis_put'];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/incidents/{incident_id}/decisions': {
     parameters: {
       query?: never;
@@ -224,6 +635,26 @@ export interface paths {
     put?: never;
     /** Push */
     post: operations['push_integrations_push__incident_id__post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/integrations/servicenow/cmdb/pull': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Pull Servicenow Cmdb
+     * @description ServiceNow CMDB'sinden (cmdb_ci seçili sınıflar + cmdb_rel_ci) CI ve ilişkileri içe alır.
+     */
+    post: operations['pull_servicenow_cmdb_integrations_servicenow_cmdb_pull_post'];
     delete?: never;
     options?: never;
     head?: never;
@@ -382,6 +813,8 @@ export interface components {
       approved_at: string | null;
       /** Approved By */
       approved_by: string | null;
+      /** Change Id */
+      change_id?: string | null;
       /** Confidence */
       confidence: number;
       /**
@@ -408,6 +841,64 @@ export interface components {
       rationale: string;
       /** Sources */
       sources: string[];
+    };
+    /** ApprovalCreate */
+    ApprovalCreate: {
+      /** Approver */
+      approver?: string | null;
+      /**
+       * Comment
+       * @default
+       */
+      comment: string;
+      decision: components['schemas']['ApprovalDecision'];
+    };
+    /**
+     * ApprovalDecision
+     * @enum {string}
+     */
+    ApprovalDecision: 'approve' | 'reject';
+    /** ApprovalListRead */
+    ApprovalListRead: {
+      /** Items */
+      items: components['schemas']['ApprovalRead'][];
+      status: components['schemas']['ApprovalStatusRead'];
+    };
+    /** ApprovalRead */
+    ApprovalRead: {
+      /** Approver */
+      approver: string;
+      /** Approver Roles */
+      approver_roles: string[];
+      /** Change Id */
+      change_id: string;
+      /** Comment */
+      comment: string;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      decision: components['schemas']['ApprovalDecision'];
+      /** Id */
+      id: string;
+    };
+    /** ApprovalStatusRead */
+    ApprovalStatusRead: {
+      /**
+       * Approvals
+       * @description Sayılan geçerli onaylar (acilde yalnızca change_manager)
+       */
+      approvals: number;
+      /** Rejections */
+      rejections: number;
+      /**
+       * Required
+       * @description Gereken geçerli onay (normal: CAB eşiği, acil: 1)
+       */
+      required: number;
+      /** Satisfied */
+      satisfied: boolean;
     };
     /** ApproveRequest */
     ApproveRequest: {
@@ -528,6 +1019,346 @@ export interface components {
       total: number;
     };
     /**
+     * CIClass
+     * @enum {string}
+     */
+    CIClass:
+      | 'application'
+      | 'service'
+      | 'server'
+      | 'database'
+      | 'network_device'
+      | 'cloud_resource';
+    /** CICreate */
+    CICreate: {
+      /** Attributes */
+      attributes?: {
+        [key: string]: unknown;
+      };
+      ci_class: components['schemas']['CIClass'];
+      /**
+       * Criticality
+       * @description 1 = en kritik, 4 = en az kritik
+       * @default 3
+       */
+      criticality: number;
+      /**
+       * Description
+       * @default
+       */
+      description: string;
+      /** @default prod */
+      environment: components['schemas']['CIEnvironment'];
+      /** External Refs */
+      external_refs?: {
+        [key: string]: unknown;
+      };
+      /** Name */
+      name: string;
+      /** Owner Group */
+      owner_group?: string | null;
+      /** @default active */
+      status: components['schemas']['CIStatus'];
+    };
+    /**
+     * CIEnvironment
+     * @enum {string}
+     */
+    CIEnvironment: 'prod' | 'test' | 'dev';
+    /**
+     * CIPatch
+     * @description PATCH gövdesi: If-Match başlığı yerine sürüm gövdede de verilebilir.
+     */
+    CIPatch: {
+      /** Attributes */
+      attributes?: {
+        [key: string]: unknown;
+      } | null;
+      ci_class?: components['schemas']['CIClass'] | null;
+      /** Criticality */
+      criticality?: number | null;
+      /** Description */
+      description?: string | null;
+      environment?: components['schemas']['CIEnvironment'] | null;
+      /** Expected Version */
+      expected_version?: number | null;
+      /** External Refs */
+      external_refs?: {
+        [key: string]: unknown;
+      } | null;
+      /** Name */
+      name?: string | null;
+      /** Owner Group */
+      owner_group?: string | null;
+      status?: components['schemas']['CIStatus'] | null;
+    };
+    /** CIRead */
+    CIRead: {
+      /** Attributes */
+      attributes: {
+        [key: string]: unknown;
+      };
+      ci_class: components['schemas']['CIClass'];
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Criticality */
+      criticality: number;
+      /** Description */
+      description: string;
+      environment: components['schemas']['CIEnvironment'];
+      /** External Refs */
+      external_refs: {
+        [key: string]: unknown;
+      };
+      /** Id */
+      id: string;
+      /** Name */
+      name: string;
+      /** Owner Group */
+      owner_group: string | null;
+      status: components['schemas']['CIStatus'];
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+      /** Version */
+      version: number;
+    };
+    /** CIRelationshipCreate */
+    CIRelationshipCreate: {
+      /** Source Id */
+      source_id: string;
+      /** Target Id */
+      target_id: string;
+      type: components['schemas']['CIRelationshipType'];
+    };
+    /** CIRelationshipRead */
+    CIRelationshipRead: {
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Created By */
+      created_by: string;
+      /** Id */
+      id: string;
+      /** Source Id */
+      source_id: string;
+      /** Target Id */
+      target_id: string;
+      type: components['schemas']['CIRelationshipType'];
+    };
+    /**
+     * CIRelationshipType
+     * @description Kaynak -> hedef ilişkisi.
+     *
+     *     Etki yönü: depends_on / runs_on / connects_to'da hedef değişirse kaynak etkilenir;
+     *     part_of'ta parça (kaynak) değişirse bütün (hedef) etkilenir.
+     * @enum {string}
+     */
+    CIRelationshipType: 'depends_on' | 'runs_on' | 'connects_to' | 'part_of';
+    /**
+     * CIStatus
+     * @enum {string}
+     */
+    CIStatus: 'planned' | 'active' | 'maintenance' | 'retired';
+    /** CMDBPullCounts */
+    CMDBPullCounts: {
+      /** Created */
+      created: number;
+      /** Skipped */
+      skipped: number;
+      /** Unchanged */
+      unchanged: number;
+      /** Updated */
+      updated: number;
+    };
+    /** CMDBPullError */
+    CMDBPullError: {
+      /** Entity Type */
+      entity_type: string;
+      /** External Id */
+      external_id: string;
+      /** Message */
+      message: string;
+    };
+    /** CMDBPullResult */
+    CMDBPullResult: {
+      cis: components['schemas']['CMDBPullCounts'];
+      /** Errors */
+      errors: components['schemas']['CMDBPullError'][];
+      /** Full */
+      full: boolean;
+      relationships: components['schemas']['CMDBPullCounts'];
+      /** Since */
+      since: {
+        [key: string]: string | null;
+      };
+      system: components['schemas']['ExternalSystem'];
+    };
+    /** CalendarRead */
+    CalendarRead: {
+      /** Changes */
+      changes: components['schemas']['ChangeRead'][];
+      /** Freeze Windows */
+      freeze_windows: components['schemas']['FreezeWindowRead'][];
+    };
+    /** ChangeCreate */
+    ChangeCreate: {
+      /** Affected Ci Ids */
+      affected_ci_ids?: string[];
+      /** Assignee */
+      assignee?: string | null;
+      /** Assignment Group */
+      assignment_group?: string | null;
+      /**
+       * Backout Plan
+       * @default
+       */
+      backout_plan: string;
+      change_type: components['schemas']['ChangeType'];
+      /**
+       * Description
+       * @default
+       */
+      description: string;
+      /**
+       * Implementation Plan
+       * @default
+       */
+      implementation_plan: string;
+      /** Linked Incident Ids */
+      linked_incident_ids?: string[];
+      /** Planned End */
+      planned_end?: string | null;
+      /** Planned Start */
+      planned_start?: string | null;
+      /** Template Id */
+      template_id?: string | null;
+      /**
+       * Test Plan
+       * @default
+       */
+      test_plan: string;
+      /** Title */
+      title: string;
+    };
+    /**
+     * ChangePatch
+     * @description PATCH gövdesi: If-Match başlığı yerine sürüm gövdede de verilebilir.
+     */
+    ChangePatch: {
+      /** Affected Ci Ids */
+      affected_ci_ids?: string[] | null;
+      /** Assignee */
+      assignee?: string | null;
+      /** Assignment Group */
+      assignment_group?: string | null;
+      /** Backout Plan */
+      backout_plan?: string | null;
+      /** Description */
+      description?: string | null;
+      /** Expected Version */
+      expected_version?: number | null;
+      /** Implementation Plan */
+      implementation_plan?: string | null;
+      /** Linked Incident Ids */
+      linked_incident_ids?: string[] | null;
+      /** Planned End */
+      planned_end?: string | null;
+      /** Planned Start */
+      planned_start?: string | null;
+      /** Test Plan */
+      test_plan?: string | null;
+      /** Title */
+      title?: string | null;
+    };
+    /** ChangeRead */
+    ChangeRead: {
+      /** Actual End */
+      actual_end: string | null;
+      /** Actual Start */
+      actual_start: string | null;
+      /** Affected Ci Ids */
+      affected_ci_ids: string[];
+      /** Assignee */
+      assignee: string | null;
+      /** Assignment Group */
+      assignment_group: string | null;
+      /** Backout Plan */
+      backout_plan: string;
+      change_type: components['schemas']['ChangeType'];
+      /** Closed At */
+      closed_at: string | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Description */
+      description: string;
+      /** Id */
+      id: string;
+      /** Implementation Outcome */
+      implementation_outcome: string | null;
+      /** Implementation Plan */
+      implementation_plan: string;
+      /** Linked Incident Ids */
+      linked_incident_ids: string[];
+      /** Number */
+      number: string;
+      /** Planned End */
+      planned_end: string | null;
+      /** Planned Start */
+      planned_start: string | null;
+      /** Requested By */
+      requested_by: string;
+      /** Review Notes */
+      review_notes: string | null;
+      risk_level: components['schemas']['RiskLevel'] | null;
+      /** Risk Score */
+      risk_score: number | null;
+      state: components['schemas']['ChangeState'];
+      /** Template Id */
+      template_id: string | null;
+      /** Test Plan */
+      test_plan: string;
+      /** Title */
+      title: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+      /** Version */
+      version: number;
+    };
+    /**
+     * ChangeState
+     * @enum {string}
+     */
+    ChangeState:
+      | 'draft'
+      | 'assess'
+      | 'authorize'
+      | 'scheduled'
+      | 'implement'
+      | 'review'
+      | 'closed'
+      | 'rejected'
+      | 'cancelled'
+      | 'failed';
+    /**
+     * ChangeType
+     * @enum {string}
+     */
+    ChangeType: 'standard' | 'normal' | 'emergency';
+    /**
      * DecisionInboxItem
      * @description Onay kutusu satırı: karar + bağlı olayın numarası/başlığı.
      */
@@ -540,6 +1371,8 @@ export interface components {
       approved_at: string | null;
       /** Approved By */
       approved_by: string | null;
+      /** Change Id */
+      change_id?: string | null;
       /** Confidence */
       confidence: number;
       /**
@@ -586,6 +1419,52 @@ export interface components {
      * @enum {string}
      */
     ExternalSystem: 'servicenow' | 'jira_sm';
+    /** FreezeWindowCreate */
+    FreezeWindowCreate: {
+      /**
+       * End At
+       * Format: date-time
+       */
+      end_at: string;
+      /** Environments */
+      environments?: components['schemas']['CIEnvironment'][];
+      /**
+       * Reason
+       * @default
+       */
+      reason: string;
+      /**
+       * Start At
+       * Format: date-time
+       */
+      start_at: string;
+    };
+    /** FreezeWindowRead */
+    FreezeWindowRead: {
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Created By */
+      created_by: string;
+      /**
+       * End At
+       * Format: date-time
+       */
+      end_at: string;
+      /** Environments */
+      environments: components['schemas']['CIEnvironment'][];
+      /** Id */
+      id: string;
+      /** Reason */
+      reason: string;
+      /**
+       * Start At
+       * Format: date-time
+       */
+      start_at: string;
+    };
     /** HTTPValidationError */
     HTTPValidationError: {
       /** Detail */
@@ -596,11 +1475,64 @@ export interface components {
      * @enum {string}
      */
     Impact: 'high' | 'medium' | 'low';
+    /** ImpactRead */
+    ImpactRead: {
+      /** Affected */
+      affected: components['schemas']['ImpactedCIRead'][];
+      /**
+       * Business Services
+       * @description Kökler ve etkilenenler arasındaki iş hizmetleri (ci_class=service)
+       */
+      business_services: components['schemas']['CIRead'][];
+      /**
+       * Highest Criticality
+       * @description Kökler + etkilenenler içindeki en yüksek kritiklik (en küçük sayı)
+       */
+      highest_criticality: number | null;
+      /** Root Ci Ids */
+      root_ci_ids: string[];
+    };
+    /** ImpactRequest */
+    ImpactRequest: {
+      /** Ci Ids */
+      ci_ids: string[];
+      /**
+       * Max Depth
+       * @default 5
+       */
+      max_depth: number;
+    };
+    /** ImpactedCIRead */
+    ImpactedCIRead: {
+      ci: components['schemas']['CIRead'];
+      /**
+       * Depth
+       * @description Değişen CI'a uzaklık (1 = doğrudan etkilenen)
+       */
+      depth: number;
+      /**
+       * Path
+       * @description Kök CI'dan bu CI'a giden CI id yolu (kök dahil)
+       */
+      path: string[];
+      /** @description Bu CI'a ulaştıran son ilişki türü */
+      relationship: components['schemas']['CIRelationshipType'];
+    };
     /**
      * InboxOutcome
      * @enum {string}
      */
     InboxOutcome: 'needs_approval' | 'suggested' | 'escalated';
+    /**
+     * IncidentCIsUpdate
+     * @description PUT /incidents/{id}/cis gövdesi: etkilenen CI kümesi (verilen küme eskisinin yerini alır).
+     */
+    IncidentCIsUpdate: {
+      /** Ci Ids */
+      ci_ids: string[];
+      /** Expected Version */
+      expected_version?: number | null;
+    };
     /**
      * IncidentCreateRequest
      * @description POST /incidents gövdesi.
@@ -669,6 +1601,8 @@ export interface components {
       caller: string;
       /** Category */
       category: string | null;
+      /** Ci Ids */
+      ci_ids?: string[];
       /**
        * Created At
        * Format: date-time
@@ -747,6 +1681,11 @@ export interface components {
      * @enum {string}
      */
     Priority: 'P1' | 'P2' | 'P3' | 'P4' | 'P5';
+    /**
+     * RiskLevel
+     * @enum {string}
+     */
+    RiskLevel: 'low' | 'medium' | 'high' | 'critical';
     /** SLAAlertRead */
     SLAAlertRead: {
       /**
@@ -765,6 +1704,30 @@ export interface components {
       priority: components['schemas']['Priority'];
       /** State */
       state: string;
+    };
+    /** ScheduleConflictRead */
+    ScheduleConflictRead: {
+      /** Description */
+      description: string;
+      /**
+       * End
+       * Format: date-time
+       */
+      end: string;
+      /**
+       * Kind
+       * @description freeze_window | change
+       */
+      kind: string;
+      /** Ref Id */
+      ref_id: string;
+      /** Ref Number */
+      ref_number?: string | null;
+      /**
+       * Start
+       * Format: date-time
+       */
+      start: string;
     };
     /** SearchHitOut */
     SearchHitOut: {
@@ -815,11 +1778,105 @@ export interface components {
       configured: boolean;
       system: components['schemas']['ExternalSystem'];
     };
+    /** TemplateCreate */
+    TemplateCreate: {
+      /**
+       * Active
+       * @default true
+       */
+      active: boolean;
+      /** Allowed Ci Classes */
+      allowed_ci_classes?: components['schemas']['CIClass'][];
+      /**
+       * Backout Plan
+       * @default
+       */
+      backout_plan: string;
+      /**
+       * Description
+       * @default
+       */
+      description: string;
+      /**
+       * Implementation Plan
+       * @default
+       */
+      implementation_plan: string;
+      /** @default low */
+      max_risk: components['schemas']['RiskLevel'];
+      /** Name */
+      name: string;
+      /**
+       * Test Plan
+       * @default
+       */
+      test_plan: string;
+    };
+    /** TemplateRead */
+    TemplateRead: {
+      /** Active */
+      active: boolean;
+      /** Allowed Ci Classes */
+      allowed_ci_classes: components['schemas']['CIClass'][];
+      /** Backout Plan */
+      backout_plan: string;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Created By */
+      created_by: string;
+      /** Description */
+      description: string;
+      /** Id */
+      id: string;
+      /** Implementation Plan */
+      implementation_plan: string;
+      max_risk: components['schemas']['RiskLevel'];
+      /** Name */
+      name: string;
+      /** Test Plan */
+      test_plan: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+    };
+    /** TemplateUpdate */
+    TemplateUpdate: {
+      /** Active */
+      active?: boolean | null;
+      /** Allowed Ci Classes */
+      allowed_ci_classes?: components['schemas']['CIClass'][] | null;
+      /** Backout Plan */
+      backout_plan?: string | null;
+      /** Description */
+      description?: string | null;
+      /** Implementation Plan */
+      implementation_plan?: string | null;
+      max_risk?: components['schemas']['RiskLevel'] | null;
+      /** Name */
+      name?: string | null;
+      /** Test Plan */
+      test_plan?: string | null;
+    };
     /**
      * TicketKind
      * @enum {string}
      */
     TicketKind: 'incident' | 'service_request' | 'question';
+    /** TransitionRequest */
+    TransitionRequest: {
+      /** Expected Version */
+      expected_version?: number | null;
+      /** Notes */
+      notes?: string | null;
+      /** Review Notes */
+      review_notes?: string | null;
+      to_state: components['schemas']['ChangeState'];
+    };
     /**
      * Urgency
      * @enum {string}
@@ -900,6 +1957,927 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['VerifyOut'];
+        };
+      };
+    };
+  };
+  list_changes_changes_get: {
+    parameters: {
+      query?: {
+        state?: components['schemas']['ChangeState'] | null;
+        change_type?: components['schemas']['ChangeType'] | null;
+        ci_id?: string | null;
+        /** @description Yalnızca oturumdaki kullanıcının talepleri */
+        mine?: boolean;
+        limit?: number;
+        offset?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ChangeRead'][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  create_change_changes_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ChangeCreate'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ChangeRead'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  change_calendar_changes_calendar_get: {
+    parameters: {
+      query: {
+        from: string;
+        to: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CalendarRead'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  approve_decision_changes_decisions__decision_id__approve_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        decision_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AIDecisionRead'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  list_freeze_windows_changes_freeze_windows_get: {
+    parameters: {
+      query?: {
+        from?: string | null;
+        to?: string | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['FreezeWindowRead'][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  create_freeze_window_changes_freeze_windows_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['FreezeWindowCreate'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['FreezeWindowRead'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  delete_freeze_window_changes_freeze_windows__window_id__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        window_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  list_templates_changes_templates_get: {
+    parameters: {
+      query?: {
+        active?: boolean | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TemplateRead'][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  create_template_changes_templates_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['TemplateCreate'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TemplateRead'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  update_template_changes_templates__template_id__patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        template_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['TemplateUpdate'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TemplateRead'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  get_change_changes__change_id__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        change_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ChangeRead'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  update_change_changes__change_id__patch: {
+    parameters: {
+      query?: never;
+      header?: {
+        'if-match'?: string | null;
+      };
+      path: {
+        change_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ChangePatch'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ChangeRead'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  list_approvals_changes__change_id__approvals_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        change_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApprovalListRead'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  create_approval_changes__change_id__approvals_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        change_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ApprovalCreate'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApprovalRead'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  assess_risk_changes__change_id__assess_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        change_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AIDecisionRead'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  conflicts_changes__change_id__conflicts_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        change_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ScheduleConflictRead'][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  list_decisions_changes__change_id__decisions_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        change_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AIDecisionRead'][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  change_impact_changes__change_id__impact_get: {
+    parameters: {
+      query?: {
+        max_depth?: number;
+      };
+      header?: never;
+      path: {
+        change_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ImpactRead'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  transition_changes__change_id__transition_post: {
+    parameters: {
+      query?: never;
+      header?: {
+        'if-match'?: string | null;
+      };
+      path: {
+        change_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['TransitionRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ChangeRead'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  list_cis_cmdb_cis_get: {
+    parameters: {
+      query?: {
+        ci_class?: components['schemas']['CIClass'] | null;
+        environment?: components['schemas']['CIEnvironment'] | null;
+        status?: components['schemas']['CIStatus'] | null;
+        owner_group?: string | null;
+        /** @description Ad içinde arama */
+        q?: string | null;
+        limit?: number;
+        offset?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CIRead'][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  create_ci_cmdb_cis_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CICreate'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CIRead'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  get_ci_cmdb_cis__ci_id__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        ci_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CIRead'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  update_ci_cmdb_cis__ci_id__patch: {
+    parameters: {
+      query?: never;
+      header?: {
+        'if-match'?: string | null;
+      };
+      path: {
+        ci_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CIPatch'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CIRead'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  ci_impact_cmdb_cis__ci_id__impact_get: {
+    parameters: {
+      query?: {
+        max_depth?: number;
+      };
+      header?: never;
+      path: {
+        ci_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ImpactRead'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  list_relationships_cmdb_cis__ci_id__relationships_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        ci_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CIRelationshipRead'][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  impact_cmdb_impact_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ImpactRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ImpactRead'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  create_relationship_cmdb_relationships_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CIRelationshipCreate'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CIRelationshipRead'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  delete_relationship_cmdb_relationships__rel_id__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        rel_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
         };
       };
     };
@@ -1165,6 +3143,74 @@ export interface operations {
       };
     };
   };
+  list_incident_cis_incidents__incident_id__cis_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        incident_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CIRead'][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  set_incident_cis_incidents__incident_id__cis_put: {
+    parameters: {
+      query?: never;
+      header?: {
+        'if-match'?: string | null;
+      };
+      path: {
+        incident_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['IncidentCIsUpdate'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['IncidentRead'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
   list_decisions_incidents__incident_id__decisions_get: {
     parameters: {
       query?: never;
@@ -1300,6 +3346,38 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['SyncEventOut'][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  pull_servicenow_cmdb_integrations_servicenow_cmdb_pull_post: {
+    parameters: {
+      query?: {
+        /** @description Filigranı yok say, seçili sınıflardaki tüm CI'ları çek */
+        full?: boolean;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CMDBPullResult'];
         };
       };
       /** @description Validation Error */

@@ -1,11 +1,19 @@
 /** API enum değerlerinin Türkçe etiketleri. Ekranlar ham enum değeri göstermez. */
 import type {
+  ApprovalDecision,
+  ChangeState,
+  ChangeType,
+  CIClass,
+  CIEnvironment,
+  CIRelationshipType,
+  CIStatus,
   DecisionOutcome,
   ExternalSystem,
   Impact,
   IncidentStatus,
   OnHoldReason,
   Priority,
+  RiskLevel,
   TicketKind,
   Urgency,
 } from '@/api/types';
@@ -86,6 +94,8 @@ export const ROLE_LABELS: Record<string, string> = {
   requester: 'Son kullanıcı',
   agent: 'Destek uzmanı',
   approver: 'Onaylayıcı',
+  change_manager: 'Değişiklik yöneticisi',
+  cab: 'CAB üyesi',
   admin: 'Yönetici',
 };
 
@@ -95,4 +105,86 @@ export function label<K extends string>(
   fallback = '—',
 ): string {
   return value ? map[value] : fallback;
+}
+
+// --- Faz 2: değişiklik yönetimi + CMDB -------------------------------------------------------
+
+export const CHANGE_STATE_LABELS: Record<ChangeState, string> = {
+  draft: 'Taslak',
+  assess: 'Değerlendirme',
+  authorize: 'Yetkilendirme (CAB)',
+  scheduled: 'Zamanlandı',
+  implement: 'Uygulanıyor',
+  review: 'Gözden geçirme',
+  closed: 'Kapatıldı',
+  rejected: 'Reddedildi',
+  cancelled: 'İptal edildi',
+  failed: 'Başarısız',
+};
+
+export const CHANGE_TYPE_LABELS: Record<ChangeType, string> = {
+  standard: 'Standart',
+  normal: 'Normal',
+  emergency: 'Acil',
+};
+
+export const CHANGE_TYPE_DESCRIPTIONS: Record<ChangeType, string> = {
+  standard: 'Önceden onaylı, düşük riskli katalog değişikliği; CAB gerekmez.',
+  normal: 'Risk değerlendirmesi ve CAB onayı gerekir.',
+  emergency: 'Acil durum; ECAB (değişiklik yöneticisi) onayı ile hızlı yol.',
+};
+
+export const RISK_LEVEL_LABELS: Record<RiskLevel, string> = {
+  low: 'Düşük',
+  medium: 'Orta',
+  high: 'Yüksek',
+  critical: 'Kritik',
+};
+
+export const APPROVAL_DECISION_LABELS: Record<ApprovalDecision, string> = {
+  approve: 'Onayladı',
+  reject: 'Reddetti',
+};
+
+export const CI_CLASS_LABELS: Record<CIClass, string> = {
+  application: 'Uygulama',
+  service: 'İş hizmeti',
+  server: 'Sunucu',
+  database: 'Veritabanı',
+  network_device: 'Ağ cihazı',
+  cloud_resource: 'Bulut kaynağı',
+};
+
+export const CI_ENVIRONMENT_LABELS: Record<CIEnvironment, string> = {
+  prod: 'Üretim',
+  test: 'Test',
+  dev: 'Geliştirme',
+};
+
+export const CI_STATUS_LABELS: Record<CIStatus, string> = {
+  planned: 'Planlandı',
+  active: 'Etkin',
+  maintenance: 'Bakımda',
+  retired: 'Kullanım dışı',
+};
+
+/** "Kaynak … hedef" okunuşu: kaynak CI hedef CI'a bağlıdır / üzerinde çalışır … */
+export const CI_RELATIONSHIP_LABELS: Record<CIRelationshipType, string> = {
+  depends_on: 'bağımlıdır',
+  runs_on: 'üzerinde çalışır',
+  connects_to: 'bağlanır',
+  part_of: 'parçasıdır',
+};
+
+/** Kritiklik 1–4 (1 = en kritik) */
+export const CRITICALITY_LABELS: Record<number, string> = {
+  1: 'K1 · Çok kritik',
+  2: 'K2 · Kritik',
+  3: 'K3 · Orta',
+  4: 'K4 · Düşük',
+};
+
+export function criticalityLabel(value: number | null | undefined): string {
+  if (value === null || value === undefined) return '—';
+  return CRITICALITY_LABELS[value] ?? `K${value}`;
 }

@@ -23,7 +23,15 @@ describe('navigasyon haritası', () => {
       '/onaylar',
       '/bilgi-bankasi',
     ]);
-    expect(navItemsFor(['admin'])).toHaveLength(7);
+    expect(navItemsFor(['admin'])).toHaveLength(9);
+  });
+
+  it('faz 2: değişiklik ve CMDB menüsü (requester ve yalnızca approver görmez)', () => {
+    expect(navItemsFor(['cab']).map((i) => i.path)).toEqual(['/degisiklikler', '/cmdb']);
+    expect(navItemsFor(['change_manager']).map((i) => i.path)).toEqual(['/degisiklikler', '/cmdb']);
+    expect(navItemsFor(['agent']).map((i) => i.path)).toContain('/degisiklikler');
+    expect(navItemsFor(['requester']).map((i) => i.path)).not.toContain('/degisiklikler');
+    expect(navItemsFor(['approver']).map((i) => i.path)).not.toContain('/cmdb');
   });
 
   it('açılış sayfası', () => {
@@ -31,6 +39,9 @@ describe('navigasyon haritası', () => {
     expect(homePathFor(['agent', 'approver'])).toBe('/kayitlar');
     expect(homePathFor(['approver'])).toBe('/onaylar');
     expect(homePathFor([])).toBe('/yetkisiz');
+    expect(homePathFor(['cab'])).toBe('/degisiklikler');
+    expect(homePathFor(['change_manager'])).toBe('/degisiklikler');
+    expect(homePathFor(['requester', 'cab'])).toBe('/degisiklikler');
   });
 });
 
@@ -51,7 +62,14 @@ describe('uygulama kabuğu', () => {
   it('agent: kayıtlar kuyruğuna açılır', async () => {
     renderApp({ user: AGENT, route: '/' });
     expect(await screen.findByRole('heading', { level: 1, name: 'Kayıtlar' })).toBeInTheDocument();
-    expect(await navLabels()).toEqual(['Yeni talep', 'Taleplerim', 'Kayıtlar', 'Bilgi bankası']);
+    expect(await navLabels()).toEqual([
+      'Yeni talep',
+      'Taleplerim',
+      'Kayıtlar',
+      'Bilgi bankası',
+      'Değişiklikler',
+      'CMDB',
+    ]);
   });
 
   it('approver: onaylar', async () => {
@@ -70,6 +88,29 @@ describe('uygulama kabuğu', () => {
 
   it('requester agent ekranına giremez', async () => {
     renderApp({ user: REQUESTER, route: '/kayitlar/123' });
+    expect(
+      await screen.findByRole('heading', { name: 'Bu sayfayı görüntüleme yetkiniz yok' }),
+    ).toBeInTheDocument();
+  });
+
+  it('requester ve yalnızca approver değişiklik/CMDB ekranlarına giremez', async () => {
+    for (const [user, route] of [
+      [REQUESTER, '/degisiklikler'],
+      [REQUESTER, '/degisiklikler/yeni'],
+      [REQUESTER, '/cmdb'],
+      [APPROVER, '/degisiklikler/c-1'],
+      [APPROVER, '/cmdb/ci-1'],
+    ] as const) {
+      const { unmount } = renderApp({ user, route });
+      expect(
+        await screen.findByRole('heading', { name: 'Bu sayfayı görüntüleme yetkiniz yok' }),
+      ).toBeInTheDocument();
+      unmount();
+    }
+  });
+
+  it('cab: yeni değişiklik formuna giremez (oluşturma agent/change_manager)', async () => {
+    renderApp({ user: { username: 'kurul', roles: ['cab'] }, route: '/degisiklikler/yeni' });
     expect(
       await screen.findByRole('heading', { name: 'Bu sayfayı görüntüleme yetkiniz yok' }),
     ).toBeInTheDocument();

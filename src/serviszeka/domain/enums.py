@@ -79,3 +79,62 @@ class ExternalSystem(StrEnum):
 class SyncDirection(StrEnum):
     INBOUND = "inbound"  # Harici sistem -> ServisZeka
     OUTBOUND = "outbound"  # ServisZeka -> harici sistem
+
+
+# --- CMDB ---------------------------------------------------------------------
+
+
+class CIClass(StrEnum):
+    APPLICATION = "application"
+    SERVICE = "service"  # İş hizmeti (etki analizinde "etkilenen iş hizmetleri")
+    SERVER = "server"
+    DATABASE = "database"
+    NETWORK_DEVICE = "network_device"
+    CLOUD_RESOURCE = "cloud_resource"
+
+
+class CIEnvironment(StrEnum):
+    PROD = "prod"
+    TEST = "test"
+    DEV = "dev"
+
+
+class CIStatus(StrEnum):
+    PLANNED = "planned"
+    ACTIVE = "active"
+    MAINTENANCE = "maintenance"
+    RETIRED = "retired"
+
+
+class CIRelationshipType(StrEnum):
+    """Kaynak -> hedef ilişkisi.
+
+    Etki yönü: depends_on / runs_on / connects_to'da hedef değişirse kaynak etkilenir;
+    part_of'ta parça (kaynak) değişirse bütün (hedef) etkilenir.
+    """
+
+    DEPENDS_ON = "depends_on"
+    RUNS_ON = "runs_on"
+    CONNECTS_TO = "connects_to"
+    PART_OF = "part_of"
+
+
+# --- Değişiklik yönetimi ------------------------------------------------------
+
+
+class ChangeState(StrEnum):
+    DRAFT = "draft"
+    ASSESS = "assess"  # Risk/etki değerlendirmesi
+    AUTHORIZE = "authorize"  # CAB / ECAB onayı bekleniyor
+    SCHEDULED = "scheduled"
+    IMPLEMENT = "implement"
+    REVIEW = "review"  # Uygulama sonrası gözden geçirme (PIR)
+    CLOSED = "closed"
+    REJECTED = "rejected"
+    CANCELLED = "cancelled"
+    FAILED = "failed"  # Uygulama başarısız -> review
+
+
+class ApprovalDecision(StrEnum):
+    APPROVE = "approve"
+    REJECT = "reject"

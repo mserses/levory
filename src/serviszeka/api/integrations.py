@@ -15,6 +15,7 @@ from serviszeka.domain.types import UTCDateTime
 from serviszeka.integrations.base import ConnectorError, ITSMConnector
 from serviszeka.integrations.jira_sm import JiraSMConnector
 from serviszeka.integrations.servicenow import ServiceNowConnector
+from serviszeka.integrations.servicenow_cmdb import ServiceNowCMDBConnector, pull_cmdb
 from serviszeka.integrations.sync import CONFLICT_POLICIES, SyncEngine
 from serviszeka.models import Incident, SyncEvent
 
@@ -73,6 +74,26 @@ async def get_connectors() -> AsyncIterator[dict[ExternalSystem, ITSMConnector]]
 ConnectorsDep = Annotated[dict[ExternalSystem, ITSMConnector], Depends(get_connectors)]
 
 
+async def get_servicenow_cmdb() -> AsyncIterator[ServiceNowCMDBConnector | None]:
+    """ServiceNow CMDB bağlayıcısı (yapılandırılmamışsa None); testlerde geçersiz kılınır."""
+    settings = get_settings()
+    if not is_configured(settings, ExternalSystem.SERVICENOW):
+        yield None
+        return
+    connector = ServiceNowCMDBConnector(
+        settings.servicenow_instance_url,  # type: ignore[arg-type]
+        settings.servicenow_username,  # type: ignore[arg-type]
+        settings.servicenow_password,  # type: ignore[arg-type]
+    )
+    try:
+        yield connector
+    finally:
+        await connector.aclose()
+
+
+CMDBConnectorDep = Annotated[ServiceNowCMDBConnector | None, Depends(get_servicenow_cmdb)]
+
+
 def _engine(session: AsyncSession, connectors: dict[ExternalSystem, ITSMConnector]) -> SyncEngine:
     policy = get_settings().sync_conflict_policy
     if policy not in CONFLICT_POLICIES:
@@ -119,6 +140,50 @@ async def pull(
     result = await _engine(session, connectors).pull(system)
     await session.commit()
     return result
+
+
+class CMDBPullCounts(BaseModel):
+    created: int
+    updated: int
+    unchanged: int
+    skipped: int
+
+
+class CMDBPullError(BaseModel):
+    entity_type: str
+    external_id: str
+    message: str
+
+
+class CMDBPullResult(BaseModel):
+    system: ExternalSystem
+    full: bool
+    # Artımlı çekimde kullanılan filigran (uzak sys_updated_on, dahil); tam çekimde null
+    since: dict[str, str | None]
+    cis: CMDBPullCounts
+    relationships: CMDBPullCounts
+    errors: list[CMDBPullError]
+
+
+@router.post("/servicenow/cmdb/pull", response_model=CMDBPullResult)
+async def pull_servicenow_cmdb(
+    session: SessionDep,
+    connector: CMDBConnectorDep,
+    user: AdminUser,
+    full: Annotated[
+        bool, Query(description="Filigranı yok say, seçili sınıflardaki tüm CI'ları çek")
+    ] = False,
+) -> CMDBPullResult:
+    """ServiceNow CMDB'sinden (cmdb_ci seçili sınıflar + cmdb_rel_ci) CI ve ilişkileri içe alır."""
+    if connector is None:
+        raise HTTPException(status_code=400, detail="ServiceNow entegrasyonu yapılandırılmamış")
+    try:
+        result = await pull_cmdb(session, connector, actor=user.username, full=full)
+    except ConnectorError as exc:
+        await session.rollback()
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    await session.commit()
+    return CMDBPullResult.model_validate(result)
 
 
 @router.post("/push/{incident_id}", response_model=list[SyncEventOut])

@@ -30,8 +30,8 @@ from serviszeka.domain.enums import (
     Urgency,
 )
 from serviszeka.domain.priority import calculate_priority
-from serviszeka.models import Incident
-from serviszeka.services import sla
+from serviszeka.models import ConfigurationItem, Incident
+from serviszeka.services import cmdb, sla
 from serviszeka.services.schemas import IncidentCreate, IncidentUpdate
 
 S = IncidentStatus
@@ -420,6 +420,72 @@ async def update_incident(
     changes = data.model_dump(exclude_unset=True)
     changes.pop("expected_version", None)  # IncidentPatch gövdesi verilirse
     return await apply_changes(session, incident_id, changes, actor, expected_version)
+
+
+# --- etkilenen yapılandırma öğeleri (CMDB bağı) -------------------------------------
+
+
+async def list_affected_cis(session: AsyncSession, incident_id: str) -> list[ConfigurationItem]:
+    """Olaya bağlı CI'lar (ada göre). Olay yoksa IncidentNotFoundError."""
+    incident = await get_incident(session, incident_id)
+    if incident is None:
+        raise IncidentNotFoundError(incident_id)
+    await session.refresh(incident, ["affected_cis"])
+    return list(incident.affected_cis)
+
+
+async def set_affected_cis(
+    session: AsyncSession,
+    incident_id: str,
+    ci_ids: list[str],
+    actor: str,
+    expected_version: int | None = None,
+) -> Incident:
+    """Olayın etkilenen CI kümesini verilen küme ile değiştirir.
+
+    Bağ triage'da etki kanıtıdır: değişince sürüm artar, böylece eski CI bağına dayanan
+    onay bekleyen yapay zekâ önerisi bayatlar (yeniden triage gerekir). Kapalı/iptal olayda
+    değiştirilemez. Bilinmeyen CI -> cmdb.CINotFoundError.
+    """
+    incident = await get_incident(session, incident_id)
+    if incident is None:
+        raise IncidentNotFoundError(incident_id)
+    db_version = await session.scalar(
+        select(Incident.version).where(Incident.id == incident_id).with_for_update()
+    )
+    if db_version != incident.version:
+        await session.refresh(incident)
+    if expected_version is not None and expected_version != incident.version:
+        raise VersionConflictError(expected_version, incident.version)
+
+    wanted = await cmdb.get_cis(session, ci_ids)
+    await session.refresh(incident, ["affected_cis"])
+    old_ids = {ci.id for ci in incident.affected_cis}
+    new_ids = {ci.id for ci in wanted}
+    if old_ids == new_ids:
+        return incident
+    if IncidentStatus(incident.status) in (S.CLOSED, S.CANCELLED):
+        raise InvalidTransitionError(
+            f"{IncidentStatus(incident.status).value} durumundaki olay değiştirilemez."
+        )
+    incident.affected_cis = sorted(wanted, key=lambda c: (c.name, c.id))
+    incident.version = (incident.version or 0) + 1
+    incident.updated_at = _now()
+    await session.flush()
+    await audit.record(
+        session,
+        actor=actor,
+        action="incident.cis.update",
+        entity_type="incident",
+        entity_id=incident.id,
+        details={
+            "added": sorted(new_ids - old_ids),
+            "removed": sorted(old_ids - new_ids),
+            "ci_ids": sorted(new_ids),
+            "version": incident.version,
+        },
+    )
+    return incident
 
 
 # Geriye dönük uyumluluk
