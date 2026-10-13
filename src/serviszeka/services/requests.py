@@ -29,7 +29,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from serviszeka import audit
@@ -124,8 +124,19 @@ def _identity() -> IdentityProvider:
     return provider
 
 
-async def same_person(provider: IdentityProvider | None, a: str | None, b: str | None) -> bool:
-    """Aynı kişi mi: kimlikler aynı (büyük/küçük harf duyarsız) ya da dizinde aynı nesne."""
+async def same_person(
+    provider: IdentityProvider | None,
+    a: str | None,
+    b: str | None,
+    *,
+    assume_same_on_error: bool = False,
+) -> bool:
+    """Aynı kişi mi: kimlikler aynı (büyük/küçük harf duyarsız) ya da dizinde aynı nesne.
+
+    `assume_same_on_error=True`: dışlama denetimlerinde (talep eden / hedef karar veremez) dizin
+    okunamazsa "aynı kişi" sayılır — denetim kapalı-başarısız olur (dizin kesintisinde talep edenin
+    diğer kimliği onaylayamaz). İzin denetimlerinde (yönetici mi?) varsayılan False kalır.
+    """
     if not a or not b:
         return False
     if same_identity(a, b):
@@ -135,8 +146,29 @@ async def same_person(provider: IdentityProvider | None, a: str | None, b: str |
     try:
         ua, ub = await provider.get_user(a), await provider.get_user(b)
     except ConnectorError:
-        return False
+        return assume_same_on_error
     return ua is not None and ub is not None and ua.id == ub.id
+
+
+def step_targets(req: ServiceRequest) -> list[str]:
+    """Plan araç adımlarının hedef kullanıcıları (`user` argümanı, şablon çözülmüş)."""
+    ctx = template_context(req)
+    targets: list[str] = []
+    for step in req.plan or []:
+        if step.get("manual") or not isinstance(step.get("args"), dict):
+            continue
+        value = catalog.render_args(step["args"], ctx).get("user")
+        if isinstance(value, str) and value.strip() and value not in targets:
+            targets.append(value)
+    return targets
+
+
+def _excluded_parties(req: ServiceRequest) -> list[str]:
+    """İş onayı veremeyecek kişiler: talep eden, talebi açan (insan) ve adımların hedefleri."""
+    parties = [req.requester, *step_targets(req)]
+    if not req.opened_by.startswith("ai:"):
+        parties.append(req.opened_by)
+    return [p for p in parties if p and not p.startswith("ai:")]
 
 
 async def _next_number(session: AsyncSession) -> str:
@@ -365,12 +397,11 @@ async def can_decide(user: CurrentUser, req: ServiceRequest) -> bool:
         provider = _identity()
     except RequestUnavailableError:
         provider = None
-    if await same_person(provider, user.username, req.requester):
-        return False
-    if not req.opened_by.startswith("ai:") and await same_person(
-        provider, user.username, req.opened_by
-    ):
-        return False
+    # Talep eden, açan ve adımın hedefi (ör. yeni çalışan hesabında form.user) kendi lehine onay
+    # veremez; dizin okunamazsa kapalı-başarısız
+    for party in _excluded_parties(req):
+        if await same_person(provider, user.username, party, assume_same_on_error=True):
+            return False
     if ROLE_ADMIN in user.roles:
         return True
     policy = CatalogApprovalPolicy(req.approval_policy)
@@ -692,7 +723,10 @@ async def update_form(
     expected_version: int | None = None,
     now: datetime | None = None,
 ) -> ServiceRequest:
-    """Ajan form değerlerini düzeltir (karşılama başlamadan ya da başarısız talepte): insan düzenlemesi."""
+    """Ajan form değerlerini düzeltir (karşılama başlamadan ya da başarısız talepte): insan düzenlemesi.
+
+    İş onayı verilmiş talepte değerler değiştirilemez (onay o değerler içindir).
+    """
     now = now or _now()
     req = await _lock(session, request_id)
     _check_version(req, expected_version)
@@ -703,6 +737,12 @@ async def update_form(
         values = catalog.validate_form((item.form_schema if item else {}) or {}, form_values)
     except catalog.CatalogError as exc:
         raise RequestValidationError(str(exc), exc.errors) from exc
+    if BA(req.approval_state) == BA.APPROVED and values != (req.form_values or {}):
+        # İş onayı bu değerlere verildi: değiştirmek onaysız hedefe/kaynağa adım çalıştırırdı
+        raise RequestStateError(
+            f"{req.number} için iş onayı verilmiş; form değiştirilemez. Talebi iptal edip yeni "
+            "talep açın."
+        )
     req.form_values = values
     _add_touch(req, "edit", user.username, now, "form")
     await _touch(session, req, now)
@@ -756,13 +796,24 @@ async def cancel(
     _check_version(req, expected_version)
     if RS(req.state) not in (OPEN_STATES | {RS.FAILED}):
         raise RequestStateError(f"{req.number} iptal edilemez (durum: {RS(req.state).value}).")
+    previous = RS(req.state)
     await actions.cancel_for_request(session, req.id, user, reason or f"{req.number} iptal edildi",
                                      now=now)
     req.state = RS.CANCELLED
     req.waiting_action_id = None
     req.closed_at = now
-    req.touchless = None
-    req.touchless_reason = None
+    # Ölçüm oyununa karşı: başarısız talebi ya da başkasının talebini iptal etmek onu kapı
+    # paydasından düşürmez; "kapandı, insansız değil" sayılır. Talep edenin kendi açık talebinden
+    # vazgeçmesi ölçülmez.
+    if previous == RS.FAILED:
+        req.touchless = False
+        req.touchless_reason = f"Başarısız talep iptal edildi ({user.username})."
+    elif not same_identity(user.username, req.requester):
+        req.touchless = False
+        req.touchless_reason = f"Talep eden dışında biri iptal etti ({user.username})."
+    else:
+        req.touchless = None
+        req.touchless_reason = None
     await _touch(session, req, now)
     await _audit(session, req, user.username, "cancel", reason=reason)
     return req
@@ -819,14 +870,20 @@ class TouchlessMetrics:
 async def touchless_metrics(
     session: AsyncSession, *, since: datetime | None = None
 ) -> TouchlessMetrics:
-    """Kapanmış (karşılanan / reddedilen / başarısız; iptal hariç) taleplerde insansız çözüm oranı."""
+    """Kapanmış (karşılanan / reddedilen / başarısız / insanca kapatılan iptal) taleplerde insansız oranı."""
     stmt = select(
         ServiceRequest.item_key,
         ServiceRequest.item_name,
         ServiceRequest.standard,
         ServiceRequest.state,
         ServiceRequest.touchless,
-    ).where(ServiceRequest.state.in_(list(MEASURED_STATES)))
+    ).where(
+        or_(
+            ServiceRequest.state.in_(list(MEASURED_STATES)),
+            # İnsan tarafından kapatılan iptaller (bkz. cancel) paydada kalır
+            and_(ServiceRequest.state == RS.CANCELLED, ServiceRequest.touchless.is_(False)),
+        )
+    )
     if since is not None:
         stmt = stmt.where(ServiceRequest.created_at >= since)
     rows = (await session.execute(stmt)).all()

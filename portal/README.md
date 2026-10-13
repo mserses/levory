@@ -46,22 +46,28 @@ Bitirmeden önce dördü de yeşil olmalı: `npm run typecheck && npm run lint &
 
 `npm run e2e` iki sunucu başlatır: `e2e/start-backend.mjs` ile API (`127.0.0.1:8765`; geçici SQLite,
 `SZ_ENVIRONMENT=development`, `SZ_AUTH_MODE=dev`, `SZ_LLM_PROVIDER=fake`, CORS portal kökenine açık) ve Vite
-(`127.0.0.1:5180`). Her çalıştırma boş veritabanıyla başlar; senaryolar seri koşar ve her rol ayrı tarayıcı bağlamında
+(`127.0.0.1:5180`); Faz 3 senaryoları (`e2e/faz3-*.spec.ts`, Playwright projesi `faz3`) için ikinci bir çift
+başlatır: API `127.0.0.1:8766` (`E2E_PROFILE=faz3`: gölge mod kapalı, varsayılan eşik, `SZ_CONNECTOR_PROVIDER=fake`
+sahte Entra ID / M365 dizini + tohumlanmış katalog, standart grup izin listesi) ve Vite `127.0.0.1:5181` (ayrı
+`VITE_CACHE_DIR`). Faz 1/2 senaryoları gölge modu açık backend'i kullanır. Her çalıştırma boş veritabanıyla başlar; senaryolar seri koşar ve her rol ayrı tarayıcı bağlamında
 `/giris` dev formuyla oturum açar. Senaryo sonunda sayfada yakalanmamış JS/konsol hatası olmadığı da doğrulanır.
 
-| Dosya                                 | Senaryo                                                                                                                                                                                                              |
-| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `e2e/incident-flow.spec.ts`           | Talep → Taleplerim; triage (P1 önerisi, onay gerekli) → onay → uzman P1'i görür; bayat onay → 409 mesajı                                                                                                             |
-| `e2e/knowledge-admin.spec.ts`         | Makale oluştur + yayınla + ara (`<mark>` vurgusu); yönetici denetim zincirini doğrular                                                                                                                               |
-| `e2e/requester-isolation.spec.ts`     | Son kullanıcı başkasının kaydını göremez, arayanı taklit edemez (arayüz + API)                                                                                                                                       |
-| `e2e/change-flow.spec.ts`             | change_manager bağımlısı olan CI için normal RFC → risk (sahte LLM) → gönder → CAB; talep eden oy veremez (403), iki CAB oyu → zamanla; çakışan ikinci değişiklik zamanlanamaz (409 diyaloğu) → uygula → PIR → kapat |
-| `e2e/standard-change.spec.ts`         | Şablondan standart değişiklik düşük riskte CAB'ı atlar; aynı şablon kritiklik-1 prod CI'da normal'e çevrilir, CAB'sız zamanlanamaz (422)                                                                             |
-| `e2e/requester-change-access.spec.ts` | Son kullanıcı `/degisiklikler`, `/cmdb` göremez (menü + yetkisiz sayfası); değişiklik/CMDB uçları 403                                                                                                                |
+| Dosya                                 | Senaryo                                                                                                                                                                                                                                                      |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `e2e/incident-flow.spec.ts`           | Talep → Taleplerim; triage (P1 önerisi, onay gerekli) → onay → uzman P1'i görür; bayat onay → 409 mesajı                                                                                                                                                     |
+| `e2e/knowledge-admin.spec.ts`         | Makale oluştur + yayınla + ara (`<mark>` vurgusu); yönetici denetim zincirini doğrular                                                                                                                                                                       |
+| `e2e/requester-isolation.spec.ts`     | Son kullanıcı başkasının kaydını göremez, arayanı taklit edemez (arayüz + API)                                                                                                                                                                               |
+| `e2e/change-flow.spec.ts`             | change_manager bağımlısı olan CI için normal RFC → risk (sahte LLM) → gönder → CAB; talep eden oy veremez (403), iki CAB oyu → zamanla; çakışan ikinci değişiklik zamanlanamaz (409 diyaloğu) → uygula → PIR → kapat                                         |
+| `e2e/standard-change.spec.ts`         | Şablondan standart değişiklik düşük riskte CAB'ı atlar; aynı şablon kritiklik-1 prod CI'da normal'e çevrilir, CAB'sız zamanlanamaz (422)                                                                                                                     |
+| `e2e/requester-change-access.spec.ts` | Son kullanıcı `/degisiklikler`, `/cmdb` göremez (menü + yetkisiz sayfası); değişiklik/CMDB uçları 403                                                                                                                                                        |
+| `e2e/faz3-requests.spec.ts`           | Katalogdan "Standart yazılım grubu erişimi" → insansız karşılanır, rozet; "Yetkili grup erişimi" → yönetici "Onayımı bekleyenler"den onaylar → R3 eylem isteği → 1. BT onayı (1/2, yürümez) → 2. farklı onaylayan → yürür → talep karşılandı, insansız değil |
+| `e2e/faz3-problem.spec.ts`            | Benzer üç olay → eğilim taraması (küme) → sorun önerisi (R1, otomatik) → ayrıntıda kanıt olaylar → yapay zekâ RCA taslağı (FakeLLM) görünür, kesin RCA boş kalır                                                                                             |
 
 - Tarayıcı: `@playwright/test` sürümüyle eşleşen Chromium (`npx playwright install chromium`; CI'da `--with-deps`).
 - Derlenmiş imaja karşı: `E2E_WEB_URL=http://127.0.0.1:8080 npm run e2e` (Vite başlatılmaz; imaj
   `VITE_AUTH_MODE=dev`, `VITE_API_BASE_URL=http://127.0.0.1:8765` ile derlenmiş olmalı).
-- Portlar: `E2E_API_PORT`, `E2E_WEB_PORT`. Hata durumunda iz/ekran görüntüsü `test-results/` altındadır.
+- Portlar: `E2E_API_PORT`, `E2E_WEB_PORT`, Faz 3 için `E2E_FAZ3_API_PORT`, `E2E_FAZ3_WEB_PORT` (derlenmiş
+  imaja karşı `E2E_FAZ3_WEB_URL`; imaj `VITE_API_BASE_URL=http://127.0.0.1:8766` ile derlenmiş olmalı). Hata durumunda iz/ekran görüntüsü `test-results/` altındadır.
 
 ## Docker imajı
 
@@ -124,8 +130,8 @@ src/
 | Rota                      | Sayfa dosyası                                 | Roller (`ROUTE_ROLES`)     | Ana uç nokta                                                                                                                                                               |
 | ------------------------- | --------------------------------------------- | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `/talep`                  | `features/self-service/NewRequestPage.tsx`    | requester, agent           | `POST /incidents`                                                                                                                                                          |
-| `/taleplerim`             | `features/self-service/MyRequestsPage.tsx`    | requester, agent, approver | `GET /incidents?mine=true`; sekme `?sekme=hizmet`: `GET /requests?mine=true`                                                                                               |
-| `/taleplerim/:id`         | `features/requests/RequestDetailPage.tsx`     | requester, agent, approver | `GET /requests/{id}`, `/cancel`, `GET /catalog/items/{key}`                                                                                                                |
+| `/taleplerim`             | `features/self-service/MyRequestsPage.tsx`    | requester, agent, approver | `GET /incidents?mine=true`; sekme `?sekme=hizmet`: `GET /requests?mine=true`; `?sekme=onay`: `GET /requests?awaiting_my_approval=true`                                     |
+| `/taleplerim/:id`         | `features/requests/RequestDetailPage.tsx`     | requester, agent, approver | `GET /requests/{id}`, `/cancel`, `/approve`, `/reject` (`can_decide`), `GET /catalog/items/{key}`                                                                          |
 | `/katalog`                | `features/catalog/CatalogPage.tsx`            | requester, agent           | `GET /catalog/items`                                                                                                                                                       |
 | `/katalog/:key`           | `features/catalog/CatalogItemPage.tsx`        | requester, agent           | `GET /catalog/items/{key}`, `POST /requests`                                                                                                                               |
 | `/problemler`             | `features/problems/ProblemListPage.tsx`       | agent, approver            | `GET /problems`, `POST /problems/trends`, `/trends/propose`                                                                                                                |

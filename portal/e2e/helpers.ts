@@ -6,6 +6,9 @@ export type E2ERole = (typeof ALL_ROLES)[number];
 /** Backend adresi (Playwright `webServer` ile aynı port) */
 export const API = `http://127.0.0.1:${process.env.E2E_API_PORT ?? '8765'}`;
 
+/** Faz 3 backend'i (gölge mod kapalı, sahte Entra ID / M365 dizini): `faz3-*.spec.ts` senaryoları */
+export const FAZ3_API = `http://127.0.0.1:${process.env.E2E_FAZ3_API_PORT ?? '8766'}`;
+
 /** Dev kimlik doğrulaması belirteci: `Bearer dev:<kullanıcı>:<roller>` */
 export const bearer = (user: string, roles: string) => ({
   Authorization: `Bearer dev:${user}:${roles}`,

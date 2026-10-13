@@ -4,6 +4,8 @@ Kurallar (Faz 3 kapısı — R2/R3 hiçbir eylem insan onayı olmadan çalışma
 - Yapay zekâ aktörü (``ai:`` önekli ya da ``ai_agent`` rollü) hiçbir isteği onaylayamaz/reddedemez.
 - Talep eden kendi isteğine karar veremez; kimlikler ``changes.same_identity`` ile (büyük/küçük
   harf ve kenar boşluğu duyarsız) karşılaştırılır. Aynı kişi iki kez onay veremez/sayılmaz.
+  Hizmet talebine bağlı istekte talep eden, açan, hedef kullanıcı ve iş onayını veren de karar
+  veremez (iş onayı ile risk onayı ayrı kişilerden gelir).
 - Karar verebilen: ``approver`` / ``admin``; R3 istek bir değişikliğe bağlıysa ``change_manager``.
 - R1/R2: tek onay. R3: iki farklı onaylayan ya da bağlı değişiklik CAB onaylı (normal/acil,
   onaylar yeterli, durum scheduled/implement) iken tek onay. Tek red isteği reddeder.
@@ -161,9 +163,11 @@ def _check_decider(ar: ActionRequest, user: CurrentUser) -> None:
 
 
 async def _check_parties(session: AsyncSession, ar: ActionRequest, user: CurrentUser) -> None:
-    """Hizmet talebine bağlı istekte talep eden, talebi açan ve eylemin hedef kullanıcısı karar
-    veremez (ör. kendini yetkili gruba ekleyen adımı onaylamak). Kimlikler büyük/küçük harf
-    duyarsız ve — kimlik bağlayıcısı varsa — dizinde aynı nesne olarak karşılaştırılır."""
+    """Hizmet talebine bağlı istekte talep eden, talebi açan, eylemin hedef kullanıcısı ve talebe
+    iş onayı veren kişi karar veremez (ör. kendini yetkili gruba ekleyen adımı onaylamak; iş onayı
+    ile risk onayını tek kişiye indirmek). Kimlikler büyük/küçük harf duyarsız ve — kimlik
+    bağlayıcısı varsa — dizinde aynı nesne olarak karşılaştırılır; dizin okunamazsa kapalı-başarısız
+    (karar reddedilir)."""
     from serviszeka.connectors.base import IDENTITY
     from serviszeka.models import ServiceRequest
     from serviszeka.services.requests import same_person
@@ -177,15 +181,18 @@ async def _check_parties(session: AsyncSession, ar: ActionRequest, user: Current
         req = await session.get(ServiceRequest, ar.request_id)
         if req is not None:
             parties.extend([req.requester, req.opened_by])
+            if req.approved_by:
+                parties.append(req.approved_by)
     if not parties:
         return
     provider = connectors.get(IDENTITY)
     for party in parties:
         if party.startswith("ai:"):
             continue
-        if await same_person(provider, user.username, party):
+        if await same_person(provider, user.username, party, assume_same_on_error=True):
             raise ActionForbiddenError(
-                "Talep eden, talebi açan ya da eylemin hedefi olan kişi bu isteğe karar veremez."
+                "Talep eden, talebi açan, eylemin hedefi ya da talebe iş onayı veren kişi bu "
+                "isteğe karar veremez."
             )
 
 

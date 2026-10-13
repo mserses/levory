@@ -182,6 +182,26 @@ async def test_cancel_voids_pending_action_and_is_not_measured(session, director
     assert m.all_closed == 0
 
 
+async def test_cancel_cannot_erase_failures_or_human_closures_from_gate_metric(session, directory):
+    # Güvenlik incelemesi (ölçüm oyunu): başarısız standart talebi ya da başkasının talebini iptal
+    # etmek onu paydadan düşürüp oranı şişiriyordu. Başarısızken ya da talep eden dışında biri
+    # tarafından iptal edilen talep "kapandı, insansız değil" sayılır; talep edenin kendi açık
+    # talebini vazgeçip iptali ölçülmez.
+    await _create(session, "vpn_access", MEHMET, MEHMET, {"justification": "Evden"})  # insansız
+    failed = await _create(session, "m365_license", ALI, ALI, {"sku": "POWER_BI_PRO"})
+    assert failed.state == "failed"
+    await requests.cancel(session, failed.id, DESK, "lisans yok, kapatıldı")
+    on_behalf = await _create(session, "password_reset", ALI, DESK)  # R2 bekler
+    await requests.cancel(session, on_behalf.id, DESK, "kullanıcı aramadı")
+    own = await _create(session, "password_reset", MEHMET, DESK)  # R2 bekler
+    await requests.cancel(session, own.id, MEHMET, "parolamı hatırladım")
+    assert own.touchless is None
+    assert failed.touchless is False and "iptal" in failed.touchless_reason
+    m = await requests.touchless_metrics(session)
+    assert (m.standard_closed, m.standard_touchless) == (3, 1)
+    assert not m.meets_gate
+
+
 async def test_touchless_metrics(session, directory):
     await _create(session, "account_unlock", ALI, ALI)  # insansız
     await _create(session, "password_reset", ALI, DESK)  # ajan adına: R2 bekler (açık)
@@ -213,12 +233,19 @@ async def test_catalog_and_request_tools(session, directory):
     assert r.status == ToolStatus.PENDING_APPROVAL
     assert await requests.list_requests(session) == []
     r = await execute_tool(session, AI, "request.create",
-                           {"item": "account_unlock", "requester": "mehmet"},
+                           {"item": "vpn_access", "requester": "mehmet",
+                            "form_values": {"justification": "Saha çalışması"}},
                            confidence=0.95, settings=LIVE_REQ)
     assert r.status == ToolStatus.EXECUTED and r.result["state"] == "fulfilled"
-    rid = r.result["id"]
+    rid, number = r.result["id"], r.result["number"]
+    # Yapay zekânın başkası adına açtığı kilit açma doğrulanmaz: kilit adımı R2'ye çıkar
+    r = await execute_tool(session, AI, "request.create",
+                           {"item": "account_unlock", "requester": "mehmet"},
+                           confidence=0.95, settings=LIVE_REQ)
+    assert r.result["state"] == "fulfilling" and r.result["actions"][0]["risk_class"] == "R2"
+    assert writes(directory, "unlock_account") == []
     got = await execute_tool(session, AI, "request.get", {"request_id": rid})
-    assert got.status == ToolStatus.EXECUTED and got.result["number"] == r.result["number"]
+    assert got.status == ToolStatus.EXECUTED and got.result["number"] == number
     with pytest.raises(ToolValidationError):
         await execute_tool(session, AI, "request.get", {"request_id": rid, "x": 1})
     # Yapay zekânın açtığı talepte kimlik doğrulaması geçmez: şifre sıfırlama R2'ye çıkar
@@ -313,7 +340,8 @@ async def test_requests_api_self_service_and_visibility(api, session):
     assert r.status_code == 403
     r = await api.post("/requests", json={"item": "account_unlock", "requester": "mehmet"},
                        headers=dev_headers("ayse", "agent"))
-    assert r.status_code == 201
+    # Başkası adına açılan kilit açma doğrulanmamıştır: kilit adımı R2 onayı bekler
+    assert r.status_code == 201 and r.json()["state"] == "fulfilling"
     assert (await api.post("/requests", json={"item": "yok"}, headers=ali)).status_code == 404
     r = await api.post("/requests", json={"item": "standard_software_group"}, headers=ali)
     assert r.status_code == 422
@@ -324,7 +352,7 @@ async def test_requests_api_self_service_and_visibility(api, session):
     r = await api.get("/requests", headers=dev_headers("ayse", "agent"))
     assert len(r.json()) == 2
     r = await api.get("/requests/metrics", headers=dev_headers("ayse", "agent"))
-    assert r.status_code == 200 and r.json()["standard_closed"] == 2
+    assert r.status_code == 200 and r.json()["standard_closed"] == 1
     assert r.json()["meets_gate"] is True
     # Yapay zekâ belirteci insan REST uçlarını kullanamaz
     r = await api.get("/requests", headers=dev_headers("bot", "ai_agent"))
@@ -342,6 +370,13 @@ async def test_requests_api_business_approval_and_cancel(api, session, directory
     # Onaylayacak yönetici talebi görür ve listesinde bulur; talep eden kendini onaylayamaz
     r = await api.get("/requests", params={"awaiting_my_approval": True}, headers=zeynep)
     assert [x["id"] for x in r.json()] == [req["id"]]
+    # Portal onay düğmeleri için: bakan kullanıcı bu talebe iş onayı verebilir mi
+    assert r.json()[0]["can_decide"] is True
+    assert req["can_decide"] is False  # talep eden kendini onaylayamaz
+    r = await api.get(f"/requests/{req['id']}", headers=zeynep)
+    assert r.json()["can_decide"] is True
+    r = await api.get(f"/requests/{req['id']}", headers=dev_headers("ayse", "agent"))
+    assert r.json()["can_decide"] is False  # ajan yönetici değil
     assert (await api.post(f"/requests/{req['id']}/approve", headers=ali)).status_code == 403
     r = await api.post(f"/requests/{req['id']}/approve", json={"comment": "uygun"}, headers=zeynep)
     assert r.status_code == 200, r.text

@@ -4353,6 +4353,12 @@
             "title": "Attempt",
             "type": "integer"
           },
+          "can_decide": {
+            "default": false,
+            "description": "Oturumdaki kullanıcı bu talebe şimdi iş onayı/reddi verebilir mi",
+            "title": "Can Decide",
+            "type": "boolean"
+          },
           "catalog_item_id": {
             "title": "Catalog Item Id",
             "type": "string"

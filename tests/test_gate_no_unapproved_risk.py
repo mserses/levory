@@ -940,6 +940,8 @@ IDENTITY_CONDITIONAL = {
                  identity_standard_groups=["yok-boyle-grup"]),
     ),
     "reset_password/no_request": ("identity.reset_password", {"user": "ali"}, "R2", LOOSE),
+    # Kilit açma da parola sıfırlama gibi: doğrulanmış self-servis talep dışında R2
+    "unlock_account/no_request": ("identity.unlock_account", {"user": "ali"}, "R2", LOOSE),
 }
 
 
@@ -990,6 +992,7 @@ RISKY_REQUESTS = {
         "add_to_group",
     ),
     "password_reset_on_behalf": ("password_reset", "ali", "ayse", {}, False, "R2", "reset_password"),
+    "account_unlock_on_behalf": ("account_unlock", "ali", "ayse", {}, False, "R2", "unlock_account"),
     "new_employee": (
         "new_employee_account", "mehmet", "mehmet",
         {"user": "yeni.calisan", "mailbox": "muhasebe"}, True, "R2", "grant_shared_access",
@@ -1068,6 +1071,117 @@ async def test_gate_request_parties_and_ai_cannot_approve(session):
         await requests.decide(session, req3.id, CurrentUser("mehmet", frozenset({"approver"})),
                               "approve", settings=LOOSE_STD)
     assert _GATE_DIRECTORY["d"].writes == []
+
+
+async def test_gate_request_step_target_cannot_give_business_approval(session):
+    # Güvenlik incelemesi: planın hedef kullanıcısı (yeni çalışan hesabında `form.user`) onay grubu
+    # üyesi olsa da (ya da admin) kendi lehine iş onayı veremez; aksi halde lisans/grup R1 adımları
+    # onun hesabına bağımsız bir onay olmadan çalışırdı.
+    from serviszeka.services import requests
+
+    d = _GATE_DIRECTORY["d"]
+    *_, mehmet = _req_users()
+    req = await _open(session, "new_employee_account", "mehmet", mehmet,
+                      {"user": "zeynep", "mailbox": "muhasebe"})
+    assert req.state == "awaiting_approval"
+    for who, roles in (("zeynep", {"requester"}), (" ZEYNEP ", {"approver"}),
+                       ("u-zeynep", {"requester"}), ("zeynep", {"admin"})):
+        user = CurrentUser(who, frozenset(roles))
+        assert await requests.can_decide(user, req) is False, who
+        with pytest.raises(requests.RequestForbiddenError):
+            await requests.decide(session, req.id, user, "approve", settings=LOOSE_STD)
+    assert d.writes == []
+    # Kontrol: hedef olmayan başka bir onay grubu üyesi karar verebilir
+    d.add_member("sg-ik-onaycilari", "ayse")
+    req = await requests.decide(session, req.id, CurrentUser("ayse", frozenset({"requester"})),
+                                "approve", settings=LOOSE_STD)
+    assert req.approval_state == "approved"
+
+
+async def test_gate_request_business_approver_cannot_also_approve_action(session):
+    # Güvenlik incelemesi: iş onayı ve risk (eylem isteği) onayı ayrı kişilerden gelir. Yönetici
+    # approver rolüne de sahipse posta kutusu (R2) ya da yetkili grup (R3) adımını kendisi onaylayıp
+    # iki/üç göz ilkesini tek kişiye indiremez.
+    from serviszeka.services import requests
+    from serviszeka.tools import actions
+
+    d = _GATE_DIRECTORY["d"]
+    ali, *_ = _req_users()
+    manager = CurrentUser("zeynep", frozenset({"requester", "approver"}))
+    req = await _open(session, "shared_mailbox_access", "ali", ali, {"mailbox": "muhasebe"})
+    req = await requests.decide(session, req.id, manager, "approve", settings=LOOSE_STD)
+    ar_id = req.waiting_action_id
+    for who in ("zeynep", "Zeynep ", "u-zeynep"):
+        with pytest.raises(actions.ActionForbiddenError):
+            await actions.approve(session, ar_id, CurrentUser(who, frozenset({"approver"})),
+                                  settings=LOOSE_STD)
+    assert [w for w in d.writes if w[0] == "grant_shared_access"] == []
+    ar = await actions.approve(session, ar_id, CurrentUser("sef.ali", frozenset({"approver"})),
+                               settings=LOOSE_STD)
+    assert ar.state == "executed"
+    # R3: yönetici + tek BT onayı yetmez (yönetici ikinci onaylayan olamaz)
+    req = await _open(session, "privileged_group_access", "ali", ali,
+                      {"group": "sg-domain-admins", "justification": "Sunucu bakımı için yetki"})
+    req = await requests.decide(session, req.id, manager, "approve", settings=LOOSE_STD)
+    await actions.approve(session, req.waiting_action_id,
+                          CurrentUser("sef.ali", frozenset({"approver"})), settings=LOOSE_STD)
+    with pytest.raises(actions.ActionForbiddenError):
+        await actions.approve(session, req.waiting_action_id, manager, settings=LOOSE_STD)
+    assert [w for w in d.writes if w[0] == "add_to_group"] == []
+
+
+async def test_gate_request_form_edit_after_business_approval_is_refused(session):
+    # Güvenlik incelemesi: İK, `yeni.calisan` için onay verdi; adım başarısız olunca formu başka
+    # bir kullanıcıya çevirip yeniden denemek, onaylanmamış hedefe R1 adımları (lisans, grup)
+    # çalıştırırdı. Onaylı talebin formu değiştirilemez; yeniden deneme onaylı değerlerle çalışır.
+    from serviszeka.services import requests
+
+    d = _GATE_DIRECTORY["d"]
+    _, zeynep, ayse, mehmet = _req_users()
+    d.add_sku("sku-spe-e3", "SPE_E3", enabled=100, consumed=100)  # boş lisans yok -> adım başarısız
+    req = await _open(session, "new_employee_account", "mehmet", mehmet,
+                      {"user": "yeni.calisan", "mailbox": "muhasebe"})
+    req = await requests.decide(session, req.id, zeynep, "approve", settings=LOOSE_STD)
+    assert req.state == "failed", (req.state, req.error)
+    with pytest.raises(requests.RequestStateError):
+        await requests.update_form(session, req.id, ayse, {"user": "ali", "mailbox": "muhasebe"})
+    assert req.form_values["user"] == "yeni.calisan"
+    d.add_sku("sku-spe-e3", "SPE_E3", enabled=100, consumed=10)
+    req = await requests.retry(session, req.id, ayse, settings=LOOSE_STD)
+    assigned = [w[1]["user_id"] for w in d.writes if w[0] == "assign_license"]
+    assert assigned == ["u-yeni.calisan"]
+    # Onay verilmemiş (iş onayı gerekmeyen) talepte düzeltme serbest kalır (insan dokunuşu)
+    std = await _open(session, "standard_software_group", "mehmet", ayse,
+                      {"group": "sg-yok-boyle"})
+    assert std.approval_state == "not_required"
+
+
+async def test_gate_request_party_check_fails_closed_when_directory_unavailable(
+    session, monkeypatch
+):
+    # Güvenlik incelemesi: talep edenin dizindeki diğer kimliği (`u-ali`) dizin yanıt vermezken
+    # "farklı kişi" sayılıp kendi isteğini onaylayamaz (kimlik denetimi kapalı-başarısız olmalı).
+    from serviszeka.connectors.base import ConnectorError
+    from serviszeka.services import requests
+    from serviszeka.tools import actions
+
+    d = _GATE_DIRECTORY["d"]
+    ali, *_ = _req_users()
+    req = await _open(session, "mfa_reset", "ali", ali, {})
+    ar_id = req.waiting_action_id
+    req2 = await _open(session, "shared_mailbox_access", "ali", ali, {"mailbox": "muhasebe"})
+
+    async def down(user):
+        raise ConnectorError("dizin yanıt vermiyor")
+
+    monkeypatch.setattr(d, "get_user", down)
+    with pytest.raises(actions.ActionForbiddenError):
+        await actions.approve(session, ar_id, CurrentUser("u-ali", frozenset({"approver"})))
+    alias_admin = CurrentUser("u-ali", frozenset({"admin"}))
+    assert await requests.can_decide(alias_admin, req2) is False
+    with pytest.raises(requests.RequestForbiddenError):
+        await requests.decide(session, req2.id, alias_admin, "approve", settings=LOOSE_STD)
+    assert d.writes == []
 
 
 async def test_gate_request_shadow_mode_runs_no_step(session):
@@ -1169,3 +1283,15 @@ async def test_gate_shadow_mode_nothing_is_touchless(session):
     result = await run_scenario(session, gate_settings(ai_shadow_mode=True))
     assert result.violations == []
     assert result.metrics.all_touchless == 0 and not result.metrics.meets_gate
+
+
+async def test_gate_labelled_requests_half_touchless_zero_false_touchless():
+    # Faz 3 kapı ölçümü: etiketli 200 talep (evals/data/requests.jsonl) gerçek boru hattında.
+    # Otomatikleşmemesi gereken (ayrıcalıklı/bilinmeyen grup, doğrulanmamış talep eden...) hiçbir
+    # talep insansız bitmez; her R2/R3 yürütmesi gerekli insan onayıyla; LLM çağrılmaz.
+    from serviszeka import automation_eval
+
+    report = await automation_eval.run(automation_eval.load_dataset())
+    assert report.false_touchless == [] and report.violations == [] and report.unresolved == []
+    assert report.llm_calls == 0
+    assert report.standard_touchless_rate >= 0.5 and report.passed

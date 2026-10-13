@@ -302,3 +302,50 @@ def test_0006_upgrade_on_create_all_database_is_idempotent(alembic_cfg):
         assert not {"incident_cis", "cmdb_external_refs"} & set(inspect(engine).get_table_names())
     finally:
         engine.dispose()
+
+
+FAZ3_TABLES = {
+    "action_requests", "action_approvals", "tool_invocations", "catalog_items", "service_requests",
+    "problems", "problem_incidents", "problem_cis", "problem_changes",
+}
+
+
+def test_migration_chain_is_linear_single_head(alembic_cfg):
+    from alembic.script import ScriptDirectory
+
+    cfg, _ = alembic_cfg
+    script = ScriptDirectory.from_config(cfg)
+    assert script.get_heads() == [script.get_current_head()]
+    revs = list(script.walk_revisions())  # head -> base
+    for rev in revs:
+        assert not isinstance(rev.down_revision, tuple | list), rev.revision  # birleştirme yok
+        assert len(script.get_revision(rev.revision).nextrev) <= 1, rev.revision  # dallanma yok
+    assert [r.revision for r in reversed(revs)] == [f"{n:04d}" for n in range(1, len(revs) + 1)]
+
+
+def test_faz3_upgrade_from_0006_keeps_data_and_downgrades(alembic_cfg):
+    # Faz 2 şemasındaki (0006) veritabanı Faz 3'e yükselir: veri korunur, geri alınabilir
+    cfg, sync_url = alembic_cfg
+    command.upgrade(cfg, "0006")
+    engine = create_engine(sync_url)
+    try:
+        with engine.begin() as conn:
+            conn.exec_driver_sql(
+                "INSERT INTO incidents (id, number, kind, title, description, caller, impact, "
+                "urgency, priority, status, version, sla_paused_seconds, created_at, updated_at) "
+                "VALUES ('i1', 'INC0000001', 'INCIDENT', 't', '', 'c', 'LOW', 'LOW', 'P5', 'NEW', "
+                "1, 0, '2026-01-01 00:00:00', '2026-01-01 00:00:00')"
+            )
+        command.upgrade(cfg, "head")
+        _assert_matches_metadata(sync_url)
+        assert FAZ3_TABLES <= set(inspect(engine).get_table_names())
+        with engine.connect() as conn:
+            assert conn.exec_driver_sql("SELECT id FROM incidents").scalar_one() == "i1"
+        command.downgrade(cfg, "0006")
+        assert not FAZ3_TABLES & set(inspect(engine).get_table_names())
+        with engine.connect() as conn:
+            assert conn.exec_driver_sql("SELECT id FROM incidents").scalar_one() == "i1"
+        command.upgrade(cfg, "head")
+        _assert_matches_metadata(sync_url)
+    finally:
+        engine.dispose()

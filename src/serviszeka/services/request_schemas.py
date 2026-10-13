@@ -89,6 +89,10 @@ class ServiceRequestRead(BaseModel):
     fulfilled_at: UTCDateTime | None
     closed_at: UTCDateTime | None
     actions: list[LinkedActionRead] = Field(default_factory=list)
+    can_decide: bool = Field(
+        default=False,
+        description="Oturumdaki kullanıcı bu talebe şimdi iş onayı/reddi verebilir mi",
+    )
 
 
 class ServiceRequestCreate(BaseModel):

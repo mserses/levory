@@ -76,10 +76,18 @@ def _http(exc: Exception) -> HTTPException:
     return HTTPException(getattr(exc, "status_code", 400), str(exc))
 
 
-async def _read(session: AsyncSession, req: ServiceRequest) -> ServiceRequestRead:
+async def _read(
+    session: AsyncSession, req: ServiceRequest, user: CurrentUser
+) -> ServiceRequestRead:
     actions = await svc.linked_actions(session, req.id)
+    can_decide = req.state == ServiceRequestState.AWAITING_APPROVAL and await svc.can_decide(
+        user, req
+    )
     return ServiceRequestRead.model_validate(req).model_copy(
-        update={"actions": [LinkedActionRead.model_validate(a) for a in actions]}
+        update={
+            "actions": [LinkedActionRead.model_validate(a) for a in actions],
+            "can_decide": can_decide,
+        }
     )
 
 
@@ -91,11 +99,14 @@ async def _visible(session: AsyncSession, request_id: str, user: CurrentUser) ->
 
 
 async def _commit_and_read(
-    session: AsyncSession, req: ServiceRequest, notifier: Notifier | None = None
+    session: AsyncSession,
+    req: ServiceRequest,
+    user: CurrentUser,
+    notifier: Notifier | None = None,
 ) -> ServiceRequestRead:
     await session.commit()
     await session.refresh(req)
-    result = await _read(session, req)
+    result = await _read(session, req, user)
     if notifier is not None:
         await send_pending(session, notifier)
     return result
@@ -134,7 +145,7 @@ async def create_request(
         )
     except svc.RequestError as exc:
         raise _http(exc) from exc
-    return await _commit_and_read(session, req, notifier)
+    return await _commit_and_read(session, req, user, notifier)
 
 
 @router.get("", response_model=list[ServiceRequestRead])
@@ -157,7 +168,7 @@ async def list_requests(
             session, state=ServiceRequestState.AWAITING_APPROVAL, item_key=item, limit=500
         )
         rows = [r for r in rows if await svc.can_decide(user, r)][offset : offset + limit]
-        return [await _read(session, r) for r in rows]
+        return [await _read(session, r, user) for r in rows]
     requester = user.username if (mine or user.is_requester_only) else None
     rows = await svc.list_requests(
         session,
@@ -169,7 +180,7 @@ async def list_requests(
         limit=limit,
         offset=offset,
     )
-    return [await _read(session, r) for r in rows]
+    return [await _read(session, r, user) for r in rows]
 
 
 @router.get("/metrics", response_model=TouchlessMetricsRead)
@@ -182,7 +193,7 @@ async def metrics(session: SessionDep, _user: ReaderUser) -> TouchlessMetricsRea
 async def get_request(
     request_id: str, session: SessionDep, user: IncidentViewerUser
 ) -> ServiceRequestRead:
-    return await _read(session, await _visible(session, request_id, user))
+    return await _read(session, await _visible(session, request_id, user), user)
 
 
 async def _decide(
@@ -210,7 +221,7 @@ async def _decide(
         )
     except svc.RequestError as exc:
         raise _http(exc) from exc
-    return await _commit_and_read(session, req, notifier)
+    return await _commit_and_read(session, req, user, notifier)
 
 
 @router.post("/{request_id}/approve", response_model=ServiceRequestRead)
@@ -261,7 +272,7 @@ async def cancel_request(
         )
     except svc.RequestError as exc:
         raise _http(exc) from exc
-    return await _commit_and_read(session, req)
+    return await _commit_and_read(session, req, user)
 
 
 @router.patch("/{request_id}", response_model=ServiceRequestRead)
@@ -276,7 +287,7 @@ async def update_request(
         )
     except svc.RequestError as exc:
         raise _http(exc) from exc
-    return await _commit_and_read(session, req)
+    return await _commit_and_read(session, req, user)
 
 
 @router.post("/{request_id}/retry", response_model=ServiceRequestRead)
@@ -299,7 +310,7 @@ async def retry_request(
         )
     except svc.RequestError as exc:
         raise _http(exc) from exc
-    return await _commit_and_read(session, req, notifier)
+    return await _commit_and_read(session, req, user, notifier)
 
 
 @router.post("/{request_id}/complete-step", response_model=ServiceRequestRead)
@@ -321,4 +332,4 @@ async def complete_manual_step(
         )
     except svc.RequestError as exc:
         raise _http(exc) from exc
-    return await _commit_and_read(session, req, notifier)
+    return await _commit_and_read(session, req, user, notifier)

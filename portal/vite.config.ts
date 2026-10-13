@@ -5,6 +5,8 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
   plugins: [react()],
+  // E2E iki geliştirme sunucusunu (Faz 1/2 + Faz 3) aynı kökte çalıştırır: önbellekler ayrı olsun
+  ...(process.env.VITE_CACHE_DIR ? { cacheDir: process.env.VITE_CACHE_DIR } : {}),
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   },

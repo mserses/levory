@@ -15,6 +15,7 @@ import {
   Tabs,
   buttonClassName,
 } from '@/components';
+import { AwaitingApprovalList } from '@/features/requests/AwaitingApprovalList';
 import { ServiceRequestList } from '@/features/requests/ServiceRequestList';
 import { formatDate, formatDateTime } from '@/lib/format';
 import { usePageTitle } from '@/lib/usePageTitle';
@@ -40,11 +41,16 @@ function isFilter(v: string): v is Filter {
   return v === 'open' || v === 'closed' || v === 'all';
 }
 
-type TabKey = 'olay' | 'hizmet';
+type TabKey = 'olay' | 'hizmet' | 'onay';
 const TABS = [
   { key: 'olay', label: 'Olaylar' },
   { key: 'hizmet', label: 'Hizmet talepleri' },
+  { key: 'onay', label: 'Onayımı bekleyenler' },
 ] as const;
+
+function tabOf(value: string | null): TabKey {
+  return value === 'hizmet' || value === 'onay' ? value : 'olay';
+}
 
 function byNewest(a: Incident, b: Incident) {
   return b.created_at.localeCompare(a.created_at);
@@ -57,7 +63,7 @@ export default function MyRequestsPage() {
   const canCreate = hasRole(...ROUTE_ROLES.newRequest);
   const canUseCatalog = hasRole(...ROUTE_ROLES.catalog);
   const [params, setParams] = useSearchParams();
-  const tab: TabKey = params.get('sekme') === 'hizmet' ? 'hizmet' : 'olay';
+  const tab = tabOf(params.get('sekme'));
   const [filter, setFilter] = useState<Filter>('open');
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -187,7 +193,9 @@ export default function MyRequestsPage() {
           setParams(key === 'olay' ? {} : { sekme: key }, { replace: true });
         }}
       >
-        {tab === 'olay' ? content : <ServiceRequestList canCreate={canUseCatalog} />}
+        {tab === 'olay' && content}
+        {tab === 'hizmet' && <ServiceRequestList canCreate={canUseCatalog} />}
+        {tab === 'onay' && <AwaitingApprovalList />}
       </Tabs>
 
       <Drawer

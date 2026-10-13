@@ -2851,6 +2851,12 @@ export interface components {
       approver: string | null;
       /** Attempt */
       attempt: number;
+      /**
+       * Can Decide
+       * @description Oturumdaki kullanıcı bu talebe şimdi iş onayı/reddi verebilir mi
+       * @default false
+       */
+      can_decide: boolean;
       /** Catalog Item Id */
       catalog_item_id: string;
       /** Closed At */

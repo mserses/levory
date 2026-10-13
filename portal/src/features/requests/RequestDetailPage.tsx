@@ -27,6 +27,7 @@ import { formatDateTime } from '@/lib/format';
 import { BUSINESS_APPROVAL_LABELS, CATALOG_APPROVAL_LABELS, sameIdentity } from '@/lib/labels';
 import { usePageTitle } from '@/lib/usePageTitle';
 import { enumOptionLabel, parseFormSchema } from '@/features/catalog/formSchema';
+import { BusinessDecision } from './BusinessDecision';
 import { RequestStateBadge, TouchlessBadge } from './RequestBadges';
 import { StepTimeline } from './StepTimeline';
 import styles from './Requests.module.css';
@@ -174,6 +175,7 @@ function RequestDetail({ request }: { request: ServiceRequest }) {
                 </>
               )}
             </dl>
+            {request.can_decide && <BusinessDecision request={request} />}
           </section>
 
           <FormValues request={request} />
@@ -202,6 +204,14 @@ function Outcome({ request }: { request: ServiceRequest }) {
             İnsan katkısı: <span className="prewrap">{request.touchless_reason}</span>
           </>
         )}
+      </p>
+    );
+  }
+  if (request.state === 'awaiting_approval' && request.can_decide) {
+    return (
+      <p className={`${styles.notice} ${styles.noticeWarn}`} role="status">
+        Bu talep <strong>sizin iş onayınızı bekliyor</strong>. Onaylarsanız karşılama hemen başlar;
+        riskli adımlar ayrıca BT onayından geçer.
       </p>
     );
   }

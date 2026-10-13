@@ -1,5 +1,8 @@
 // E2E backend'i: geçici SQLite, geliştirme kipi kimlik doğrulaması ve sahte (fake) LLM.
 // Playwright `webServer` tarafından başlatılır; her çalıştırma boş bir veritabanıyla başlar.
+// E2E_PROFILE=faz3: Faz 3 otomasyon backend'i — gölge mod KAPALI (varsayılan eşik), sahte Entra ID /
+// M365 / Teams dizini (`SZ_CONNECTOR_PROVIDER=fake`, katalog tohumlanır) ve standart grup izin listesi.
+// Faz 1/2 senaryoları gölge modu açık backend'i kullanır (öneriler insan onayına düşer).
 import { spawn } from 'node:child_process';
 import { mkdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -12,6 +15,15 @@ const origins = process.env.E2E_PORTAL_ORIGINS ?? 'http://127.0.0.1:5180';
 // Sabit (porta özgü) geçici dizin: her başlangıçta silinip yeniden kurulur. Playwright sunucuyu
 // SIGKILL ile durdurabildiği için temizlik çıkışa değil başlangıca bağlıdır.
 const dir = join(tmpdir(), `serviszeka-e2e-${port}`);
+const faz3 = process.env.E2E_PROFILE === 'faz3';
+const profileEnv = faz3
+  ? {
+      SZ_AI_SHADOW_MODE: 'false',
+      SZ_CONNECTOR_PROVIDER: 'fake',
+      SZ_IDENTITY_STANDARD_GROUPS: 'sg-yazilim-standart,sg-vpn-kullanicilari,m365-ekip-proje-x',
+      SZ_IDENTITY_PRIVILEGED_GROUPS: '',
+    }
+  : { SZ_AI_SHADOW_MODE: 'true' };
 rmSync(dir, { recursive: true, force: true });
 mkdirSync(dir, { recursive: true });
 
@@ -40,7 +52,7 @@ const child = spawn(
       SZ_CORS_ORIGINS: origins,
       SZ_DATABASE_URL: `sqlite+aiosqlite:///${join(dir, 'e2e.db')}`,
       SZ_AUTO_CREATE_SCHEMA: 'true',
-      SZ_AI_SHADOW_MODE: 'true',
+      ...profileEnv,
       SZ_ONCALL_WEBHOOK_URL: '',
       SZ_SERVICENOW_INSTANCE_URL: '',
       SZ_JIRA_BASE_URL: '',

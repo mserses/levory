@@ -4,8 +4,9 @@ Araçlar somut sağlayıcıyı değil `serviszeka.connectors` arayüzlerini kull
 `tools.connectors`; yoksa 503). Risk sınıfları (ürün sahibiyle tasarlanan katalog):
 
 - R0: `identity.get_user`, `identity.verify_requester`, `license.check_available`
-- R1: `identity.unlock_account`, `license.assign`, `notify.send_to_user`, `notify.post_to_channel`
-- R1 koşullu: `identity.reset_password` (yalnızca doğrulanmış self-servis talepte R1, aksi R2),
+- R1: `license.assign`, `notify.send_to_user`, `notify.post_to_channel`
+- R1 koşullu: `identity.reset_password` ve `identity.unlock_account` (yalnızca doğrulanmış
+  self-servis talepte R1, aksi R2),
   `identity.add_to_group` (`SZ_IDENTITY_STANDARD_GROUPS` izin listesinde ve ayrıcalıklı değilse R1,
   aksi R3)
 - R2: `identity.reset_mfa`, `identity.remove_from_group`, `identity.revoke_sessions`,
@@ -140,12 +141,21 @@ class UserTargetArgs(Args):
     request_id: RequestLink
 
 
-async def _reset_password_risk(ctx: ToolContext, args: UserTargetArgs) -> RiskClass:
-    # Yalnızca talebi kendi oturumuyla açan kullanıcının kendi parolası R1; diğer her durum R2
+async def _self_service_risk(ctx: ToolContext, args: UserTargetArgs, tool: str) -> RiskClass:
+    # Yalnızca talebi kendi oturumuyla açan kullanıcının kendi hesabı R1; diğer her durum R2
     result = await request_service.verify_self_service(
-        ctx.session, args.request_id, args.user, _identity(), tool="identity.reset_password"
+        ctx.session, args.request_id, args.user, _identity(), tool=tool
     )
     return RiskClass.R1 if result.verified else RiskClass.R2
+
+
+async def _reset_password_risk(ctx: ToolContext, args: UserTargetArgs) -> RiskClass:
+    return await _self_service_risk(ctx, args, "identity.reset_password")
+
+
+async def _unlock_account_risk(ctx: ToolContext, args: UserTargetArgs) -> RiskClass:
+    # Kilit açma da hesabı ele geçirmeye kapı açar: başkası adına / talepsiz / devre dışı hesapta R2
+    return await _self_service_risk(ctx, args, "identity.unlock_account")
 
 
 async def reset_password(ctx: ToolContext, args: UserTargetArgs) -> dict[str, Any]:
@@ -301,8 +311,10 @@ def register_all() -> None:
                  "ikincil adresine gönderir (doğrulanmış self-servis talepte R1, diğer her durumda "
                  "R2).", R1, UserTargetArgs, reset_password, WRITERS,
                  risk_fn=_reset_password_risk, connectors=msg, links=LINK),
-        ToolSpec("identity.unlock_account", "Kilitlenen hesabın kilidini açar.", R1,
-                 UserTargetArgs, unlock_account, WRITERS, connectors=ident, links=LINK),
+        ToolSpec("identity.unlock_account", "Kilitlenen hesabın kilidini açar (doğrulanmış "
+                 "self-servis talepte R1, diğer her durumda R2).", R1, UserTargetArgs,
+                 unlock_account, WRITERS, risk_fn=_unlock_account_risk, connectors=ident,
+                 links=LINK),
         ToolSpec("identity.reset_mfa", "Kullanıcının parola dışındaki MFA yöntemlerini siler "
                  "(yeniden kayıt gerekir).", R2, UserTargetArgs, reset_mfa, WRITERS,
                  connectors=ident, links=LINK),

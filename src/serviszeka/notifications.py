@@ -68,6 +68,14 @@ def get_notifier(settings: Settings | None = None) -> Notifier:
     settings = settings or get_settings()
     if settings.oncall_webhook_url:
         return WebhookNotifier(settings.oncall_webhook_url)
+    if settings.notifier_provider in ("teams", "log"):
+        # Açık bildirim seçimi Slack'i dışlar (Teams'te nöbetçi kanalı yok: log)
+        return LogNotifier()
+    from serviszeka.connectors.slack import build_slack_oncall
+
+    slack = build_slack_oncall(settings)
+    if slack is not None:
+        return slack
     return LogNotifier()
 
 

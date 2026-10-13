@@ -39,7 +39,10 @@ async def lifespan(app: FastAPI):
     # Geliştirmede tablolar otomatik kurulur; üretimde göçler (alembic upgrade head) kullanılır
     if settings.auto_create_schema:
         await create_all()
-        if settings.environment == "development" and settings.connector_provider == "fake":
+        if (
+            settings.environment == "development"
+            and connector_setup.resolve_providers(settings).identity == "memory"
+        ):
             # Yerel deneme / E2E (sahte dizin): varsayılan hizmet kataloğu; öğeler sahte dizinin
             # grup/posta kutusu kimliklerini kullanır (var olan öğelere dokunmaz)
             from serviszeka.services.catalog import seed_default_items

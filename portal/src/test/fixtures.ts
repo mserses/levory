@@ -195,6 +195,7 @@ export function makeServiceRequest(overrides: Partial<ServiceRequest> = {}): Ser
     fulfilled_at: '2026-10-12T09:00:06Z',
     closed_at: '2026-10-12T09:00:06Z',
     actions: [],
+    can_decide: false,
     ...overrides,
   };
 }

@@ -4,7 +4,7 @@ import json
 from functools import lru_cache
 from typing import Annotated, Any, Literal
 
-from pydantic import Field, field_validator
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
@@ -40,7 +40,16 @@ class Settings(BaseSettings):
     # none: bağlayıcı yok (identity.* / mailbox.* / license.* / notify.send_* araçları 503);
     # fake: bellek içi sahte dizin (yalnızca environment=development; yerel deneme ve E2E);
     # graph: Microsoft Entra ID + Microsoft 365 (Graph, client credentials) + Teams webhook
-    connector_provider: Literal["none", "fake", "graph"] = "none"
+    # keycloak: Keycloak Admin REST API (yalnızca `identity`; connectors/keycloak.py)
+    connector_provider: Literal["none", "fake", "graph", "keycloak"] = "none"
+    # Ayrı sağlayıcı seçimi (boşsa SZ_CONNECTOR_PROVIDER'dan türetilir; ikisi çelişirse açılış
+    # reddedilir). Kimlik: graph (Entra ID + M365 posta/lisans) | keycloak (yalnızca kimlik) |
+    # memory (sahte dizin; yalnızca environment=development). Bildirim (`messaging`): teams (Graph
+    # posta + Teams webhook; kimlik graph olmalı) | slack (SZ_SLACK_*) | log (bağlayıcı yok:
+    # notify.send_* araçları 503, nöbetçi uyarısı yalnızca log/SZ_ONCALL_WEBHOOK_URL). Boşsa eski
+    # davranış: kimlik yığınının bildiricisi, Slack ayarlıysa Slack. Ayrıntı connectors/setup.py.
+    identity_provider: Literal["graph", "keycloak", "memory"] | None = None
+    notifier_provider: Literal["teams", "slack", "log"] | None = None
     # Microsoft Graph uygulama kaydı (client credentials). Gizli bilgi: yalnızca ortamdan.
     graph_tenant_id: str | None = None
     graph_client_id: str | None = None
@@ -57,6 +66,22 @@ class Settings(BaseSettings):
     identity_standard_groups: Annotated[list[str], NoDecode] = []
     # Her zaman ayrıcalıklı sayılan gruplar (Graph'ta ayrıca isAssignableToRole=true gruplar)
     identity_privileged_groups: Annotated[list[str], NoDecode] = []
+    # Keycloak (connector_provider=keycloak): hizmet hesabı etkin gizli istemci (client
+    # credentials). Sunucu adresi /admin ve /realms öncesi taban (Keycloak <17: .../auth).
+    keycloak_server_url: str | None = None
+    keycloak_realm: str | None = None
+    keycloak_client_id: str | None = None
+    keycloak_client_secret: SecretStr | None = None
+    # Yöneticinin kullanıcı adını taşıyan kullanıcı özniteliği (Keycloak'ta yerleşik yönetici yok)
+    keycloak_manager_attribute: str = "manager"
+    # Slack (connectors/slack.py): bot belirteci (xoxb-..., gizli) varsa `messaging` bağlayıcısı
+    # Slack olur (kanal mesajı + DM); hassas bildirim yine ikincil adrese (Graph/sahte) gider.
+    slack_bot_token: SecretStr | None = None
+    # notify.post_to_channel "default" / "oncall" kanalları (kanal kimliği önerilir, ör. C0123...)
+    slack_default_channel: str | None = None
+    slack_oncall_channel: str | None = None
+    # İsteğe bağlı gelen webhook (gizli; tek kanala bağlı): bot yoksa kanal mesajı ve nöbetçi uyarısı
+    slack_webhook_url: SecretStr | None = None
 
     # ITSM entegrasyonları
     servicenow_instance_url: str | None = None
@@ -110,6 +135,14 @@ class Settings(BaseSettings):
             if text.startswith("["):
                 return json.loads(text)
             return [g.strip() for g in text.split(",") if g.strip()]
+        return value
+
+    @field_validator("identity_provider", "notifier_provider", mode="before")
+    @classmethod
+    def _blank_provider_is_unset(cls, value: Any) -> Any:
+        # `.env.example`'dan kopyalanan boş değer "seçilmedi" demektir
+        if isinstance(value, str) and not value.strip():
+            return None
         return value
 
     @field_validator("cors_origins", mode="before")

@@ -12,6 +12,6 @@ export { meApi } from './me';
 export { actionsApi } from './actions';
 export { catalogApi } from './catalog';
 export { problemsApi } from './problems';
-export { requestsApi } from './requests';
+export { AWAITING_MY_APPROVAL_QUERY, requestsApi } from './requests';
 export { queryKeys } from './queryKeys';
 export type * from './types';

@@ -225,6 +225,95 @@ uv run pytest tests/test_gate_no_unapproved_risk.py -q
 
 Ayarlar: `SZ_CAB_MIN_APPROVALS` (varsayılan 2, en az 1) normal değişiklik için gereken CAB onayıdır; aynı onaylayanın eşzamanlı ikinci oyu tekil kısıtla durdurulur ve `409` döner.
 
+## Faz 3 — Otomasyon
+
+Kapı: **standart taleplerin %50'si insansız karşılanıyor**, bu sırada her R2/R3 eylem insan onayı istiyor. Sözleşmenin tamamı [`docs/faz3.md`](docs/faz3.md).
+
+### Araçlar ve risk sınıfları
+
+Her otomasyon yeteneği `serviszeka.tools` altında `alan.fiil_nesne` adlı bir araçtır (61 araç). Risk sınıfı: **R0** okuma (yapay zekâ serbest), **R1** düşük riskli yazma (yapay zekâ yalnızca gölge mod kapalı + güven ≥ eşik iken; yoksa onaya düşer), **R2** her zaman insan onayı, **R3** insan onayı + ikinci (farklı) onaylayan ya da CAB onaylı değişiklik. Koşullu risk yalnızca yükseltir: izin listesi dışı/ayrıcalıklı/bilinmeyen gruba ekleme R3; doğrulanmamış (başkası adına, talepsiz ya da devre dışı hesap) parola sıfırlama **ve kilit açma** R2. R1-R3 araçlar `dry_run` ve `idempotency_key` alır. R2/R3 çağrısı çalışmaz: eylem isteği (`ActionRequest`) açar; onay `GET /actions`, `POST /actions/{id}/approve|reject` ya da portalda **Onaylar → Eylem onayları** (yapay zekâ ve talep eden onaylayamaz; 24 saatte düşer).
+
+### MCP sunucusu
+
+Araç kaydı resmi MCP SDK ile **`POST /mcp`** adresinde (streamable HTTP, durumsuz, JSON yanıt) sunulur. Kimlik REST ile aynıdır: `Authorization: Bearer <OIDC JWT>`; belirteçsiz istek `401`. Yapay zekâ istemcisi kimlik sağlayıcıda kendi istemcisiyle (client credentials) belirteç alır ve **`ai_agent`** rolü taşır; ServisZeka onu `ai:<azp|appid>` aktörüne ve yalnızca `ai_agent` rolüne indirger (insan REST uçlarına erişemez, onay veremez). Keycloak / Entra ID kurulumu: `.env.example` "yapay zekâ ajanı hizmet sorumluları". `tools/list` her aracı JSON şemasıyla ve açıklamanın başında risk sınıfıyla (`[R3 · …]`) döndürür; yapay zekâya dönen sonuç PII maskelidir. R1-R3 araçlar zarf alanlarını da alır: `dry_run`, `idempotency_key`, `reason`, `confidence`.
+
+Claude Code / Claude Desktop gibi bir MCP istemcisi için (`.mcp.json`; belirteç ortam değişkeninden):
+
+```json
+{
+  "mcpServers": {
+    "serviszeka": {
+      "type": "http",
+      "url": "https://servis.ornek.com.tr/mcp",
+      "headers": { "Authorization": "Bearer ${SERVISZEKA_AI_TOKEN}" }
+    }
+  }
+}
+```
+
+Yerelde deneme (dev kimlik, sahte dizin; `SZ_ENVIRONMENT=development SZ_AUTH_MODE=dev SZ_LLM_PROVIDER=fake SZ_CONNECTOR_PROVIDER=fake`):
+
+```bash
+curl -s -X POST http://localhost:8000/mcp \
+  -H "Authorization: Bearer dev:servis-ajani:ai_agent" \
+  -H "Content-Type: application/json" -H "Accept: application/json, text/event-stream" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"identity.add_to_group","arguments":{"user":"ali","group":"sg-domain-admins","reason":"deneme"}}}'
+# -> {"status": "pending_approval", "action_request_id": "...", "risk_class": "R3", ...}
+```
+
+### Hizmet kataloğu ve talepler
+
+`/catalog` 10 Türkçe öğeyle tohumlanır (`POST /catalog/seed`; sahte dizinle geliştirmede açılışta): standart (`password_reset`, `account_unlock`, `standard_software_group`, `m365_license`, `teams_channel_access`, `vpn_access`) ve standart olmayan (`shared_mailbox_access`, `new_employee_account`, `privileged_group_access`, `mfa_reset`). Grup/lisans/posta kutusu kimlikleri sahte dizine göredir; üretimde kiracının kimlikleriyle güncelleyin (`PATCH /catalog/items/{key}`). Talep (`/requests`, `REQ0000001`): iş onayı (yönetici ya da onay grubu; portalda **Taleplerim → Onayımı bekleyenler**) risk onayından önce gelir; karşılama adımları `ai:fulfilment` aktörüyle araç boru hattından geçer; R2/R3 adım eylem isteğini bekler. **İnsansız** yalnızca sıfır insan onayı ve sıfır insan düzenlemesiyle karşılanan taleptir (portalda "✓ İnsansız çözüldü" rozeti); oran `GET /requests/metrics`. Bağlayıcılar aşağıdaki gibi seçilir (ayrıntı ve doğrulanmamış uç noktalar [`docs/faz3.md`](docs/faz3.md)).
+
+#### Bağlayıcılar
+
+Kimlik ve bildirim sağlayıcısı ayrı seçilir: `SZ_IDENTITY_PROVIDER` + `SZ_NOTIFIER_PROVIDER`. İkisi de boşsa eski tek ayar `SZ_CONNECTOR_PROVIDER` (`none` | `fake` | `graph` | `keycloak`) aynen geçerlidir; Slack ayarlıysa bildirim Slack olur. Zorunlu ayar eksikse ya da iki ayar çelişirse uygulama açılmaz; hata mesajı eksik `SZ_` ayarlarını adıyla yazar.
+
+| Ayar | Değer | Kurulan bağlayıcılar | Zorunlu ayarlar | Not |
+|---|---|---|---|---|
+| `SZ_IDENTITY_PROVIDER` | `graph` | identity, mail, license (+ `teams` bildirici) | `SZ_GRAPH_TENANT_ID`, `SZ_GRAPH_CLIENT_ID`, `SZ_GRAPH_CLIENT_SECRET` | Entra ID'de bulutta kilit açma ve paylaşılan posta kutusu izni yok |
+| | `keycloak` | yalnızca identity | `SZ_KEYCLOAK_SERVER_URL`, `SZ_KEYCLOAK_REALM`, `SZ_KEYCLOAK_CLIENT_ID`, `SZ_KEYCLOAK_CLIENT_SECRET` | Kilit açma var; ikincil e-posta, posta ve lisans yok |
+| | `memory` | identity, mail, license, messaging (sahte dizin) | `SZ_ENVIRONMENT=development` | Yerel deneme / E2E (`SZ_CONNECTOR_PROVIDER=fake` ile aynı) |
+| `SZ_NOTIFIER_PROVIDER` | `teams` | Graph posta + Teams gelen webhook | `SZ_IDENTITY_PROVIDER=graph`, `SZ_GRAPH_SENDER_MAILBOX` | Kanal webhook'ları `SZ_TEAMS_WEBHOOK_URLS` |
+| | `slack` | Slack (kanal + DM) | `SZ_SLACK_BOT_TOKEN` ya da `SZ_SLACK_WEBHOOK_URL` | Geçici parola Slack'e gitmez, kimlik yığınının ikincil adresine gider (Keycloak'ta ikincil adres yok) |
+| | `log` | — (`notify.send_*` 503) | — | Nöbetçi uyarısı log ya da `SZ_ONCALL_WEBHOOK_URL` |
+
+### Kapı ölçümü
+
+```bash
+uv run python evals/run_automation_eval.py          # etiketli 200 talep; kapı geçilmezse çıkış kodu 1
+uv run python evals/run_automation_eval.py --json   # ayrıntı (talep bazında sonuç)
+uv run python evals/run_automation_eval.py --stack entra      # Entra ID / Graph biçimli sahte
+uv run python evals/run_automation_eval.py --stack keycloak   # Keycloak + Slack biçimli sahte
+uv run pytest tests/test_automation_eval.py tests/test_gate_no_unapproved_risk.py -q
+```
+
+`evals/data/requests.jsonl`: 200 gerçekçi Türkçe hizmet talebi (10 katalog öğesinin hepsi), talep edenin dizin öznitelikleri (departman, yönetici, ikincil e-posta, hesap etkin mi, dizinde var mı, kilitli mi), kimin açtığı (kendisi / servis masası), insan kararları ve altın etiket `{item, expected_touchless, reason}` (veri kartı `evals/data/REQUESTS_CARD.md`). Her talep **gerçek talep boru hattından** geçer: bellek içi sahte dizin (ağ yok), gölge mod kapalı, varsayılan güven eşiği (0,75); LLM kullanılmaz (çağrılırsa sayılır ve kapı kalır). İnsanlar simüle edilir (yönetici / İK onay grubu, iki BT onaylayan, servis masası).
+
+Son ölçüm:
+
+| Ölçüt | Değer |
+|---|---|
+| Standart talepler insansız | **134 / 155 (%86,5)** — hedef %50 |
+| Yanlış insansız (otomatikleşmemesi gerekirken insansız biten) | **0** (sert kalma koşulu) |
+| Güvenlik değişmezi ihlali (insansız talepte insan dokunuşu; R2/R3'ün gerekli onaydan az onayla yürümesi) | 0 |
+| Etiket uyumu (beklenen insansız == gerçekleşen) | %100 |
+| Açılan eylem istekleri | R2: 40 (36 yürütüldü, 4 reddedildi) · R3: 17 (11 yürütüldü, 6 reddedildi) |
+
+Öğe bazında: `vpn_access` 20/20, `teams_channel_access` 18/20, `password_reset` 34/40, `m365_license` 17/20, `account_unlock` 21/25, `standard_software_group` 24/30; standart olmayan dört öğe 0 (her biri iş ve/veya BT onayı ister). Otomatikleşmeyen standart talepler: ayrıcalıklı / bilinmeyen / izin listesi dışı grup (R3), servis masasının başkası adına açtığı ya da devre dışı/dizinde olmayan hesaba ait parola sıfırlama ve kilit açma (R2), ikincil e-postası olmayan parola sıfırlama ve boş lisansı olmayan SKU (başarısız). Ölçüm, başkası adına açılan kilit açma talebinin onaysız (R1) yürüdüğü bir açığı yakaladı; `identity.unlock_account` artık parola sıfırlama gibi koşullu R1/R2'dir.
+
+Aynı veri seti ve etiketler, sahte dizin hedef yığının belgelenmiş kısıtlarıyla sarılarak da ölçülür (`--stack`; `connectors/fake_stacks.py`):
+
+| Yığın (`--stack`) | Standart insansız | Fark |
+|---|---|---|
+| `memory` (varsayılan) | 134 / 155 (%86,5) | Sahte dizin her işlemi destekler |
+| `entra` | 113 / 155 (%72,9) | Bulutta kilit açma yok: `account_unlock` 0/25 (`failed`); paylaşılan posta kutusu adımı `failed` |
+| `keycloak` (+ Slack) | 83 / 155 (%53,5) | Kilit açma çalışır (21/25), ama ikincil e-posta olmadığı için geçici parola teslim edilemez (`password_reset` 0/40) ve lisans sağlayıcısı yok (`m365_license` 0/20) |
+
+Üç yığında da yanlış insansız 0, ihlal 0. Keycloak'ta kapı ancak %3,5 farkla geçiyor; parola sıfırlama için ikincil teslim kanalı (ör. SMS ya da doğrulanmış ikincil e-posta özniteliği) eklenmeden bu yığında parola talepleri insansız çözülemez.
+
+Uçtan uca (`portal/e2e/faz3-*.spec.ts`, gölge modu kapalı ayrı backend + portal çifti): katalogdan "Standart yazılım grubu erişimi" insansız karşılanır ve rozet görünür; "Yetkili grup erişimi" yönetici onayından sonra R3 eylem isteği açar, ilk BT onayında `1/2` bekler, ikinci farklı onaylayanla yürür ve talep insan katkısıyla karşılanır; benzer üç olaydan eğilim taraması sorun önerir ve RCA taslağı (E2E'de FakeLLM) görünür.
+
 ## Yol haritası
 
 | Faz | Süre | Kapsam | Geçiş kapısı |

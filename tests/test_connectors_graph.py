@@ -442,10 +442,17 @@ async def test_tool_runs_against_graph_connector(session, graph):
                                {"user": "ali", "group": "g-std"}, confidence=0.9, settings=settings)
         assert r.status == ToolStatus.EXECUTED and r.risk_class.value == "R1", r
         assert any(req.method == "POST" for req in graph.graph_requests)
-        # Entra ID bulutta kilit açma yok: araç "failed" (unavailable), istisna değil
+        # Talepsiz kilit açma doğrulanmamıştır: R2, insan onayı ister. Onaylanınca Entra ID bulutta
+        # kilit açma olmadığı için eylem "failed" (unavailable) olur, istisna değil
         agent = CurrentUser("ayse", frozenset({"agent"}))
         r = await execute_tool(session, agent, "identity.unlock_account", {"user": "ali"},
                                settings=settings)
-        assert r.status == ToolStatus.FAILED and r.error["code"] == "unavailable"
+        assert r.status == ToolStatus.PENDING_APPROVAL and r.risk_class.value == "R2", r
+        from serviszeka.tools import actions
+
+        ar = await actions.approve(session, r.action_request_id,
+                                   CurrentUser("sef.ali", frozenset({"approver"})),
+                                   settings=settings)
+        assert ar.state == "failed" and ar.error, (ar.state, ar.error)
     finally:
         connectors.restore(saved)

@@ -174,7 +174,8 @@ Uygulamalar: `connectors/graph.py` (`GraphClient` + `GraphIdentityProvider`, `Gr
 geliştirme sahte kipi ve kapı değerlendirmesi; `demo()` Türkçe örnek dizin; `writes` / `messages` ile
 yan etkiler gözlenir; `failures[op]` ile hata enjekte edilir). Kurulum `connectors/setup.py`
 (`SZ_CONNECTOR_PROVIDER` = `none` | `fake` (yalnızca `SZ_ENVIRONMENT=development`, aksi halde açılış
-reddedilir) | `graph` (`SZ_GRAPH_TENANT_ID`, `SZ_GRAPH_CLIENT_ID`, `SZ_GRAPH_CLIENT_SECRET` zorunlu)).
+reddedilir) | `graph` (`SZ_GRAPH_TENANT_ID`, `SZ_GRAPH_CLIENT_ID`, `SZ_GRAPH_CLIENT_SECRET` zorunlu)
+| `keycloak`; ya da ayrı ayrı `SZ_IDENTITY_PROVIDER` + `SZ_NOTIFIER_PROVIDER`, bkz. "Sağlayıcı seçimi").
 Kayıtlı değilse o türü isteyen araç 503 `unavailable` döner. Keycloak/Slack aynı protokolü uygular.
 Kurallar: HTTP yalnızca `httpx.AsyncClient` (kurucu `transport` alır; testte `httpx.MockTransport`,
 `tests/test_connectors_graph.py`), gizli bilgiler `SZ_` ayarlarından, yazan her yöntem `dry_run` ve
@@ -228,6 +229,172 @@ bir test kiracısında doğrulanmalıdır:
 7. `memberOf`'un geçişli olmayan (doğrudan) üyelik döndürmesinin onay grubu denetimi için yeterliliği
    (iç içe gruplar `transitiveMemberOf` gerektirir).
 
+### Slack (`connectors/slack.py`)
+
+`SZ_SLACK_BOT_TOKEN` (ya da yalnızca `SZ_SLACK_WEBHOOK_URL`) tanımlıysa her `SZ_CONNECTOR_PROVIDER`
+kipinde `messaging` bağlayıcısı `SlackNotifier` olur (`setup._with_slack`; yalnızca
+`SZ_NOTIFIER_PROVIDER` boşken — açık `teams`/`log` seçimi Slack'i dışlar); kimlik sağlayıcı ve
+önceki bildirici korunur. Nöbetçi uyarısı (`notifications.get_notifier`): `SZ_ONCALL_WEBHOOK_URL`
+öncelikli (davranış değişmez), yoksa bot + `SZ_SLACK_ONCALL_CHANNEL`, yoksa Slack webhook'u.
+
+- `post_to_channel`: yalnızca yapılandırılmış kanallar — `default` (`SZ_SLACK_DEFAULT_CHANNEL`),
+  `oncall` (`SZ_SLACK_ONCALL_CHANNEL`) ya da bu kanal kimliklerinin kendisi; başka kanal/kullanıcı
+  kimliği `ConnectorNotFoundError`. `POST chat.postMessage` (`Authorization: Bearer`, JSON;
+  `unfurl_links/unfurl_media=false`). Webhook kipinde (bot yok) yalnızca `default` kanal.
+- `send_to_user`: Slack kimliği (`U…`/`W…`) doğrudan; e-posta `GET users.lookupByEmail`; dizin
+  kimliği kimlik sağlayıcıdan posta/UPN ile çözülür. `POST conversations.open {"users"}` -> DM,
+  ardından `chat.postMessage`. `dry_run` yalnızca okur (DM açmaz). `sensitive=True` asla Slack'e
+  gitmez: önceki bildiriciye (Graph `otherMails` / sahte) devredilir, yoksa `ConnectorError`.
+- Biçim: Block Kit (`header` plain_text ≤150, `section` mrkdwn ≤3000, `fields` ≤10 × ≤2000,
+  `context`) + kaçışlı `text` yedeği. Tüm metinde `&`→`&amp;`, `<`→`&lt;`, `>`→`&gt;` (böylece
+  `<!channel>`, `<@U…>`, `<#C…>`, `<url|metin>` çalışmaz); düz `@channel/@here/@everyone` sıfır
+  genişlikli boşlukla bozulur. Kesme varlığı bölmez.
+- Semantik: HTTP 200 + `{"ok": false}` hatadır (`invalid_auth`, `missing_scope` vb. →
+  `ConnectorAuthError`, `missing_scope`'ta `needed` kapsamı mesajda; `channel_not_found`,
+  `users_not_found` → `ConnectorNotFoundError`; diğerleri `ConnectorError`). 429 + `Retry-After`
+  ≤ 30 sn ise bir kez beklenip yeniden denenir, ikinci 429 ya da daha uzun bekleme hata. Belirteç ve
+  webhook URL'si `SecretStr`; hiçbir mesaj/`repr`/günlükte yer almaz.
+
+**Slack — doğrulanmalı (gerçek çalışma alanında sınanmadı):**
+
+8. Bot kapsamları: `chat:write`, `im:write`, `users:read`, `users:read.email`; botun kanala üye
+   olması gerektiği (`not_in_channel`) ve kanal adının (kimlik yerine) `chat.postMessage`'ta kabulü.
+9. `users.lookupByEmail`'in Entra `mail`/UPN ile eşleşmesi (Slack profil e-postası farklı olabilir)
+   ve misafir/silinmiş kullanıcı yanıt biçimi.
+10. `header` (`plain_text`) içinde `&amp;`/`&lt;` varlıklarının çözülüp çözülmediği (çözülmüyorsa
+    başlıkta görsel kusur; güvenlik etkisi yok) ve düz `@channel`'ın `link_names` gönderilmeden
+    yayın bahsetmesine dönüşmediği.
+11. Block Kit sınırları (header 150, section 3000, fields 10×2000, context 10 öğe) ve `text` yedeği
+    40.000 karakter sınırı.
+12. Gelen webhook'un `blocks` kabulü ve hata gövdeleri (`invalid_payload`, `no_service`,
+    `channel_is_archived`, `action_prohibited`); webhook 429 davranışı ve `Retry-After` başlığı.
+13. `notify.post_to_channel` araç açıklaması hâlâ "Teams kanalı" der; Slack kipinde kanal adları
+    `default`/`oncall` (araç metni güncellenmeli — araç dosyası bu değişikliğin dışında).
+
+### Keycloak (`connectors/keycloak.py`)
+
+`SZ_CONNECTOR_PROVIDER=keycloak` yalnızca `identity` bağlayıcısını kurar (`KeycloakIdentityProvider`;
+posta/lisans/bildirim Keycloak'ta yok — `messaging` için Slack ayarlanabilir). Zorunlu:
+`SZ_KEYCLOAK_SERVER_URL` (Keycloak <17: `.../auth`), `SZ_KEYCLOAK_REALM`, `SZ_KEYCLOAK_CLIENT_ID`,
+`SZ_KEYCLOAK_CLIENT_SECRET` (`SecretStr`); isteğe bağlı `SZ_KEYCLOAK_MANAGER_ATTRIBUTE` (varsayılan
+`manager`). Testler `tests/test_keycloak_connector.py` (`MockTransport`).
+
+- Belirteç: hizmet hesabı **client credentials**, `POST {server}/realms/{realm}/protocol/openid-connect/token`;
+  süresinden ≤60 sn önceye kadar önbellek, Admin API 401'de bir kez yenileme. Gizli anahtar/belirteç
+  hata mesajına, `repr`'e ya da istisna zincirine girmez; hata mesajı yalnızca HTTP kodu + tanımlayıcı
+  biçimli `error` kodunu taşır (`error_description` taşınmaz).
+- Admin API (`{server}/admin/realms/{realm}`): kullanıcı `GET /users/{id}` → `GET /users?username=..&exact=true`
+  → (`@` varsa) `GET /users?email=..&exact=true`, sonuç istemcide de tam eşleşmeyle süzülür; farklı
+  kullanıcılara çıkan başvuru `AmbiguousReferenceError`. Üyelik `GET /users/{id}/groups?first=&max=`
+  (doğrudan), `PUT`/`DELETE /users/{id}/groups/{groupId}`; `POST /users/{id}/logout`;
+  `PUT /users/{id}` `{"enabled"}`; `PUT /users/{id}/reset-password` `{"type":"password","temporary":true}`;
+  MFA `GET /users/{id}/credentials` + `DELETE /users/{id}/credentials/{id}` (`otp`, `webauthn`,
+  `webauthn-passwordless`, `recovery-authn-codes`; parola ve bilinmeyen türler korunur); kilit açma
+  `GET`+`DELETE /attack-detection/brute-force/users/{id}` (**Keycloak'ta kilit açma desteklenir**,
+  Entra'dan farklı).
+- Parola sıfırlama varsayılanı geçici paroladır (`temporary=true`); `execute-actions-email`
+  (UPDATE_PASSWORD) seçilmedi: bağlantıyı birincil e-postaya gönderir (ele geçirilmiş hesapta saldırgan
+  okur) ve arayüzün geçici parola sözleşmesini karşılamaz. Keycloak'ta ikincil e-posta alanı olmadığından
+  `other_mails` boştur: hassas teslimat (geçici parola bildirimi) bu sağlayıcıyla yapılamaz.
+- Yönetici: yerleşik ilişki yok; `SZ_KEYCLOAK_MANAGER_ATTRIBUTE` özniteliği yöneticinin **kullanıcı adını**
+  taşır (yalnızca kullanıcı adıyla tam eşleşme). Birden fazla farklı değer → hata; bulunamayan/kendisi → `None`
+  (talep yalnızca admin onayına düşer).
+- Grup başvurusu kimlik, tam yol (`/ust/alt`) ya da tam ad; ad/yol `GET /groups?search=<yaprak>&first=&max=`
+  ile aranır, ağaç düzleştirilip **NFKC + casefold** ile tam eşleşme aranır (bulanık eşleşme yok); birden
+  fazla eşleşme → `AmbiguousReferenceError`, yazma yapılmaz. Ayrıcalıklı: `SZ_IDENTITY_PRIVILEGED_GROUPS`
+  (kimlik/yol/ad, normalize) **ve alt grupları** (alt grup üst grubun rollerini devralır) ya da
+  `GET /groups/{id}/role-mappings`'te doğrudan `realm-management` istemci rolü; bilinmeyen/belirsiz grup
+  ayrıcalıklıdır.
+
+**Keycloak — doğrulanmalı (gerçek sunucuda sınanmadı):**
+
+- **K1.** Hizmet hesabı rolleri: `view-users`, `query-groups`, `manage-users` (`realm-management`);
+  grup rol eşlemelerini ve brute-force durumunu okumak için gereken en az rol.
+- **K2.** `GET /users?exact=true` (sürüm desteği) ve kullanıcı adı/e-postanın sunucuda küçük harfe
+  çevrilerek arandığı; e-posta tekilliği (`duplicateEmailsAllowed`) kapalıyken davranış.
+- **K3.** `GET /groups?search=` aramasının büyük/küçük harfe duyarsız alt dize araması olduğu ve eşleşen
+  alt grupların `subGroups` içinde döndüğü (KC 23+ `populateHierarchy`/`subGroupCount` değişiklikleri);
+  dönmüyorsa alt grup yol/ad başvurusu `None` (→ ayrıcalıklı, yazma yok) olur.
+- **K4.** `PUT /users/{id}` yalnızca `{"enabled"}` kısmi gösterimiyle diğer alanları (öznitelikler, KC 24+
+  kullanıcı profili) silmediği.
+- **K5.** `PUT /users/{id}/groups/{gid}` zaten üyeyken 204 döndüğü (tekrarlanabilirlik).
+- **K6.** `POST /users/{id}/logout`'un çevrim dışı (offline) oturumları da kapatıp kapatmadığı; verilmiş
+  erişim belirteçleri süreleri dolana dek geçerlidir.
+- **K7.** MFA kimlik bilgisi türleri (`MFA_CREDENTIAL_TYPES`) ve silme sonrası yeniden kaydın realm akışınca
+  istendiği (zorunlu eylem eklenmez).
+- **K8.** Brute-force durum gövdesi (`disabled`, `numFailures`) ve kalıcı kilitlemenin kullanıcıyı
+  `enabled=false` yapıp yapmadığı (yapıyorsa kilit açma tek başına yetmez; `set_account_enabled` ayrı işlemdir).
+- **K9.** Keycloak 24+ bildirime dayalı kullanıcı profilinde yönetici özniteliğinin tanımlı olması ve
+  `GET /users/{id}` yanıtında dönmesi.
+- **K10.** Araç katmanındaki `identity_standard_groups` denetimi grup başvurusunu ham dizeyle karşılaştırır;
+  Keycloak'ta izin listesine grup **kimliklerini** yazın (yol/ad varyantı R3'e düşer — güvenli ama insansız
+  çözümü engeller).
+
+### Sağlayıcı seçimi (`connectors/setup.py`, `resolve_providers`)
+
+Kimlik ve bildirim sağlayıcısı ayrı seçilir. İkisi de boşsa eski davranış (`SZ_CONNECTOR_PROVIDER` +
+Slack katmanı) **aynen** geçerlidir; geliştirme sahte kipi (`SZ_CONNECTOR_PROVIDER=fake`) değişmedi.
+Açılışta (`check_startup`, `main.lifespan`) denetlenir; hata `ConnectorConfigError`, Türkçe, yalnızca
+eksik ayarların **adını** yazar (değer, gizli bilgi yok). Boş gizli değer (`SecretStr("")`, ör.
+`.env.example`'dan kopyalanan `SZ_KEYCLOAK_CLIENT_SECRET=`) eksik sayılır.
+
+| `SZ_IDENTITY_PROVIDER` | Kurulan | Zorunlu |
+|---|---|---|
+| `graph` | identity + mail + license (+ temel bildirici `TeamsGraphNotifier`) | `SZ_GRAPH_TENANT_ID`, `SZ_GRAPH_CLIENT_ID`, `SZ_GRAPH_CLIENT_SECRET` |
+| `keycloak` | yalnızca identity | `SZ_KEYCLOAK_SERVER_URL`, `SZ_KEYCLOAK_REALM`, `SZ_KEYCLOAK_CLIENT_ID`, `SZ_KEYCLOAK_CLIENT_SECRET` |
+| `memory` | sahte dizin (identity + mail + license + temel bildirici) | `SZ_ENVIRONMENT=development` |
+| boş | `SZ_CONNECTOR_PROVIDER`'dan (`fake` → `memory`); ikisi farklı sağlayıcı seçerse açılış reddedilir | |
+
+| `SZ_NOTIFIER_PROVIDER` | `messaging` | Zorunlu |
+|---|---|---|
+| `teams` | `TeamsGraphNotifier` (Graph `sendMail` + Teams webhook); Slack ayarlı olsa da Teams | kimlik `graph` + `SZ_GRAPH_SENDER_MAILBOX` |
+| `slack` | `SlackNotifier`; hassas bildirim kimlik yığınının temel bildiricisine devredilir (Graph: `otherMails`, `memory`: dizin, Keycloak: **yok** → `ConnectorError`) | `SZ_SLACK_BOT_TOKEN` ya da `SZ_SLACK_WEBHOOK_URL` |
+| `log` | kaydedilmez (`notify.send_*`, `identity.reset_password` 503) | — |
+| boş | eski davranış: temel bildirici, Slack ayarlıysa Slack | |
+
+Nöbetçi uyarısı (`notifications.get_notifier`): `SZ_ONCALL_WEBHOOK_URL` her zaman öncelikli; açık
+`teams` ya da `log` seçiminde Slack kullanılmaz (log), `slack` ya da boşta önceki Slack sırası.
+Hassas bildirimin teslim edilemeyeceği bileşimlerde (kimlik `keycloak`; ya da `graph` +
+`SZ_GRAPH_SENDER_MAILBOX` boş) açılışta uyarı loglanır (açılış engellenmez). Testler
+`tests/test_connector_selection.py`.
+
+### Kapı ölçümü hedef yığına göre (`connectors/fake_stacks.py`)
+
+`uv run python evals/run_automation_eval.py --stack memory|entra|keycloak` (`automation_eval.run(...,
+stack=)`; `--save` `memory` dışında `evals/results/automation_<yığın>.json`). Aynı veri seti/etiketler;
+sahte dizin, gerçek bağlayıcının **belgelenmiş** kısıtlarıyla sarılır. Ağ yok.
+
+- `memory`: `InMemoryDirectory` (varsayılan; davranış değişmedi).
+- `entra`: `EntraShapedDirectory` — `unlock_account` ve `grant_shared_access` `connectors.graph` ile aynı
+  `ConnectorNotSupportedError` (dry_run dahil).
+- `keycloak`: `KeycloakShapedDirectory` (kilit açma desteklenir; `other_mails` her zaman boş) yalnızca
+  `identity`; `messaging` **gerçek** `SlackNotifier`, Slack Web API'si `FakeSlackWorkspace`
+  (`httpx.MockTransport`: `users.lookupByEmail`, `conversations.open`, `chat.postMessage`); `mail` ve
+  `license` kayıtlı değil (`install_stack` yığında olmayan türleri kayıttan çıkarır).
+
+Ölçüm (200 talep, 155 kapanan standart talep; üçünde de yanlış insansız 0, ihlal 0, LLM çağrısı 0):
+
+| Yığın | Standart insansız | Fark |
+|---|---|---|
+| `memory` | 134 / 155 (%86,5) — GEÇTİ | |
+| `entra` | 113 / 155 (%72,9) — GEÇTİ | `account_unlock` 0/25 (`failed`: bulutta kilit açma yok); `shared_mailbox_access` ve `new_employee_account` `failed` (posta kutusu izni yok) |
+| `keycloak` | 83 / 155 (%53,5) — GEÇTİ (pay %3,5) | `account_unlock` 21/25 çalışır; `password_reset` 0/40 (geçici parola teslim edilemez: ikincil adres yok, Slack'e gönderilmez); `m365_license` 0/20 (lisans sağlayıcısı yok) |
+
+**Yığınlar — doğrulanmalı / sınırlar:**
+
+- **Y1.** Sahteler gerçek sunucu değildir: Keycloak biçimli sahte grubu yalnızca kimlikle bulur ve
+  ayrıcalığı yapılandırmadan alır (gerçek bağlayıcı yol/ad ve `realm-management` rol eşlemesi de
+  kullanır — K3, K10), kalıcı brute-force kilidinin `enabled=false` yapması (K8) modellenmez. Keycloak
+  sonucu bu yüzden üst sınırdır.
+- **Y2.** Etiketler (`expected_touchless`) yığından bağımsız yazıldı; `entra`/`keycloak` "kaçırılan
+  otomasyon" listesi yığın kısıtından gelir, etiket hatası değildir.
+- **Y3.** Keycloak + Slack yığınında parola sıfırlama için ikincil teslim kanalı yok: doğrulanmış ikincil
+  e-posta özniteliği (KC 24+ kullanıcı profili) ya da SMS bağlayıcısı tasarlanmadan bu katalog öğesi
+  insansız çözülemez. Keycloak'ta `m365_license` / `shared_mailbox_access` öğeleri devre dışı
+  bırakılmalı ya da ayrı bir M365 bağlayıcısı eklenmeli.
+- **Y4.** `SZ_NOTIFIER_PROVIDER=teams` için `SZ_GRAPH_SENDER_MAILBOX` zorunlu tutuldu (kullanıcı bildirimi
+  onsuz çalışmaz); `SZ_TEAMS_WEBHOOK_URLS` isteğe bağlı (boşsa kanal mesajı `ConnectorNotFoundError`).
+
 ## Kayıtlı araçlar (temel katman: 33; toplam 61 — hizmet talebi 20, sorun yönetimi 8)
 
 | Alan | R0 | R1 | R2 |
@@ -263,7 +430,7 @@ seçici), `boolean`; `required`, `default`), `approval_policy` (`none` | `manage
 | Öğe | Standart | İş onayı | Adımlar (risk) |
 |---|---|---|---|
 | Şifre sıfırlama (`password_reset`) | evet | yok | verify_requester (R0), reset_password (R1 self, aksi R2) |
-| Hesap kilidi açma (`account_unlock`) | evet | yok | verify_requester, unlock_account (R1), bildirim (R1) |
+| Hesap kilidi açma (`account_unlock`) | evet | yok | verify_requester, unlock_account (doğrulanmış self-servis R1, aksi R2), bildirim (R1) |
 | Standart yazılım grubu (`standard_software_group`) | evet | yok | add_to_group (izin listesinde R1, aksi R3), bildirim |
 | Teams ekip kanalı (`teams_channel_access`) | evet | yok | add_to_group, bildirim |
 | VPN erişim grubu (`vpn_access`) | evet | yok | add_to_group, bildirim |
@@ -297,6 +464,26 @@ oran, hedef %50. `uv run python evals/run_request_eval.py` gerçekçi karışım
 (şu an 20/23 = %87) ve değişmezleri denetler (insansız talepte eylem isteği yok; yürütülen her R2/R3
 gerekli insan onayına sahip).
 
+**Kapı ölçümü (etiketli veri seti).** `uv run python evals/run_automation_eval.py`
+(`src/serviszeka/automation_eval.py`, veri `evals/data/requests.jsonl` + kart `REQUESTS_CARD.md`,
+üretici `evals/generate_requests_dataset.py`): 200 gerçekçi Türkçe talep (10 öğenin hepsi; standart
+öğelerde otomatikleşmemesi gereken 21 talep: ayrıcalıklı / bilinmeyen / izin listesi dışı grup,
+doğrulanmamış talep eden, devre dışı hesap, ikincil e-posta yok, boş lisans yok) altın etiket
+`{item, expected_touchless, reason}` ile gerçek boru hattından geçer: ayrı bellek içi veritabanı, veri
+setindeki profillerden kurulan sahte dizin, gölge mod kapalı, varsayılan eşik, LLM yok (çağrılırsa
+sayılır, kapı kalır). İnsanlar simüle edilir (yönetici / İK onay grubu iş onayı, iki BT onaylayan,
+servis masası el ile adım). Kapı: standart oran ≥ %50 **ve** yanlış insansız = 0 **ve** değişmez ihlali
+0 **ve** kapanmayan talep 0. Son ölçüm: **134/155 = %86,5**, yanlış insansız 0, ihlal 0, eylem
+istekleri R2 40 (36 yürütüldü, 4 reddedildi) / R3 17 (11 yürütüldü, 6 reddedildi), etiket uyumu %100.
+Testler `tests/test_automation_eval.py` ve kapı bölüm 6
+(`test_gate_labelled_requests_half_touchless_zero_false_touchless`).
+
+**Portal iş onayı.** `ServiceRequestRead.can_decide` oturumdaki kullanıcının bu talebe şimdi iş onayı
+verip veremeyeceğini söyler (`services.requests.can_decide`; talep eden/açan/yapay zekâ hiçbir zaman).
+Yönetici / onay grubu üyesi `/taleplerim?sekme=onay` ("Onayımı bekleyenler",
+`GET /requests?awaiting_my_approval=true`) listesinden talebe gider ve "İş onayı" kartında onaylar ya da
+gerekçeyle reddeder (`expected_version`; 409'da "Talep değişti").
+
 **Araçlar (20).**
 
 | Araç | Sınıf | Not |
@@ -308,7 +495,8 @@ gerekli insan onayına sahip).
 | `request.complete` | R1 | el ile adımı tamamlar (insansız sayılmaz) |
 | `identity.get_user`, `identity.verify_requester`, `license.check_available` | R0 | |
 | `identity.reset_password` | R1 / R2 | R1 yalnızca talep hesabın sahibince kendi oturumuyla açılmış, karşılanıyor, planda bu adım var ve dizin eşleşiyorsa; geçici parola hiçbir sonuç/denetim/istekte yer almaz, yalnızca ikincil adrese gider |
-| `identity.unlock_account`, `license.assign`, `notify.send_to_user`, `notify.post_to_channel` | R1 | kanal mesajı PII maskeli |
+| `identity.unlock_account` | R1 / R2 | `reset_password` ile aynı self-servis doğrulaması: başkası adına / talepsiz / devre dışı ya da dizinde olmayan hesapta R2 (Faz 3 kapı ölçümü bu açığı yakaladı) |
+| `license.assign`, `notify.send_to_user`, `notify.post_to_channel` | R1 | kanal mesajı PII maskeli |
 | `identity.add_to_group` | R1 / R3 | R1 yalnızca `SZ_IDENTITY_STANDARD_GROUPS`'ta ve ayrıcalıklı değilse; ayrıcalıklı/bilinmeyen R3 |
 | `identity.reset_mfa`, `identity.remove_from_group`, `identity.revoke_sessions`, `mailbox.grant_shared_access` | R2 | |
 | `identity.disable_user` | R3 | |
@@ -336,9 +524,12 @@ indeksli). Aynı idempotent üslup; enum sütunları VARCHAR.
 
 ## Açık konular (sonraki adımlar)
 
-- Portalda `/actions` onay ekranı ve hizmet talebi / katalog ekranları (API ve tipler hazır).
+- Portal ekranları hazır (`portal/README.md`): eylem onayları `/onaylar?sekme=eylem`, katalog `/katalog`, talep
+  ayrıntısı + adım zaman çizelgesi + iş onayı `/taleplerim/:id`, onayımı bekleyenler `/taleplerim?sekme=onay`,
+  sorunlar `/problemler`. Açık: el ile adım/yeniden deneme (agent) ve dizin araması (kullanıcı/grup seçici) ekranı.
 - Graph bağlayıcısı gerçek kiracıda doğrulanmadı (yukarıdaki "Doğrulanmalı" listesi). Hesap kilidi açma
   (şirket içi AD/LDAP) ve paylaşılan posta kutusu izni (Exchange Online) için bağlayıcı yok.
+- Keycloak + Slack yığınında geçici parola teslim kanalı yok (Y3); kapı bu yığında %53,5 ile sınırda.
 - Self-servis doğrulaması oturum kimliğine dayanır; MFA adım yükseltme / Verified ID gibi güçlü doğrulama yok.
 - Bekleyen P1/P2 `incident.set_priority` / `incident.create` isteğinde nöbetçi uyarısı (triage'daki
   gibi) henüz yok; ajan `notify.oncall_page` ile ayrıca uyarabilir.
@@ -410,5 +601,6 @@ hattından geçer (politika + `AIDecision` + denetim; AUTO_APPLIED değilse `Act
 `AgentResultRead`): `POST /problems/trends` (salt okuma), `POST /problems/trends/propose`,
 `POST /problems/{id}/rca/draft`, `POST /problems/{id}/fix`.
 
-Açık: portalda sorun ekranı yok (API ve tipler hazır); eylem isteğinde sorun bağı sütunu yok
+Portal: `/problemler` (liste + eğilim analizi), `/problemler/:id` (kanıt, RCA düzenleyici, geçici çözüm/bilinen hata,
+kalıcı çözüm, durum). Açık: eylem isteğinde sorun bağı sütunu yok
 (`ActionRequest` yalnızca olay/değişiklik/talep bağlar; sorun kimliği `args`'ta).

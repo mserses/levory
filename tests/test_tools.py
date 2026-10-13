@@ -482,6 +482,12 @@ async def _connector_cases(session):
         opened_by=ali, form_values={}, settings=TOOL_SETTINGS,
     )
     assert reset.state == "fulfilling" and reset.waiting_action_id
+    # Self-servis kilit açma: gölge modda kilit adımı onay bekler; talep bağlıyken R1
+    unlock = await requests.create_request(
+        session, await catalog.get_item(session, "account_unlock"), requester="ali",
+        opened_by=ali, form_values={}, settings=TOOL_SETTINGS,
+    )
+    assert unlock.state == "fulfilling" and unlock.waiting_action_id
     manual_item = await catalog.create_item(
         session,
         catalog.CatalogItemInput(
@@ -508,7 +514,7 @@ async def _connector_cases(session):
         "identity.get_user": (AGENT, {"user": "ali"}),
         "identity.verify_requester": (AGENT, {"request_id": reset.id, "user": "ali"}),
         "identity.reset_password": (AGENT, {"user": "ali", "request_id": reset.id}),
-        "identity.unlock_account": (AGENT, {"user": "ali"}),
+        "identity.unlock_account": (AGENT, {"user": "ali", "request_id": unlock.id}),
         "identity.add_to_group": (AGENT, {"user": "ali", "group": "sg-yazilim-standart"}),
         "license.check_available": (AGENT, {"sku": "SPE_E3"}),
         "license.assign": (AGENT, {"user": "ali", "sku": "spe_e3"}),
