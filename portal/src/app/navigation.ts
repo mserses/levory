@@ -14,7 +14,11 @@ export const ROUTE_ROLES = {
   newRequest: ['requester', 'agent'], // POST /incidents
   myRequests: ['requester', 'agent', 'approver'], // GET /incidents?mine=true
   incidents: ['agent', 'approver'], // GET /incidents (tümü)
-  approvals: ['approver'], // GET /incidents/decisions
+  // GET /incidents/decisions (approver) + GET /actions (ActionApproverUser: approver/change_manager)
+  approvals: ['approver', 'change_manager'],
+  catalog: ['requester', 'agent'], // GET /catalog/items + POST /requests (CreatorUser)
+  requestDetail: ['requester', 'agent', 'approver'], // GET /requests/{id} (IncidentViewerUser)
+  problems: ['agent', 'approver'], // /problems/* (ProblemUser)
   knowledge: ['agent', 'approver'], // GET /knowledge/*
   changes: ['agent', 'change_manager', 'cab'], // GET /changes, /changes/{id} (ChangeViewerUser)
   newChange: ['agent', 'change_manager'], // POST /changes (ChangeCreatorUser)
@@ -25,8 +29,10 @@ export const ROUTE_ROLES = {
 
 export const NAV_ITEMS: readonly NavItem[] = [
   { path: '/talep', label: 'Yeni talep', roles: ROUTE_ROLES.newRequest },
+  { path: '/katalog', label: 'Hizmet kataloğu', roles: ROUTE_ROLES.catalog },
   { path: '/taleplerim', label: 'Taleplerim', roles: ROUTE_ROLES.myRequests },
   { path: '/kayitlar', label: 'Kayıtlar', roles: ROUTE_ROLES.incidents },
+  { path: '/problemler', label: 'Sorunlar', roles: ROUTE_ROLES.problems },
   { path: '/onaylar', label: 'Onaylar', roles: ROUTE_ROLES.approvals },
   { path: '/bilgi-bankasi', label: 'Bilgi bankası', roles: ROUTE_ROLES.knowledge },
   { path: '/degisiklikler', label: 'Değişiklikler', roles: ROUTE_ROLES.changes },

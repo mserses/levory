@@ -1,11 +1,14 @@
 import { useSearchParams } from 'react-router-dom';
 import type { InboxOutcome } from '@/api/types';
+import { useAuth } from '@/auth/useAuth';
+import { ActionInbox } from '@/features/actions/ActionInbox';
+import { Spinner } from '@/components';
 import { usePageTitle } from '@/lib/usePageTitle';
 import { DecisionInbox } from './components/DecisionInbox';
 import { SyncConflicts } from './components/SyncConflicts';
 import { Tabs, type TabItem } from './components/Tabs';
 
-type TabKey = 'onay' | 'oneri' | 'yonlendirilen' | 'cakisma';
+type TabKey = 'onay' | 'oneri' | 'yonlendirilen' | 'cakisma' | 'eylem';
 
 const TABS: readonly (TabItem<TabKey> & { outcome?: InboxOutcome; heading: string })[] = [
   {
@@ -22,17 +25,28 @@ const TABS: readonly (TabItem<TabKey> & { outcome?: InboxOutcome; heading: strin
     heading: 'İnsana yönlendirilen kararlar',
   },
   { key: 'cakisma', label: 'Senkron çakışmaları', heading: 'Senkron çakışmaları' },
+  { key: 'eylem', label: 'Eylem onayları', heading: 'Eylem onayları' },
 ];
 
-const isTabKey = (v: string | null): v is TabKey => TABS.some((t) => t.key === v);
+/** Olay karar kutusu ve senkron çakışmaları yalnızca approver; eylem onayları approver/change_manager */
+const DECISION_TABS: ReadonlySet<TabKey> = new Set(['onay', 'oneri', 'yonlendirilen', 'cakisma']);
 
-/** /onaylar — olaylar arası onay kutusu + senkron çakışmaları (rol: approver). */
+/**
+ * /onaylar — olaylar arası onay kutusu + senkron çakışmaları (approver) ve eylem onayları
+ * (ActionRequest; approver / change_manager).
+ */
 export default function ApprovalsPage() {
   usePageTitle('Onaylar');
+  const { hasRole, status } = useAuth();
+  // Roller /me ile gelir: gelene kadar sekmeler gösterilir ama içerik (ve istekleri) beklenir
+  const ready = status === 'authenticated';
+  const canDecisions = !ready || hasRole('approver');
+  const tabs = canDecisions ? TABS : TABS.filter((t) => !DECISION_TABS.has(t.key));
+  const fallback: TabKey = canDecisions ? 'onay' : 'eylem';
   const [params, setParams] = useSearchParams();
   const raw = params.get('sekme');
-  const active: TabKey = isTabKey(raw) ? raw : 'onay';
-  const tab = TABS.find((t) => t.key === active) ?? TABS[0];
+  const active: TabKey = tabs.find((t) => t.key === raw)?.key ?? fallback;
+  const tab = tabs.find((t) => t.key === active) ?? tabs[0];
 
   return (
     <div className="page">
@@ -47,13 +61,17 @@ export default function ApprovalsPage() {
       </header>
       <Tabs
         label="Onay kutusu bölümleri"
-        items={TABS}
+        items={tabs}
         active={active}
         onChange={(key) => {
-          setParams(key === 'onay' ? {} : { sekme: key }, { replace: true });
+          setParams(key === fallback ? {} : { sekme: key }, { replace: true });
         }}
       >
-        {tab?.outcome ? (
+        {!ready ? (
+          <Spinner block label="Oturum yükleniyor…" />
+        ) : tab?.key === 'eylem' ? (
+          <ActionInbox focusId={params.get('istek')} />
+        ) : tab?.outcome ? (
           <DecisionInbox key={tab.outcome} outcome={tab.outcome} heading={tab.heading} />
         ) : (
           <SyncConflicts />

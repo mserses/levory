@@ -3,11 +3,15 @@
  *   queryClient.invalidateQueries({ queryKey: queryKeys.incidents.all })
  */
 import type {
+  ActionListQuery,
   ArticleListQuery,
+  CatalogListQuery,
   ChangeListQuery,
   CIListQuery,
   DecisionInboxQuery,
   IncidentListQuery,
+  ProblemListQuery,
+  ServiceRequestListQuery,
 } from './types';
 
 export const queryKeys = {
@@ -57,6 +61,30 @@ export const queryKeys = {
     all: ['audit'] as const,
     page: (limit: number, offset: number) => ['audit', 'page', limit, offset] as const,
     verify: ['audit', 'verify'] as const,
+  },
+  catalog: {
+    all: ['catalog'] as const,
+    list: (query: CatalogListQuery) => ['catalog', 'list', query] as const,
+    detail: (item: string) => ['catalog', 'detail', item] as const,
+  },
+  requests: {
+    all: ['requests'] as const,
+    lists: ['requests', 'list'] as const,
+    list: (query: ServiceRequestListQuery) => ['requests', 'list', query] as const,
+    detail: (id: string) => ['requests', 'detail', id] as const,
+    metrics: ['requests', 'metrics'] as const,
+  },
+  actions: {
+    all: ['actions'] as const,
+    list: (query: ActionListQuery) => ['actions', 'list', query] as const,
+    detail: (id: string) => ['actions', 'detail', id] as const,
+  },
+  problems: {
+    all: ['problems'] as const,
+    lists: ['problems', 'list'] as const,
+    list: (query: ProblemListQuery) => ['problems', 'list', query] as const,
+    detail: (id: string) => ['problems', 'detail', id] as const,
+    trends: (windowDays: number) => ['problems', 'trends', windowDays] as const,
   },
   integrations: {
     all: ['integrations'] as const,

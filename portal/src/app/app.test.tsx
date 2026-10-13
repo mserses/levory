@@ -16,19 +16,39 @@ const navLabels = async () => {
 
 describe('navigasyon haritası', () => {
   it('rol bazlı menü', () => {
-    expect(navItemsFor(['requester']).map((i) => i.path)).toEqual(['/talep', '/taleplerim']);
+    expect(navItemsFor(['requester']).map((i) => i.path)).toEqual([
+      '/talep',
+      '/katalog',
+      '/taleplerim',
+    ]);
     expect(navItemsFor(['approver']).map((i) => i.path)).toEqual([
       '/taleplerim',
       '/kayitlar',
+      '/problemler',
       '/onaylar',
       '/bilgi-bankasi',
     ]);
-    expect(navItemsFor(['admin'])).toHaveLength(9);
+    expect(navItemsFor(['admin'])).toHaveLength(11);
+  });
+
+  it('faz 3: katalog, sorunlar ve eylem onayları menüsü', () => {
+    expect(navItemsFor(['agent']).map((i) => i.path)).toEqual(
+      expect.arrayContaining(['/katalog', '/problemler']),
+    );
+    expect(navItemsFor(['requester']).map((i) => i.path)).not.toContain('/problemler');
+    // change_manager eylem isteklerini onaylayabilir (ActionApproverUser): /onaylar görünür
+    expect(navItemsFor(['change_manager']).map((i) => i.path)).toEqual([
+      '/onaylar',
+      '/degisiklikler',
+      '/cmdb',
+    ]);
+    expect(navItemsFor(['cab']).map((i) => i.path)).not.toContain('/onaylar');
   });
 
   it('faz 2: değişiklik ve CMDB menüsü (requester ve yalnızca approver görmez)', () => {
     expect(navItemsFor(['cab']).map((i) => i.path)).toEqual(['/degisiklikler', '/cmdb']);
-    expect(navItemsFor(['change_manager']).map((i) => i.path)).toEqual(['/degisiklikler', '/cmdb']);
+    expect(navItemsFor(['change_manager']).map((i) => i.path)).toContain('/degisiklikler');
+    expect(navItemsFor(['change_manager']).map((i) => i.path)).toContain('/cmdb');
     expect(navItemsFor(['agent']).map((i) => i.path)).toContain('/degisiklikler');
     expect(navItemsFor(['requester']).map((i) => i.path)).not.toContain('/degisiklikler');
     expect(navItemsFor(['approver']).map((i) => i.path)).not.toContain('/cmdb');
@@ -51,7 +71,7 @@ describe('uygulama kabuğu', () => {
     expect(
       await screen.findByRole('heading', { level: 1, name: 'Taleplerim' }),
     ).toBeInTheDocument();
-    expect(await navLabels()).toEqual(['Yeni talep', 'Taleplerim']);
+    expect(await navLabels()).toEqual(['Yeni talep', 'Hizmet kataloğu', 'Taleplerim']);
     expect(screen.getByText('zeynep')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Taleplerim' })).toHaveAttribute(
       'aria-current',
@@ -64,8 +84,10 @@ describe('uygulama kabuğu', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Kayıtlar' })).toBeInTheDocument();
     expect(await navLabels()).toEqual([
       'Yeni talep',
+      'Hizmet kataloğu',
       'Taleplerim',
       'Kayıtlar',
+      'Sorunlar',
       'Bilgi bankası',
       'Değişiklikler',
       'CMDB',

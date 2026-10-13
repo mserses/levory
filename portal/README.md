@@ -115,24 +115,33 @@ src/
     admin/             /yonetim/denetim, /yonetim/entegrasyonlar
     changes/           /degisiklikler, /degisiklikler/yeni, /degisiklikler/:id
     cmdb/              /cmdb, /cmdb/:id
+    catalog/           /katalog, /katalog/:key (JSON şeması alt kümesinden form: formSchema.ts)
+    requests/          /taleplerim/:id (hizmet talebi + adım zaman çizelgesi), /taleplerim "Hizmet talepleri" sekmesi
+    actions/           /onaylar "Eylem onayları" sekmesi (ActionRequest; kurallar rules.ts)
+    problems/          /problemler, /problemler/:id
 ```
 
-| Rota                      | Sayfa dosyası                                 | Roller (`ROUTE_ROLES`)     | Ana uç nokta                                                          |
-| ------------------------- | --------------------------------------------- | -------------------------- | --------------------------------------------------------------------- |
-| `/talep`                  | `features/self-service/NewRequestPage.tsx`    | requester, agent           | `POST /incidents`                                                     |
-| `/taleplerim`             | `features/self-service/MyRequestsPage.tsx`    | requester, agent, approver | `GET /incidents?mine=true`                                            |
-| `/kayitlar`               | `features/incidents/IncidentQueuePage.tsx`    | agent, approver            | `GET /incidents`                                                      |
-| `/kayitlar/:id`           | `features/incidents/IncidentDetailPage.tsx`   | agent, approver            | `GET/PATCH /incidents/{id}`, `/triage`, `/decisions`                  |
-| `/onaylar`                | `features/approvals/ApprovalsPage.tsx`        | approver                   | `GET /incidents/decisions`, `POST …/approve`                          |
-| `/bilgi-bankasi`          | `features/knowledge/KnowledgeListPage.tsx`    | agent, approver            | `GET /knowledge/articles`, `/knowledge/search`                        |
-| `/bilgi-bankasi/:id`      | `features/knowledge/KnowledgeArticlePage.tsx` | agent, approver            | `GET /knowledge/articles/{id}`                                        |
-| `/yonetim/denetim`        | `features/admin/AuditPage.tsx`                | admin                      | `GET /audit`, `/audit/verify`                                         |
-| `/yonetim/entegrasyonlar` | `features/admin/IntegrationsPage.tsx`         | admin                      | `/integrations/*`                                                     |
-| `/degisiklikler`          | `features/changes/ChangeListPage.tsx`         | agent, change_manager, cab | `GET /changes`, `/changes/calendar`, `/approvals`                     |
-| `/degisiklikler/yeni`     | `features/changes/NewChangePage.tsx`          | agent, change_manager      | `POST /changes`, `/cmdb/impact`, `/changes/templates`                 |
-| `/degisiklikler/:id`      | `features/changes/ChangeDetailPage.tsx`       | agent, change_manager, cab | `/changes/{id}`, `/transition`, `/approvals`, `/assess`, `/decisions` |
-| `/cmdb`                   | `features/cmdb/CmdbListPage.tsx`              | agent, change_manager, cab | `GET /cmdb/cis`                                                       |
-| `/cmdb/:id`               | `features/cmdb/CIDetailPage.tsx`              | agent, change_manager, cab | `/cmdb/cis/{id}`, `/relationships`, `/impact`                         |
+| Rota                      | Sayfa dosyası                                 | Roller (`ROUTE_ROLES`)     | Ana uç nokta                                                                                                                                                               |
+| ------------------------- | --------------------------------------------- | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/talep`                  | `features/self-service/NewRequestPage.tsx`    | requester, agent           | `POST /incidents`                                                                                                                                                          |
+| `/taleplerim`             | `features/self-service/MyRequestsPage.tsx`    | requester, agent, approver | `GET /incidents?mine=true`; sekme `?sekme=hizmet`: `GET /requests?mine=true`                                                                                               |
+| `/taleplerim/:id`         | `features/requests/RequestDetailPage.tsx`     | requester, agent, approver | `GET /requests/{id}`, `/cancel`, `GET /catalog/items/{key}`                                                                                                                |
+| `/katalog`                | `features/catalog/CatalogPage.tsx`            | requester, agent           | `GET /catalog/items`                                                                                                                                                       |
+| `/katalog/:key`           | `features/catalog/CatalogItemPage.tsx`        | requester, agent           | `GET /catalog/items/{key}`, `POST /requests`                                                                                                                               |
+| `/problemler`             | `features/problems/ProblemListPage.tsx`       | agent, approver            | `GET /problems`, `POST /problems/trends`, `/trends/propose`                                                                                                                |
+| `/problemler/:id`         | `features/problems/ProblemDetailPage.tsx`     | agent, approver            | `/problems/{id}` (+ `/rca`, `/rca/accept`, `/rca/draft`, `/fix`, `/known-error/publish`, `/transition`, `/incidents/{id}`)                                                 |
+| `/kayitlar`               | `features/incidents/IncidentQueuePage.tsx`    | agent, approver            | `GET /incidents`                                                                                                                                                           |
+| `/kayitlar/:id`           | `features/incidents/IncidentDetailPage.tsx`   | agent, approver            | `GET/PATCH /incidents/{id}`, `/triage`, `/decisions`                                                                                                                       |
+| `/onaylar`                | `features/approvals/ApprovalsPage.tsx`        | approver, change_manager   | `GET /incidents/decisions`, `POST …/approve`; `?sekme=eylem[&istek=<id>]`: `GET /actions`, `POST /actions/{id}/approve\|reject` (change_manager yalnızca bu sekmeyi görür) |
+| `/bilgi-bankasi`          | `features/knowledge/KnowledgeListPage.tsx`    | agent, approver            | `GET /knowledge/articles`, `/knowledge/search`                                                                                                                             |
+| `/bilgi-bankasi/:id`      | `features/knowledge/KnowledgeArticlePage.tsx` | agent, approver            | `GET /knowledge/articles/{id}`                                                                                                                                             |
+| `/yonetim/denetim`        | `features/admin/AuditPage.tsx`                | admin                      | `GET /audit`, `/audit/verify`                                                                                                                                              |
+| `/yonetim/entegrasyonlar` | `features/admin/IntegrationsPage.tsx`         | admin                      | `/integrations/*`                                                                                                                                                          |
+| `/degisiklikler`          | `features/changes/ChangeListPage.tsx`         | agent, change_manager, cab | `GET /changes`, `/changes/calendar`, `/approvals`                                                                                                                          |
+| `/degisiklikler/yeni`     | `features/changes/NewChangePage.tsx`          | agent, change_manager      | `POST /changes`, `/cmdb/impact`, `/changes/templates`                                                                                                                      |
+| `/degisiklikler/:id`      | `features/changes/ChangeDetailPage.tsx`       | agent, change_manager, cab | `/changes/{id}`, `/transition`, `/approvals`, `/assess`, `/decisions`                                                                                                      |
+| `/cmdb`                   | `features/cmdb/CmdbListPage.tsx`              | agent, change_manager, cab | `GET /cmdb/cis`                                                                                                                                                            |
+| `/cmdb/:id`               | `features/cmdb/CIDetailPage.tsx`              | agent, change_manager, cab | `/cmdb/cis/{id}`, `/relationships`, `/impact`                                                                                                                              |
 
 `admin` her rolü kapsar. Rol yetmezse `RequireRole` 403 sayfası gösterir; **asıl yetki kontrolü backend'dedir**.
 
@@ -223,6 +232,7 @@ hasRole('approver'); // admin her zaman true
 | `EmptyState`, `ErrorState`, `Spinner`                      | Boş/hata/yükleniyor durumları; `ErrorState` `ApiError`'u anlar, `onRetry`                                        |
 | `Dialog`, `ConfirmDialog`                                  | Odak tuzağı, Escape, odağı geri verme; `ConfirmDialog` `alertdialog` + `busy`                                    |
 | `ToastProvider`, `useToast()`                              | `toast.show({ title, description, tone })`; hata `role="alert"`                                                  |
+| `Tabs`                                                     | WAI-ARIA sekme deseni (ok/Home/End); `/onaylar` ve `/taleplerim` kullanır                                        |
 
 Biçimlendirme (`@/lib/format`): `formatDateTime`, `formatDate`, `formatTime`, `formatRelative` ("5 dakika önce"),
 `formatDuration` ("2 sa 5 dk"), `formatPercent` ("%87"). Enum etiketleri (`@/lib/labels`): `STATUS_LABELS`,
@@ -248,5 +258,17 @@ Biçimlendirme (`@/lib/format`): `formatDateTime`, `formatDate`, `formatTime`, `
 - `renderWithProviders(ui, { user: AGENT, route: '/kayitlar/1', path: '/kayitlar/:id' })` gerçek `AuthProvider` ile render
   eder (oturum `/me` ile yüklendiği için `findBy…` kullanın). Hazır kullanıcılar: `REQUESTER`, `AGENT`, `APPROVER`, `ADMIN`.
   `renderApp({ route, user })` tüm rota tablosu + kabukla render eder.
-- Veri fabrikaları: `makeIncident`, `makeDecision`, `makeInboxItem`, `makeArticle` (`src/test/fixtures.ts`).
+- Veri fabrikaları: `makeIncident`, `makeDecision`, `makeInboxItem`, `makeArticle`; Faz 3: `makeCatalogItem`,
+  `makeServiceRequest`, `makeActionRequest`, `makeProblem` (`src/test/fixtures.ts`).
+
+### Faz 3 ekran kuralları
+
+- **Eylem onayları:** onay butonu talep edende (`sameIdentity`, büyük/küçük harf ve boşluk duyarsız), aynı kişinin
+  ikinci kararında, süresi dolan (`expires_at` geçmiş ya da `expired`) istekte ve yetkisiz rolde (change_manager
+  yalnızca değişikliğe bağlı R3) **devre dışı** ve nedeni `aria-describedby` ile açıklanır; asıl denetim backend'dedir.
+  İlerleme `R3: 1/2 onay`; argümanlar yalnızca maskeli `args_display`'den.
+- **İnsansız çözüldü** rozeti yalnızca `state=fulfilled` ve `touchless=true` iken; `touchless=false` ise "İnsan katkısıyla
+  çözüldü" + `touchless_reason`.
+- Katalog formunda ham enum değeri gösterilmez (`formSchema.enumOptionLabel`); kullanıcı/grup seçicileri dizin araması
+  olmadığından doğrulamalı metin alanıdır (UPN / grup adı, "Kendim" düğmesi).
 - Sorgulamada erişilebilir rolleri tercih edin (`getByRole('button', { name: … })`).

@@ -27,6 +27,11 @@ const NewChangePage = lazy(() => import('@/features/changes/NewChangePage'));
 const ChangeDetailPage = lazy(() => import('@/features/changes/ChangeDetailPage'));
 const CmdbListPage = lazy(() => import('@/features/cmdb/CmdbListPage'));
 const CIDetailPage = lazy(() => import('@/features/cmdb/CIDetailPage'));
+const CatalogPage = lazy(() => import('@/features/catalog/CatalogPage'));
+const CatalogItemPage = lazy(() => import('@/features/catalog/CatalogItemPage'));
+const RequestDetailPage = lazy(() => import('@/features/requests/RequestDetailPage'));
+const ProblemListPage = lazy(() => import('@/features/problems/ProblemListPage'));
+const ProblemDetailPage = lazy(() => import('@/features/problems/ProblemDetailPage'));
 const AuditPage = lazy(() => import('@/features/admin/AuditPage'));
 const IntegrationsPage = lazy(() => import('@/features/admin/IntegrationsPage'));
 
@@ -53,6 +58,14 @@ export function AppRoutes() {
         <Route index element={<HomeRedirect />} />
         <Route path="talep" element={guard(ROUTE_ROLES.newRequest, <NewRequestPage />)} />
         <Route path="taleplerim" element={guard(ROUTE_ROLES.myRequests, <MyRequestsPage />)} />
+        <Route
+          path="taleplerim/:id"
+          element={guard(ROUTE_ROLES.requestDetail, <RequestDetailPage />)}
+        />
+        <Route path="katalog" element={guard(ROUTE_ROLES.catalog, <CatalogPage />)} />
+        <Route path="katalog/:key" element={guard(ROUTE_ROLES.catalog, <CatalogItemPage />)} />
+        <Route path="problemler" element={guard(ROUTE_ROLES.problems, <ProblemListPage />)} />
+        <Route path="problemler/:id" element={guard(ROUTE_ROLES.problems, <ProblemDetailPage />)} />
         <Route path="kayitlar" element={guard(ROUTE_ROLES.incidents, <IncidentQueuePage />)} />
         <Route path="kayitlar/:id" element={guard(ROUTE_ROLES.incidents, <IncidentDetailPage />)} />
         <Route path="onaylar" element={guard(ROUTE_ROLES.approvals, <ApprovalsPage />)} />

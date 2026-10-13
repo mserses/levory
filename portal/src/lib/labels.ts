@@ -1,6 +1,9 @@
 /** API enum değerlerinin Türkçe etiketleri. Ekranlar ham enum değeri göstermez. */
 import type {
+  ActionRequestState,
   ApprovalDecision,
+  BusinessApprovalState,
+  CatalogApprovalPolicy,
   ChangeState,
   ChangeType,
   CIClass,
@@ -13,7 +16,11 @@ import type {
   IncidentStatus,
   OnHoldReason,
   Priority,
+  ProblemState,
+  RCAMethod,
+  RiskClass,
   RiskLevel,
+  ServiceRequestState,
   TicketKind,
   Urgency,
 } from '@/api/types';
@@ -187,4 +194,89 @@ export const CRITICALITY_LABELS: Record<number, string> = {
 export function criticalityLabel(value: number | null | undefined): string {
   if (value === null || value === undefined) return '—';
   return CRITICALITY_LABELS[value] ?? `K${value}`;
+}
+
+// --- Faz 3: hizmet talepleri, eylem istekleri, sorun yönetimi --------------------------------
+
+export const SERVICE_REQUEST_STATE_LABELS: Record<ServiceRequestState, string> = {
+  submitted: 'Gönderildi',
+  awaiting_approval: 'İş onayı bekliyor',
+  fulfilling: 'Karşılanıyor',
+  fulfilled: 'Karşılandı',
+  rejected: 'Reddedildi',
+  failed: 'Başarısız',
+  cancelled: 'İptal edildi',
+};
+
+export const BUSINESS_APPROVAL_LABELS: Record<BusinessApprovalState, string> = {
+  not_required: 'Gerekmiyor',
+  pending: 'Bekliyor',
+  approved: 'Onaylandı',
+  rejected: 'Reddedildi',
+};
+
+/** Karşılama adımı durumu (talep `step_results[].status`); bilinmeyen değer "Bilinmiyor" */
+export const STEP_STATUS_LABELS: Record<string, string> = {
+  executed: 'Tamamlandı',
+  pending_approval: 'Onay bekliyor',
+  waiting_manual: 'El ile yapılacak',
+  skipped: 'Atlandı',
+  failed: 'Başarısız',
+  queued: 'Sırada',
+};
+
+export const ACTION_STATE_LABELS: Record<ActionRequestState, string> = {
+  pending: 'Onay bekliyor',
+  approved: 'Onaylandı',
+  rejected: 'Reddedildi',
+  executed: 'Yürütüldü',
+  failed: 'Başarısız',
+  expired: 'Süresi doldu',
+};
+
+export const RISK_CLASS_LABELS: Record<RiskClass, string> = {
+  R0: 'R0 · Okuma',
+  R1: 'R1 · Düşük risk',
+  R2: 'R2 · Orta risk',
+  R3: 'R3 · Kritik',
+};
+
+export const RISK_CLASS_DESCRIPTIONS: Record<RiskClass, string> = {
+  R0: 'Salt okuma; onay gerekmez.',
+  R1: 'Düşük riskli yazma; politika izin vermediğinde insan onayı ister.',
+  R2: 'Orta risk; her zaman bir insan onayı gerekir.',
+  R3: 'Kritik; iki farklı onaylayan ya da CAB onaylı bağlı değişiklik + bir onay gerekir.',
+};
+
+export const PROBLEM_STATE_LABELS: Record<ProblemState, string> = {
+  new: 'Yeni',
+  investigating: 'İnceleniyor',
+  known_error: 'Bilinen hata',
+  resolved: 'Çözüldü',
+  closed: 'Kapandı',
+};
+
+export const RCA_METHOD_LABELS: Record<RCAMethod, string> = {
+  '5_why': '5 Neden',
+  timeline: 'Zaman çizelgesi',
+};
+
+export const CATALOG_APPROVAL_LABELS: Record<CatalogApprovalPolicy, string> = {
+  none: 'İş onayı gerekmez',
+  manager: 'Yönetici onayı gerekir',
+  group: 'Grup onayı gerekir',
+};
+
+/** Aktör gösterimi: `ai:<ajan>` → "Otomasyon (ai:<ajan>)", `system:` → "Sistem", insan → kullanıcı adı */
+export function actorLabel(actor: string | null | undefined): string {
+  if (!actor) return '—';
+  if (actor.startsWith('ai:')) return `Otomasyon (${actor})`;
+  if (actor.startsWith('system:')) return 'Sistem';
+  return actor;
+}
+
+/** Backend `changes.same_identity` ile aynı: büyük/küçük harf ve kenar boşluğu duyarsız */
+export function sameIdentity(a: string | null | undefined, b: string | null | undefined): boolean {
+  if (a === null || a === undefined || b === null || b === undefined) return false;
+  return a.trim().toLowerCase() === b.trim().toLowerCase();
 }

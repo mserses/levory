@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { incidentsApi, queryKeys, type Incident, type IncidentStatus } from '@/api';
 import { ROUTE_ROLES } from '@/app/navigation';
 import { useAuth } from '@/auth/useAuth';
@@ -12,8 +12,10 @@ import {
   SlaBadge,
   Spinner,
   StatusBadge,
+  Tabs,
   buttonClassName,
 } from '@/components';
+import { ServiceRequestList } from '@/features/requests/ServiceRequestList';
 import { formatDate, formatDateTime } from '@/lib/format';
 import { usePageTitle } from '@/lib/usePageTitle';
 import { Drawer } from './components/Drawer';
@@ -38,6 +40,12 @@ function isFilter(v: string): v is Filter {
   return v === 'open' || v === 'closed' || v === 'all';
 }
 
+type TabKey = 'olay' | 'hizmet';
+const TABS = [
+  { key: 'olay', label: 'Olaylar' },
+  { key: 'hizmet', label: 'Hizmet talepleri' },
+] as const;
+
 function byNewest(a: Incident, b: Incident) {
   return b.created_at.localeCompare(a.created_at);
 }
@@ -47,6 +55,9 @@ export default function MyRequestsPage() {
   usePageTitle('Taleplerim');
   const { hasRole } = useAuth();
   const canCreate = hasRole(...ROUTE_ROLES.newRequest);
+  const canUseCatalog = hasRole(...ROUTE_ROLES.catalog);
+  const [params, setParams] = useSearchParams();
+  const tab: TabKey = params.get('sekme') === 'hizmet' ? 'hizmet' : 'olay';
   const [filter, setFilter] = useState<Filter>('open');
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -155,12 +166,29 @@ export default function MyRequestsPage() {
       <div className="page-header">
         <div>
           <h1>Taleplerim</h1>
-          <p className="muted">Açtığınız talepler, durumları ve hedef çözüm süreleri.</p>
+          <p className="muted">
+            Açtığınız olay kayıtları ve katalogdan istediğiniz hizmetler; durumları ve hedef
+            süreleri.
+          </p>
         </div>
-        {all.length > 0 && newRequestLink}
+        {tab === 'olay' && all.length > 0 && newRequestLink}
+        {tab === 'hizmet' && canUseCatalog && (
+          <Link to="/katalog" className={buttonClassName('primary')}>
+            Katalogdan iste
+          </Link>
+        )}
       </div>
 
-      {content}
+      <Tabs<TabKey>
+        label="Talep türleri"
+        items={TABS}
+        active={tab}
+        onChange={(key) => {
+          setParams(key === 'olay' ? {} : { sekme: key }, { replace: true });
+        }}
+      >
+        {tab === 'olay' ? content : <ServiceRequestList canCreate={canUseCatalog} />}
+      </Tabs>
 
       <Drawer
         open={selected !== null}

@@ -4,6 +4,80 @@
  */
 
 export interface paths {
+  '/actions': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Actions
+     * @description Eylem istekleri, en yeni önce. Süresi dolan bekleyen istekler önce `expired` yapılır.
+     */
+    get: operations['list_actions_actions_get'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/actions/{action_id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Action */
+    get: operations['get_action_actions__action_id__get'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/actions/{action_id}/approve': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Approve Action
+     * @description Onay verir; onay kuralı sağlanınca istek onaylayan kimliğiyle hemen yürütülür.
+     */
+    post: operations['approve_action_actions__action_id__approve_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/actions/{action_id}/reject': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Reject Action */
+    post: operations['reject_action_actions__action_id__reject_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/audit': {
     parameters: {
       query?: never;
@@ -32,6 +106,65 @@ export interface paths {
     get: operations['verify_audit_verify_get'];
     put?: never;
     post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/catalog/items': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Items
+     * @description Katalog öğeleri (kategori, ad). Etkin olmayan öğeleri yalnızca admin görebilir.
+     */
+    get: operations['list_items_catalog_items_get'];
+    put?: never;
+    /** Create Item */
+    post: operations['create_item_catalog_items_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/catalog/items/{item}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Item */
+    get: operations['get_item_catalog_items__item__get'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /** Update Item */
+    patch: operations['update_item_catalog_items__item__patch'];
+    trace?: never;
+  };
+  '/catalog/seed': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Seed
+     * @description Varsayılan 10 katalog öğesini yoksa ekler (var olanlara dokunmaz).
+     */
+    post: operations['seed_catalog_seed_post'];
     delete?: never;
     options?: never;
     head?: never;
@@ -799,6 +932,426 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/problems': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Problems */
+    get: operations['list_problems_problems_get'];
+    put?: never;
+    /** Create Problem */
+    post: operations['create_problem_problems_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/problems/trends': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Detect Trends
+     * @description Olay eğilimleri (aynı CI + kategori, benzer başlık); salt okuma, hiçbir şey yazmaz.
+     */
+    post: operations['detect_trends_problems_trends_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/problems/trends/propose': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Propose From Trends
+     * @description Eşiği aşan her küme için sorun önerisi (`problem.create` R1, aktör `ai:problem`).
+     */
+    post: operations['propose_from_trends_problems_trends_propose_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/problems/{problem_id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Problem */
+    get: operations['get_problem_problems__problem_id__get'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /** Update Problem */
+    patch: operations['update_problem_problems__problem_id__patch'];
+    trace?: never;
+  };
+  '/problems/{problem_id}/changes': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Link Changes
+     * @description Kalıcı çözüm değişikliklerini (RFC) bağlar.
+     */
+    post: operations['link_changes_problems__problem_id__changes_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/problems/{problem_id}/cis': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Link Cis */
+    post: operations['link_cis_problems__problem_id__cis_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/problems/{problem_id}/fix': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Propose Fix
+     * @description Kalıcı çözüm için yapay zekâ taslak RFC önerisi (`problem.propose_fix` R1).
+     */
+    post: operations['propose_fix_problems__problem_id__fix_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/problems/{problem_id}/incidents': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Link Incidents */
+    post: operations['link_incidents_problems__problem_id__incidents_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/problems/{problem_id}/incidents/{incident_id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** Unlink Incident */
+    delete: operations['unlink_incident_problems__problem_id__incidents__incident_id__delete'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/problems/{problem_id}/known-error/publish': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Publish Known Error
+     * @description Geçici çözümü KEDB makalesi olarak yayımlar (insan; yapay zekâ için R2 araç).
+     */
+    post: operations['publish_known_error_problems__problem_id__known_error_publish_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/problems/{problem_id}/rca': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /**
+     * Record Rca
+     * @description Kesin RCA ve kök neden (insan).
+     */
+    put: operations['record_rca_problems__problem_id__rca_put'];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/problems/{problem_id}/rca/accept': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Accept Rca Draft
+     * @description RCA taslağını kesin RCA olarak kabul eder (insan).
+     */
+    post: operations['accept_rca_draft_problems__problem_id__rca_accept_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/problems/{problem_id}/rca/draft': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Draft Rca
+     * @description Yapay zekâ 5 Neden taslağı (`problem.record_rca` R1; yalnızca `rca_draft`).
+     */
+    post: operations['draft_rca_problems__problem_id__rca_draft_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/problems/{problem_id}/transition': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Transition */
+    post: operations['transition_problems__problem_id__transition_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/requests': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Requests */
+    get: operations['list_requests_requests_get'];
+    put?: never;
+    /**
+     * Create Request
+     * @description Talep açar; iş onayı gerekmiyorsa karşılama hemen başlar (R2/R3 adımlar onay bekler).
+     */
+    post: operations['create_request_requests_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/requests/metrics': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Metrics
+     * @description Faz 3 kapısı: standart taleplerin insansız çözüm oranı (hedef %50).
+     */
+    get: operations['metrics_requests_metrics_get'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/requests/{request_id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Request */
+    get: operations['get_request_requests__request_id__get'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /**
+     * Update Request
+     * @description Form değerlerini düzeltir (gönderildi / iş onayı bekliyor / başarısız): insan düzenlemesi.
+     */
+    patch: operations['update_request_requests__request_id__patch'];
+    trace?: never;
+  };
+  '/requests/{request_id}/approve': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Approve Request
+     * @description İş onayı (yönetici / onay grubu üyesi / admin); onayda karşılama hemen başlar.
+     */
+    post: operations['approve_request_requests__request_id__approve_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/requests/{request_id}/cancel': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Cancel Request */
+    post: operations['cancel_request_requests__request_id__cancel_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/requests/{request_id}/complete-step': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Complete Manual Step
+     * @description Sıradaki el ile adımı tamamlandı işaretler ve karşılamayı sürdürür.
+     */
+    post: operations['complete_manual_step_requests__request_id__complete_step_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/requests/{request_id}/reject': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Reject Request */
+    post: operations['reject_request_requests__request_id__reject_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/requests/{request_id}/retry': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Retry Request
+     * @description Başarısız talebi başarısız adımdan yeniden çalıştırır (insan dokunuşu).
+     */
+    post: operations['retry_request_requests__request_id__retry_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -841,6 +1394,146 @@ export interface components {
       rationale: string;
       /** Sources */
       sources: string[];
+    };
+    /** ActionApprovalRead */
+    ActionApprovalRead: {
+      /** Approver */
+      approver: string;
+      /** Approver Roles */
+      approver_roles: string[];
+      /** Comment */
+      comment: string;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      decision: components['schemas']['ApprovalDecision'];
+      /** Id */
+      id: string;
+    };
+    /** ActionDecisionBody */
+    ActionDecisionBody: {
+      /**
+       * Comment
+       * @default
+       */
+      comment: string;
+    };
+    /** ActionRequestRead */
+    ActionRequestRead: {
+      /** Approvals */
+      approvals?: components['schemas']['ActionApprovalRead'][];
+      /**
+       * Args Display
+       * @description Maskelenmiş argümanlar (gösterim için)
+       */
+      args_display: {
+        [key: string]: unknown;
+      };
+      /** Change Id */
+      change_id: string | null;
+      /** Confidence */
+      confidence: number | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Decision Id */
+      decision_id: string | null;
+      /** Error */
+      error: string | null;
+      /** Executed At */
+      executed_at: string | null;
+      /** Executed By */
+      executed_by: string | null;
+      /**
+       * Expires At
+       * Format: date-time
+       */
+      expires_at: string;
+      /** Id */
+      id: string;
+      /** Incident Id */
+      incident_id: string | null;
+      /** Number */
+      number: string;
+      /** Reason */
+      reason: string;
+      /** Request Id */
+      request_id: string | null;
+      /**
+       * Requested By
+       * @description ai:<ajan> ya da insan kullanıcı adı
+       */
+      requested_by: string;
+      /** Required Approvals */
+      required_approvals: number;
+      /** Result */
+      result: {
+        [key: string]: unknown;
+      } | null;
+      risk_class: components['schemas']['RiskClass'];
+      state: components['schemas']['ActionRequestState'];
+      /** Tool */
+      tool: string;
+      /**
+       * Tool Description
+       * @description Aracın Türkçe açıklaması
+       */
+      tool_description?: string | null;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+      /** Version */
+      version: number;
+    };
+    /**
+     * ActionRequestState
+     * @enum {string}
+     */
+    ActionRequestState: 'pending' | 'approved' | 'rejected' | 'executed' | 'failed' | 'expired';
+    /**
+     * AgentResultRead
+     * @description Ajan araç çağrısının sonucu (`ToolResult.to_dict()` ile aynı alanlar).
+     */
+    AgentResultRead: {
+      /** Action Request Id */
+      action_request_id?: string | null;
+      /** Decision Id */
+      decision_id?: string | null;
+      /** Error */
+      error?: {
+        [key: string]: unknown;
+      } | null;
+      /**
+       * Message
+       * @default
+       */
+      message: string;
+      /**
+       * Replayed
+       * @default false
+       */
+      replayed: boolean;
+      /** Result */
+      result?: {
+        [key: string]: unknown;
+      } | null;
+      /** Risk Class */
+      risk_class: string;
+      /** Status */
+      status: string;
+      /** Tool */
+      tool: string;
+    };
+    /** AgentResultsRead */
+    AgentResultsRead: {
+      /** Results */
+      results: components['schemas']['AgentResultRead'][];
     };
     /** ApprovalCreate */
     ApprovalCreate: {
@@ -1019,6 +1712,11 @@ export interface components {
       total: number;
     };
     /**
+     * BusinessApprovalState
+     * @enum {string}
+     */
+    BusinessApprovalState: 'not_required' | 'pending' | 'approved' | 'rejected';
+    /**
      * CIClass
      * @enum {string}
      */
@@ -1065,6 +1763,11 @@ export interface components {
      * @enum {string}
      */
     CIEnvironment: 'prod' | 'test' | 'dev';
+    /** CILinkRequest */
+    CILinkRequest: {
+      /** Ci Ids */
+      ci_ids: string[];
+    };
     /**
      * CIPatch
      * @description PATCH gövdesi: If-Match başlığı yerine sürüm gövdede de verilebilir.
@@ -1208,6 +1911,119 @@ export interface components {
       /** Freeze Windows */
       freeze_windows: components['schemas']['FreezeWindowRead'][];
     };
+    /**
+     * CatalogApprovalPolicy
+     * @description Katalog öğesinin iş onayı (risk onayından ayrıdır ve ondan önce gelir).
+     * @enum {string}
+     */
+    CatalogApprovalPolicy: 'none' | 'manager' | 'group';
+    /** CatalogItemInput */
+    CatalogItemInput: {
+      /**
+       * Active
+       * @default true
+       */
+      active: boolean;
+      /** Approval Group */
+      approval_group?: string | null;
+      /** @default none */
+      approval_policy: components['schemas']['CatalogApprovalPolicy'];
+      /** Category */
+      category: string;
+      /**
+       * Description
+       * @default
+       */
+      description: string;
+      /** Form Schema */
+      form_schema?: {
+        [key: string]: unknown;
+      };
+      /** Fulfilment Plan */
+      fulfilment_plan: {
+        [key: string]: unknown;
+      }[];
+      /** Key */
+      key: string;
+      /** Name */
+      name: string;
+      /**
+       * Standard
+       * @default false
+       */
+      standard: boolean;
+    };
+    /** CatalogItemPatchBody */
+    CatalogItemPatchBody: {
+      /** Active */
+      active?: boolean | null;
+      /** Approval Group */
+      approval_group?: string | null;
+      approval_policy?: components['schemas']['CatalogApprovalPolicy'] | null;
+      /** Category */
+      category?: string | null;
+      /** Description */
+      description?: string | null;
+      /** Expected Version */
+      expected_version?: number | null;
+      /** Form Schema */
+      form_schema?: {
+        [key: string]: unknown;
+      } | null;
+      /** Fulfilment Plan */
+      fulfilment_plan?:
+        | {
+            [key: string]: unknown;
+          }[]
+        | null;
+      /** Name */
+      name?: string | null;
+      /** Standard */
+      standard?: boolean | null;
+    };
+    /** CatalogItemRead */
+    CatalogItemRead: {
+      /** Active */
+      active: boolean;
+      /** Approval Group */
+      approval_group: string | null;
+      approval_policy: components['schemas']['CatalogApprovalPolicy'];
+      /** Category */
+      category: string;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Description */
+      description: string;
+      /** Form Schema */
+      form_schema: {
+        [key: string]: unknown;
+      };
+      /**
+       * Fulfilment Plan
+       * @description Sıralı adımlar: {tool, title, args, when} ya da {manual: true, title}
+       */
+      fulfilment_plan: {
+        [key: string]: unknown;
+      }[];
+      /** Id */
+      id: string;
+      /** Key */
+      key: string;
+      /** Name */
+      name: string;
+      /** Standard */
+      standard: boolean;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+      /** Version */
+      version: number;
+    };
     /** ChangeCreate */
     ChangeCreate: {
       /** Affected Ci Ids */
@@ -1247,6 +2063,11 @@ export interface components {
       test_plan: string;
       /** Title */
       title: string;
+    };
+    /** ChangeLinkRequest */
+    ChangeLinkRequest: {
+      /** Change Ids */
+      change_ids: string[];
     };
     /**
      * ChangePatch
@@ -1566,6 +2387,11 @@ export interface components {
       title: string;
       urgency?: components['schemas']['Urgency'] | null;
     };
+    /** IncidentLinkRequest */
+    IncidentLinkRequest: {
+      /** Incident Ids */
+      incident_ids: string[];
+    };
     /**
      * IncidentPatch
      * @description PATCH gövdesi: If-Match başlığı yerine sürüm gövdede de verilebilir.
@@ -1667,6 +2493,27 @@ export interface components {
       | 'resolved'
       | 'closed'
       | 'cancelled';
+    /**
+     * LinkedActionRead
+     * @description Talebe bağlı eylem isteğinin özeti (ham argümanlar yok).
+     */
+    LinkedActionRead: {
+      /**
+       * Expires At
+       * Format: date-time
+       */
+      expires_at: string;
+      /** Id */
+      id: string;
+      /** Number */
+      number: string;
+      /** Required Approvals */
+      required_approvals: number;
+      risk_class: components['schemas']['RiskClass'];
+      state: components['schemas']['ActionRequestState'];
+      /** Tool */
+      tool: string;
+    };
     /** MeRead */
     MeRead: {
       /** Ai Confidence Threshold */
@@ -1687,6 +2534,214 @@ export interface components {
      * @enum {string}
      */
     Priority: 'P1' | 'P2' | 'P3' | 'P4' | 'P5';
+    /** ProblemCreate */
+    ProblemCreate: {
+      /** Assignment Group */
+      assignment_group?: string | null;
+      /** Category */
+      category?: string | null;
+      /** Ci Ids */
+      ci_ids?: string[];
+      /**
+       * Description
+       * @default
+       */
+      description: string;
+      /** Incident Ids */
+      incident_ids?: string[];
+      /** @default P3 */
+      priority: components['schemas']['Priority'];
+      /** Title */
+      title: string;
+      /** Workaround */
+      workaround?: string | null;
+    };
+    /** ProblemRead */
+    ProblemRead: {
+      /** Affected Ci Ids */
+      affected_ci_ids: string[];
+      /** Assignment Group */
+      assignment_group: string | null;
+      /** Category */
+      category: string | null;
+      /** Change Ids */
+      change_ids: string[];
+      /** Closed At */
+      closed_at: string | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Created By */
+      created_by: string;
+      /** Description */
+      description: string;
+      /** Detected By */
+      detected_by: string;
+      /** Id */
+      id: string;
+      /** Incident Ids */
+      incident_ids: string[];
+      /** Known Error Article Id */
+      known_error_article_id: string | null;
+      /** Number */
+      number: string;
+      priority: components['schemas']['Priority'];
+      /** Rca */
+      rca: {
+        [key: string]: unknown;
+      } | null;
+      /** Rca Draft */
+      rca_draft: {
+        [key: string]: unknown;
+      } | null;
+      /** Resolution */
+      resolution: string | null;
+      /** Resolved At */
+      resolved_at: string | null;
+      /** Root Cause */
+      root_cause: string | null;
+      state: components['schemas']['ProblemState'];
+      /** Title */
+      title: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+      /** Version */
+      version: number;
+      /** Workaround */
+      workaround: string | null;
+    };
+    /**
+     * ProblemState
+     * @description new -> investigating -> known_error -> resolved -> closed (bkz. services/problems.py).
+     * @enum {string}
+     */
+    ProblemState: 'new' | 'investigating' | 'known_error' | 'resolved' | 'closed';
+    /** ProblemTransitionRequest */
+    ProblemTransitionRequest: {
+      /** Expected Version */
+      expected_version?: number | null;
+      /** Note */
+      note?: string | null;
+      to_state: components['schemas']['ProblemState'];
+    };
+    /**
+     * ProblemUpdate
+     * @description Kısmi güncelleme (exclude_unset). Kök neden/RCA buradan değil, RCA uçlarından yazılır.
+     */
+    ProblemUpdate: {
+      /** Assignment Group */
+      assignment_group?: string | null;
+      /** Category */
+      category?: string | null;
+      /** Description */
+      description?: string | null;
+      /** Expected Version */
+      expected_version?: number | null;
+      priority?: components['schemas']['Priority'] | null;
+      /** Title */
+      title?: string | null;
+      /** Workaround */
+      workaround?: string | null;
+    };
+    /**
+     * ProposeFixRequest
+     * @description Kalıcı çözüm için taslak RFC; boş alanlar sorundan doldurulur.
+     */
+    ProposeFixRequest: {
+      /**
+       * Backout Plan
+       * @default
+       */
+      backout_plan: string;
+      /**
+       * Implementation Plan
+       * @default
+       */
+      implementation_plan: string;
+      /**
+       * Test Plan
+       * @default
+       */
+      test_plan: string;
+      /** Title */
+      title?: string | null;
+    };
+    /**
+     * RCA
+     * @description Kök neden analizi (yapılandırılmış).
+     */
+    RCA: {
+      method: components['schemas']['RCAMethod'];
+      /** Root Cause */
+      root_cause?: string | null;
+      /** Steps */
+      steps: components['schemas']['RCAStep'][];
+    };
+    /**
+     * RCAMethod
+     * @description Kök neden analizi yöntemi.
+     * @enum {string}
+     */
+    RCAMethod: '5_why' | 'timeline';
+    /** RCARecordRequest */
+    RCARecordRequest: {
+      /** Expected Version */
+      expected_version?: number | null;
+      rca: components['schemas']['RCA'];
+    };
+    /**
+     * RCAStep
+     * @description 5 Neden adımı (soru + yanıt) ya da zaman çizelgesi olayı (zaman + olay).
+     */
+    RCAStep: {
+      /**
+       * Answer
+       * @description Yanıt ya da olay
+       */
+      answer: string;
+      /**
+       * At
+       * @description Zaman çizelgesi olayı zamanı
+       */
+      at?: string | null;
+      /** Question */
+      question?: string | null;
+    };
+    /** RequestActionBody */
+    RequestActionBody: {
+      /** Expected Version */
+      expected_version?: number | null;
+      /**
+       * Note
+       * @default
+       */
+      note: string;
+    };
+    /** RequestDecisionBody */
+    RequestDecisionBody: {
+      /**
+       * Comment
+       * @default
+       */
+      comment: string;
+      /** Expected Version */
+      expected_version?: number | null;
+    };
+    /**
+     * RiskClass
+     * @description Araç risk sınıfı (ürün sahibiyle tasarlanan katalog).
+     *
+     *     R0 okuma (yapay zekâ serbest); R1 düşük riskli yazma (yapay zekâ yalnızca politika izin
+     *     verirse: gölge mod kapalı + güven >= eşik); R2 orta (her zaman insan onayı); R3 kritik
+     *     (insan onayı + ikinci onaylayan ya da CAB onaylı değişiklik).
+     * @enum {string}
+     */
+    RiskClass: 'R0' | 'R1' | 'R2' | 'R3';
     /**
      * RiskLevel
      * @enum {string}
@@ -1754,6 +2809,135 @@ export interface components {
       hits: components['schemas']['SearchHitOut'][];
       /** Query */
       query: string;
+    };
+    /** SeedResult */
+    SeedResult: {
+      /** Created */
+      created: string[];
+    };
+    /** ServiceRequestCreate */
+    ServiceRequestCreate: {
+      /** Form Values */
+      form_values?: {
+        [key: string]: unknown;
+      };
+      /**
+       * Item
+       * @description Katalog öğesi kimliği ya da anahtarı
+       */
+      item: string;
+      /**
+       * Requester
+       * @description Başkası adına talep (yalnızca agent/admin); verilmezse oturumdaki kullanıcı
+       */
+      requester?: string | null;
+    };
+    /** ServiceRequestRead */
+    ServiceRequestRead: {
+      /** Actions */
+      actions?: components['schemas']['LinkedActionRead'][];
+      /** Approval Comment */
+      approval_comment: string;
+      approval_policy: components['schemas']['CatalogApprovalPolicy'];
+      approval_state: components['schemas']['BusinessApprovalState'];
+      /** Approved At */
+      approved_at: string | null;
+      /** Approved By */
+      approved_by: string | null;
+      /**
+       * Approver
+       * @description Beklenen iş onaylayanı (yönetici UPN'si ya da grup)
+       */
+      approver: string | null;
+      /** Attempt */
+      attempt: number;
+      /** Catalog Item Id */
+      catalog_item_id: string;
+      /** Closed At */
+      closed_at: string | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Current Step */
+      current_step: number;
+      /** Error */
+      error: string | null;
+      /** Form Values */
+      form_values: {
+        [key: string]: unknown;
+      };
+      /** Fulfilled At */
+      fulfilled_at: string | null;
+      /** Human Approvals */
+      human_approvals: number;
+      /** Human Edits */
+      human_edits: number;
+      /** Id */
+      id: string;
+      /** Item Key */
+      item_key: string;
+      /** Item Name */
+      item_name: string;
+      /** Number */
+      number: string;
+      /** Opened By */
+      opened_by: string;
+      /** Plan */
+      plan: {
+        [key: string]: unknown;
+      }[];
+      /** Requester */
+      requester: string;
+      /** Standard */
+      standard: boolean;
+      state: components['schemas']['ServiceRequestState'];
+      /** Step Results */
+      step_results: {
+        [key: string]: unknown;
+      }[];
+      /** Touches */
+      touches: {
+        [key: string]: unknown;
+      }[];
+      /**
+       * Touchless
+       * @description İnsansız çözüldü mü (karşılandı + sıfır insan onayı + sıfır insan düzenlemesi)
+       */
+      touchless: boolean | null;
+      /** Touchless Reason */
+      touchless_reason: string | null;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+      /** Version */
+      version: number;
+      /** Waiting Action Id */
+      waiting_action_id: string | null;
+    };
+    /**
+     * ServiceRequestState
+     * @enum {string}
+     */
+    ServiceRequestState:
+      | 'submitted'
+      | 'awaiting_approval'
+      | 'fulfilling'
+      | 'fulfilled'
+      | 'rejected'
+      | 'failed'
+      | 'cancelled';
+    /** ServiceRequestUpdate */
+    ServiceRequestUpdate: {
+      /** Expected Version */
+      expected_version?: number | null;
+      /** Form Values */
+      form_values: {
+        [key: string]: unknown;
+      };
     };
     /** SyncEventOut */
     SyncEventOut: {
@@ -1873,6 +3057,42 @@ export interface components {
      * @enum {string}
      */
     TicketKind: 'incident' | 'service_request' | 'question';
+    /** TouchlessItemMetrics */
+    TouchlessItemMetrics: {
+      /** Closed */
+      closed: number;
+      /** Fulfilled */
+      fulfilled: number;
+      /** Item Key */
+      item_key: string;
+      /** Item Name */
+      item_name: string;
+      /** Standard */
+      standard: boolean;
+      /** Touchless */
+      touchless: number;
+    };
+    /** TouchlessMetricsRead */
+    TouchlessMetricsRead: {
+      /** All Closed */
+      all_closed: number;
+      /** All Touchless */
+      all_touchless: number;
+      /** By Item */
+      by_item: components['schemas']['TouchlessItemMetrics'][];
+      /** Gate Target */
+      gate_target: number;
+      /** Meets Gate */
+      meets_gate: boolean;
+      /** Standard Closed */
+      standard_closed: number;
+      /** Standard Fulfilled */
+      standard_fulfilled: number;
+      /** Standard Touchless */
+      standard_touchless: number;
+      /** Standard Touchless Rate */
+      standard_touchless_rate: number;
+    };
     /** TransitionRequest */
     TransitionRequest: {
       /** Expected Version */
@@ -1882,6 +3102,46 @@ export interface components {
       /** Review Notes */
       review_notes?: string | null;
       to_state: components['schemas']['ChangeState'];
+    };
+    /** TrendClusterRead */
+    TrendClusterRead: {
+      /** Category */
+      category: string | null;
+      /** Ci Id */
+      ci_id: string | null;
+      /** Confidence */
+      confidence: number;
+      /** Incident Ids */
+      incident_ids: string[];
+      /** Incident Numbers */
+      incident_numbers: string[];
+      /** Key */
+      key: string;
+      /** Kind */
+      kind: string;
+      priority: components['schemas']['Priority'];
+      /** Similarity */
+      similarity: number;
+      /** Size */
+      size: number;
+      /** Title */
+      title: string;
+    };
+    /** TrendsRead */
+    TrendsRead: {
+      /** Clusters */
+      clusters: components['schemas']['TrendClusterRead'][];
+      /** Window Days */
+      window_days: number;
+    };
+    /** TrendsRequest */
+    TrendsRequest: {
+      /**
+       * Window Days
+       * @description Geriye dönük gün sayısı
+       * @default 30
+       */
+      window_days: number;
     };
     /**
      * Urgency
@@ -1915,6 +3175,141 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+  list_actions_actions_get: {
+    parameters: {
+      query?: {
+        state?: components['schemas']['ActionRequestState'] | null;
+        tool?: string | null;
+        limit?: number;
+        offset?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ActionRequestRead'][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  get_action_actions__action_id__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        action_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ActionRequestRead'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  approve_action_actions__action_id__approve_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        action_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': components['schemas']['ActionDecisionBody'] | null;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ActionRequestRead'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  reject_action_actions__action_id__reject_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        action_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': components['schemas']['ActionDecisionBody'] | null;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ActionRequestRead'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
   list_audit_audit_get: {
     parameters: {
       query?: {
@@ -1963,6 +3358,160 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['VerifyOut'];
+        };
+      };
+    };
+  };
+  list_items_catalog_items_get: {
+    parameters: {
+      query?: {
+        category?: string | null;
+        standard?: boolean | null;
+        q?: string | null;
+        /** @description Etkin olmayanlar da (yalnızca admin) */
+        include_inactive?: boolean;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CatalogItemRead'][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  create_item_catalog_items_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CatalogItemInput'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CatalogItemRead'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  get_item_catalog_items__item__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        item: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CatalogItemRead'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  update_item_catalog_items__item__patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        item: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CatalogItemPatchBody'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CatalogItemRead'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  seed_catalog_seed_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SeedResult'];
         };
       };
     };
@@ -3695,6 +5244,883 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['MeRead'];
+        };
+      };
+    };
+  };
+  list_problems_problems_get: {
+    parameters: {
+      query?: {
+        state?: components['schemas']['ProblemState'] | null;
+        q?: string | null;
+        incident_id?: string | null;
+        ci_id?: string | null;
+        limit?: number;
+        offset?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ProblemRead'][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  create_problem_problems_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ProblemCreate'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ProblemRead'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  detect_trends_problems_trends_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['TrendsRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TrendsRead'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  propose_from_trends_problems_trends_propose_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['TrendsRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AgentResultsRead'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  get_problem_problems__problem_id__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        problem_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ProblemRead'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  update_problem_problems__problem_id__patch: {
+    parameters: {
+      query?: never;
+      header?: {
+        'if-match'?: string | null;
+      };
+      path: {
+        problem_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ProblemUpdate'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ProblemRead'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  link_changes_problems__problem_id__changes_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        problem_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ChangeLinkRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ProblemRead'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  link_cis_problems__problem_id__cis_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        problem_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CILinkRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ProblemRead'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  propose_fix_problems__problem_id__fix_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        problem_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ProposeFixRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AgentResultRead'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  link_incidents_problems__problem_id__incidents_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        problem_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['IncidentLinkRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ProblemRead'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  unlink_incident_problems__problem_id__incidents__incident_id__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        problem_id: string;
+        incident_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ProblemRead'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  publish_known_error_problems__problem_id__known_error_publish_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        problem_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ProblemRead'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  record_rca_problems__problem_id__rca_put: {
+    parameters: {
+      query?: never;
+      header?: {
+        'if-match'?: string | null;
+      };
+      path: {
+        problem_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['RCARecordRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ProblemRead'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  accept_rca_draft_problems__problem_id__rca_accept_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        problem_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ProblemRead'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  draft_rca_problems__problem_id__rca_draft_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        problem_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AgentResultRead'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  transition_problems__problem_id__transition_post: {
+    parameters: {
+      query?: never;
+      header?: {
+        'if-match'?: string | null;
+      };
+      path: {
+        problem_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ProblemTransitionRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ProblemRead'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  list_requests_requests_get: {
+    parameters: {
+      query?: {
+        state?: components['schemas']['ServiceRequestState'] | null;
+        /** @description Katalog öğesi anahtarı */
+        item?: string | null;
+        standard?: boolean | null;
+        touchless?: boolean | null;
+        /** @description Yalnızca talep edeni oturumdaki kullanıcı olanlar */
+        mine?: boolean;
+        /** @description İş onayımı bekleyen talepler (yönetici / onay grubu üyesi) */
+        awaiting_my_approval?: boolean;
+        limit?: number;
+        offset?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ServiceRequestRead'][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  create_request_requests_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ServiceRequestCreate'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ServiceRequestRead'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  metrics_requests_metrics_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TouchlessMetricsRead'];
+        };
+      };
+    };
+  };
+  get_request_requests__request_id__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        request_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ServiceRequestRead'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  update_request_requests__request_id__patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        request_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ServiceRequestUpdate'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ServiceRequestRead'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  approve_request_requests__request_id__approve_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        request_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': components['schemas']['RequestDecisionBody'] | null;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ServiceRequestRead'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  cancel_request_requests__request_id__cancel_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        request_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': components['schemas']['RequestActionBody'] | null;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ServiceRequestRead'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  complete_manual_step_requests__request_id__complete_step_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        request_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': components['schemas']['RequestActionBody'] | null;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ServiceRequestRead'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  reject_request_requests__request_id__reject_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        request_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': components['schemas']['RequestDecisionBody'] | null;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ServiceRequestRead'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  retry_request_requests__request_id__retry_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        request_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': components['schemas']['RequestActionBody'] | null;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ServiceRequestRead'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
         };
       };
     };

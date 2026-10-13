@@ -81,12 +81,29 @@ function isIssueList(value: unknown): value is PydanticIssue[] {
   return Array.isArray(value) && value.every((v) => typeof v === 'object' && v !== null);
 }
 
+function isMessageDetail(value: unknown): value is { message: string; errors?: unknown[] } {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
+  const v = value as { message?: unknown; errors?: unknown };
+  return (
+    typeof v.message === 'string' &&
+    v.message.trim() !== '' &&
+    (v.errors === undefined || Array.isArray(v.errors))
+  );
+}
+
 /** FastAPI hata gövdesinden (detail: string | ValidationError[]) ApiError üretir. */
 export function errorFromBody(status: number, body: unknown): ApiError {
   const detail =
     typeof body === 'object' && body !== null ? (body as { detail?: unknown }).detail : undefined;
   if (typeof detail === 'string' && detail.trim()) {
     return new ApiError(status, detail, [], body);
+  }
+  if (isMessageDetail(detail)) {
+    // Katalog/talep doğrulaması: {"message": "...", "errors": ["...", ...]}
+    const fieldErrors = (detail.errors ?? [])
+      .filter((e): e is string => typeof e === 'string')
+      .map((message) => ({ field: '', message }));
+    return new ApiError(status, detail.message, fieldErrors, body);
   }
   if (isIssueList(detail)) {
     const fieldErrors = detail.map((issue) => {

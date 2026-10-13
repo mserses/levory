@@ -1,0 +1,165 @@
+/* Hizmet kataloğu: liste, öğe kartları, şema formu. Yalnızca tokens.css değişkenleri. */
+
+.toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: var(--space-3);
+  align-items: end;
+}
+@media (max-width: 640px) {
+  .toolbar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.count {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.group {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.groupHeading {
+  margin: 0;
+  font-size: var(--text-lg);
+}
+.grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr));
+  gap: var(--space-4);
+}
+.card {
+  display: grid;
+  align-content: start;
+  gap: var(--space-2);
+  height: 100%;
+  padding: var(--space-4) var(--space-5);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  min-width: 0;
+}
+.cardTitle {
+  margin: 0;
+  font-size: var(--text-md);
+}
+.cardTitle a {
+  color: var(--color-primary);
+  text-underline-offset: 2px;
+  overflow-wrap: anywhere;
+}
+.cardTitle a:hover {
+  color: var(--color-primary-hover);
+}
+.cardText {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+}
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* --- Öğe sayfası --- */
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: var(--space-5);
+  align-items: start;
+}
+@media (max-width: 860px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.form {
+  display: grid;
+  gap: var(--space-4);
+}
+.formActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+.plan {
+  margin: 0;
+  padding-left: var(--space-5);
+  display: grid;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+}
+.sideHeading {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-md);
+}
+.summary {
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--tone-danger-border, var(--color-border));
+  border-left: 4px solid var(--tone-danger-fg);
+  border-radius: var(--radius-md);
+  background: var(--tone-danger-bg);
+  color: var(--color-text);
+}
+.summary:focus-visible {
+  outline-offset: 2px;
+}
+.summary h2 {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-md);
+}
+.summary ul {
+  margin: 0;
+  padding-left: var(--space-5);
+}
+.summary a {
+  color: var(--tone-danger-fg);
+}
+
+/* --- Onay kutusu (boolean alan) --- */
+.check {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-1) var(--space-3);
+  align-items: start;
+}
+.check input {
+  width: 1.125rem;
+  height: 1.125rem;
+  margin-top: 0.15rem;
+}
+.checkLabel {
+  font-weight: var(--weight-medium);
+}
+.checkHint,
+.checkError {
+  grid-column: 2;
+  margin: 0;
+  font-size: var(--text-sm);
+}
+.checkHint {
+  color: var(--color-text-muted);
+}
+.checkError {
+  color: var(--tone-danger-fg);
+  font-weight: var(--weight-medium);
+}
+.pickerRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: end;
+}
+.pickerRow > :first-child {
+  flex: 1 1 14rem;
+  min-width: 0;
+}

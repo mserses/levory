@@ -117,6 +117,28 @@ describe('request', () => {
     expect(error.detail).toContain('Gönderilen bilgiler doğrulanamadı');
   });
 
+  it('{message, errors} biçimindeki 422 ayrıntısını (katalog/talep) mesaj + hatalara çevirir', async () => {
+    server.use(
+      http.post(apiUrl('/requests'), () =>
+        HttpResponse.json(
+          {
+            detail: {
+              message: 'Form değerleri geçersiz: Grup: zorunlu',
+              errors: ['Grup: zorunlu', 'Gerekçe: en fazla 500 karakter'],
+            },
+          },
+          { status: 422 },
+        ),
+      ),
+    );
+    const error = (await api.post('/requests', {}).catch((e: unknown) => e)) as ApiError;
+    expect(error.detail).toBe('Form değerleri geçersiz: Grup: zorunlu');
+    expect(error.fieldErrors).toEqual([
+      { field: '', message: 'Grup: zorunlu' },
+      { field: '', message: 'Gerekçe: en fazla 500 karakter' },
+    ]);
+  });
+
   it('gövdesiz hata için Türkçe varsayılan mesaj', async () => {
     server.use(http.get(apiUrl('/audit'), () => new HttpResponse(null, { status: 403 })));
     const error = (await api.get('/audit').catch((e: unknown) => e)) as ApiError;

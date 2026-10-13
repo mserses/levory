@@ -127,6 +127,373 @@
         "title": "AIDecisionRead",
         "type": "object"
       },
+      "ActionApprovalRead": {
+        "properties": {
+          "approver": {
+            "title": "Approver",
+            "type": "string"
+          },
+          "approver_roles": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Approver Roles",
+            "type": "array"
+          },
+          "comment": {
+            "title": "Comment",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "decision": {
+            "$ref": "#/components/schemas/ApprovalDecision"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "approver",
+          "approver_roles",
+          "decision",
+          "comment",
+          "created_at"
+        ],
+        "title": "ActionApprovalRead",
+        "type": "object"
+      },
+      "ActionDecisionBody": {
+        "properties": {
+          "comment": {
+            "default": "",
+            "maxLength": 2000,
+            "title": "Comment",
+            "type": "string"
+          }
+        },
+        "title": "ActionDecisionBody",
+        "type": "object"
+      },
+      "ActionRequestRead": {
+        "properties": {
+          "approvals": {
+            "items": {
+              "$ref": "#/components/schemas/ActionApprovalRead"
+            },
+            "title": "Approvals",
+            "type": "array"
+          },
+          "args_display": {
+            "additionalProperties": true,
+            "description": "Maskelenmiş argümanlar (gösterim için)",
+            "title": "Args Display",
+            "type": "object"
+          },
+          "change_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change Id"
+          },
+          "confidence": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "decision_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision Id"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "executed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Executed At"
+          },
+          "executed_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Executed By"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "incident_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Incident Id"
+          },
+          "number": {
+            "title": "Number",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "request_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Request Id"
+          },
+          "requested_by": {
+            "description": "ai:<ajan> ya da insan kullanıcı adı",
+            "title": "Requested By",
+            "type": "string"
+          },
+          "required_approvals": {
+            "title": "Required Approvals",
+            "type": "integer"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result"
+          },
+          "risk_class": {
+            "$ref": "#/components/schemas/RiskClass"
+          },
+          "state": {
+            "$ref": "#/components/schemas/ActionRequestState"
+          },
+          "tool": {
+            "title": "Tool",
+            "type": "string"
+          },
+          "tool_description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Aracın Türkçe açıklaması",
+            "title": "Tool Description"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "tool",
+          "risk_class",
+          "state",
+          "required_approvals",
+          "requested_by",
+          "reason",
+          "confidence",
+          "args_display",
+          "incident_id",
+          "change_id",
+          "request_id",
+          "decision_id",
+          "result",
+          "error",
+          "executed_by",
+          "executed_at",
+          "expires_at",
+          "version",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ActionRequestRead",
+        "type": "object"
+      },
+      "ActionRequestState": {
+        "enum": [
+          "pending",
+          "approved",
+          "rejected",
+          "executed",
+          "failed",
+          "expired"
+        ],
+        "title": "ActionRequestState",
+        "type": "string"
+      },
+      "AgentResultRead": {
+        "description": "Ajan araç çağrısının sonucu (`ToolResult.to_dict()` ile aynı alanlar).",
+        "properties": {
+          "action_request_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Action Request Id"
+          },
+          "decision_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision Id"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "message": {
+            "default": "",
+            "title": "Message",
+            "type": "string"
+          },
+          "replayed": {
+            "default": false,
+            "title": "Replayed",
+            "type": "boolean"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result"
+          },
+          "risk_class": {
+            "title": "Risk Class",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "tool": {
+            "title": "Tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "tool",
+          "risk_class"
+        ],
+        "title": "AgentResultRead",
+        "type": "object"
+      },
+      "AgentResultsRead": {
+        "properties": {
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/AgentResultRead"
+            },
+            "title": "Results",
+            "type": "array"
+          }
+        },
+        "required": [
+          "results"
+        ],
+        "title": "AgentResultsRead",
+        "type": "object"
+      },
       "ApprovalCreate": {
         "properties": {
           "approver": {
@@ -630,6 +997,16 @@
         "title": "AuditPage",
         "type": "object"
       },
+      "BusinessApprovalState": {
+        "enum": [
+          "not_required",
+          "pending",
+          "approved",
+          "rejected"
+        ],
+        "title": "BusinessApprovalState",
+        "type": "string"
+      },
       "CIClass": {
         "enum": [
           "application",
@@ -712,6 +1089,26 @@
         ],
         "title": "CIEnvironment",
         "type": "string"
+      },
+      "CILinkRequest": {
+        "properties": {
+          "ci_ids": {
+            "items": {
+              "maxLength": 36,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 200,
+            "minItems": 1,
+            "title": "Ci Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "ci_ids"
+        ],
+        "title": "CILinkRequest",
+        "type": "object"
       },
       "CIPatch": {
         "description": "PATCH gövdesi: If-Match başlığı yerine sürüm gövdede de verilebilir.",
@@ -1124,6 +1521,313 @@
         "title": "CalendarRead",
         "type": "object"
       },
+      "CatalogApprovalPolicy": {
+        "description": "Katalog öğesinin iş onayı (risk onayından ayrıdır ve ondan önce gelir).",
+        "enum": [
+          "none",
+          "manager",
+          "group"
+        ],
+        "title": "CatalogApprovalPolicy",
+        "type": "string"
+      },
+      "CatalogItemInput": {
+        "additionalProperties": false,
+        "properties": {
+          "active": {
+            "default": true,
+            "title": "Active",
+            "type": "boolean"
+          },
+          "approval_group": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approval Group"
+          },
+          "approval_policy": {
+            "$ref": "#/components/schemas/CatalogApprovalPolicy",
+            "default": "none"
+          },
+          "category": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Category",
+            "type": "string"
+          },
+          "description": {
+            "default": "",
+            "maxLength": 4000,
+            "title": "Description",
+            "type": "string"
+          },
+          "form_schema": {
+            "additionalProperties": true,
+            "title": "Form Schema",
+            "type": "object"
+          },
+          "fulfilment_plan": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Fulfilment Plan",
+            "type": "array"
+          },
+          "key": {
+            "maxLength": 100,
+            "minLength": 2,
+            "pattern": "^[a-z][a-z0-9_]{1,99}$",
+            "title": "Key",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "standard": {
+            "default": false,
+            "title": "Standard",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "key",
+          "name",
+          "category",
+          "fulfilment_plan"
+        ],
+        "title": "CatalogItemInput",
+        "type": "object"
+      },
+      "CatalogItemPatchBody": {
+        "additionalProperties": false,
+        "properties": {
+          "active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active"
+          },
+          "approval_group": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approval Group"
+          },
+          "approval_policy": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CatalogApprovalPolicy"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "category": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "expected_version": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Version"
+          },
+          "form_schema": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Form Schema"
+          },
+          "fulfilment_plan": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fulfilment Plan"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "standard": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Standard"
+          }
+        },
+        "title": "CatalogItemPatchBody",
+        "type": "object"
+      },
+      "CatalogItemRead": {
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "approval_group": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approval Group"
+          },
+          "approval_policy": {
+            "$ref": "#/components/schemas/CatalogApprovalPolicy"
+          },
+          "category": {
+            "title": "Category",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "form_schema": {
+            "additionalProperties": true,
+            "title": "Form Schema",
+            "type": "object"
+          },
+          "fulfilment_plan": {
+            "description": "Sıralı adımlar: {tool, title, args, when} ya da {manual: true, title}",
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Fulfilment Plan",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "standard": {
+            "title": "Standard",
+            "type": "boolean"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "key",
+          "name",
+          "description",
+          "category",
+          "form_schema",
+          "approval_policy",
+          "approval_group",
+          "fulfilment_plan",
+          "standard",
+          "active",
+          "version",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "CatalogItemRead",
+        "type": "object"
+      },
       "ChangeCreate": {
         "properties": {
           "affected_ci_ids": {
@@ -1139,13 +1843,13 @@
           "assignee": {
             "anyOf": [
               {
+                "maxLength": 200,
                 "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "maxLength": 200,
             "title": "Assignee"
           },
           "assignment_group": {
@@ -1243,6 +1947,26 @@
         "title": "ChangeCreate",
         "type": "object"
       },
+      "ChangeLinkRequest": {
+        "properties": {
+          "change_ids": {
+            "items": {
+              "maxLength": 36,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 200,
+            "minItems": 1,
+            "title": "Change Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "change_ids"
+        ],
+        "title": "ChangeLinkRequest",
+        "type": "object"
+      },
       "ChangePatch": {
         "description": "PATCH gövdesi: If-Match başlığı yerine sürüm gövdede de verilebilir.",
         "properties": {
@@ -1266,13 +1990,13 @@
           "assignee": {
             "anyOf": [
               {
+                "maxLength": 200,
                 "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "maxLength": 200,
             "title": "Assignee"
           },
           "assignment_group": {
@@ -2203,6 +2927,26 @@
         "title": "IncidentCreateRequest",
         "type": "object"
       },
+      "IncidentLinkRequest": {
+        "properties": {
+          "incident_ids": {
+            "items": {
+              "maxLength": 36,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 200,
+            "minItems": 1,
+            "title": "Incident Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "incident_ids"
+        ],
+        "title": "IncidentLinkRequest",
+        "type": "object"
+      },
       "IncidentPatch": {
         "description": "PATCH gövdesi: If-Match başlığı yerine sürüm gövdede de verilebilir.",
         "properties": {
@@ -2608,6 +3352,49 @@
         "title": "IncidentStatus",
         "type": "string"
       },
+      "LinkedActionRead": {
+        "description": "Talebe bağlı eylem isteğinin özeti (ham argümanlar yok).",
+        "properties": {
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "number": {
+            "title": "Number",
+            "type": "string"
+          },
+          "required_approvals": {
+            "title": "Required Approvals",
+            "type": "integer"
+          },
+          "risk_class": {
+            "$ref": "#/components/schemas/RiskClass"
+          },
+          "state": {
+            "$ref": "#/components/schemas/ActionRequestState"
+          },
+          "tool": {
+            "title": "Tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "tool",
+          "risk_class",
+          "state",
+          "required_approvals",
+          "expires_at"
+        ],
+        "title": "LinkedActionRead",
+        "type": "object"
+      },
       "MeRead": {
         "properties": {
           "ai_confidence_threshold": {
@@ -2654,6 +3441,653 @@
           "P5"
         ],
         "title": "Priority",
+        "type": "string"
+      },
+      "ProblemCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "assignment_group": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assignment Group"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "ci_ids": {
+            "items": {
+              "maxLength": 36,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 200,
+            "title": "Ci Ids",
+            "type": "array"
+          },
+          "description": {
+            "default": "",
+            "maxLength": 20000,
+            "title": "Description",
+            "type": "string"
+          },
+          "incident_ids": {
+            "items": {
+              "maxLength": 36,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 200,
+            "title": "Incident Ids",
+            "type": "array"
+          },
+          "priority": {
+            "$ref": "#/components/schemas/Priority",
+            "default": "P3"
+          },
+          "title": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "workaround": {
+            "anyOf": [
+              {
+                "maxLength": 20000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workaround"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "title": "ProblemCreate",
+        "type": "object"
+      },
+      "ProblemRead": {
+        "properties": {
+          "affected_ci_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Affected Ci Ids",
+            "type": "array"
+          },
+          "assignment_group": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assignment Group"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "change_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Change Ids",
+            "type": "array"
+          },
+          "closed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Closed At"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "created_by": {
+            "title": "Created By",
+            "type": "string"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "detected_by": {
+            "title": "Detected By",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "incident_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Incident Ids",
+            "type": "array"
+          },
+          "known_error_article_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Known Error Article Id"
+          },
+          "number": {
+            "title": "Number",
+            "type": "string"
+          },
+          "priority": {
+            "$ref": "#/components/schemas/Priority"
+          },
+          "rca": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rca"
+          },
+          "rca_draft": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rca Draft"
+          },
+          "resolution": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolution"
+          },
+          "resolved_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolved At"
+          },
+          "root_cause": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Root Cause"
+          },
+          "state": {
+            "$ref": "#/components/schemas/ProblemState"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          },
+          "workaround": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workaround"
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "title",
+          "description",
+          "state",
+          "priority",
+          "category",
+          "assignment_group",
+          "root_cause",
+          "rca",
+          "rca_draft",
+          "workaround",
+          "known_error_article_id",
+          "incident_ids",
+          "affected_ci_ids",
+          "change_ids",
+          "detected_by",
+          "created_by",
+          "resolution",
+          "resolved_at",
+          "closed_at",
+          "version",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ProblemRead",
+        "type": "object"
+      },
+      "ProblemState": {
+        "description": "new -> investigating -> known_error -> resolved -> closed (bkz. services/problems.py).",
+        "enum": [
+          "new",
+          "investigating",
+          "known_error",
+          "resolved",
+          "closed"
+        ],
+        "title": "ProblemState",
+        "type": "string"
+      },
+      "ProblemTransitionRequest": {
+        "properties": {
+          "expected_version": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Version"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 10000,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "to_state": {
+            "$ref": "#/components/schemas/ProblemState"
+          }
+        },
+        "required": [
+          "to_state"
+        ],
+        "title": "ProblemTransitionRequest",
+        "type": "object"
+      },
+      "ProblemUpdate": {
+        "additionalProperties": false,
+        "description": "Kısmi güncelleme (exclude_unset). Kök neden/RCA buradan değil, RCA uçlarından yazılır.",
+        "properties": {
+          "assignment_group": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assignment Group"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 20000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "expected_version": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Version"
+          },
+          "priority": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Priority"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": {
+            "anyOf": [
+              {
+                "maxLength": 300,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "workaround": {
+            "anyOf": [
+              {
+                "maxLength": 20000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workaround"
+          }
+        },
+        "title": "ProblemUpdate",
+        "type": "object"
+      },
+      "ProposeFixRequest": {
+        "additionalProperties": false,
+        "description": "Kalıcı çözüm için taslak RFC; boş alanlar sorundan doldurulur.",
+        "properties": {
+          "backout_plan": {
+            "default": "",
+            "maxLength": 20000,
+            "title": "Backout Plan",
+            "type": "string"
+          },
+          "implementation_plan": {
+            "default": "",
+            "maxLength": 20000,
+            "title": "Implementation Plan",
+            "type": "string"
+          },
+          "test_plan": {
+            "default": "",
+            "maxLength": 20000,
+            "title": "Test Plan",
+            "type": "string"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "maxLength": 300,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "title": "ProposeFixRequest",
+        "type": "object"
+      },
+      "RCA": {
+        "additionalProperties": false,
+        "description": "Kök neden analizi (yapılandırılmış).",
+        "properties": {
+          "method": {
+            "$ref": "#/components/schemas/RCAMethod"
+          },
+          "root_cause": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Root Cause"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/RCAStep"
+            },
+            "maxItems": 50,
+            "minItems": 1,
+            "title": "Steps",
+            "type": "array"
+          }
+        },
+        "required": [
+          "method",
+          "steps"
+        ],
+        "title": "RCA",
+        "type": "object"
+      },
+      "RCAMethod": {
+        "description": "Kök neden analizi yöntemi.",
+        "enum": [
+          "5_why",
+          "timeline"
+        ],
+        "title": "RCAMethod",
+        "type": "string"
+      },
+      "RCARecordRequest": {
+        "properties": {
+          "expected_version": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Version"
+          },
+          "rca": {
+            "$ref": "#/components/schemas/RCA"
+          }
+        },
+        "required": [
+          "rca"
+        ],
+        "title": "RCARecordRequest",
+        "type": "object"
+      },
+      "RCAStep": {
+        "additionalProperties": false,
+        "description": "5 Neden adımı (soru + yanıt) ya da zaman çizelgesi olayı (zaman + olay).",
+        "properties": {
+          "answer": {
+            "description": "Yanıt ya da olay",
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Answer",
+            "type": "string"
+          },
+          "at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Zaman çizelgesi olayı zamanı",
+            "title": "At"
+          },
+          "question": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Question"
+          }
+        },
+        "required": [
+          "answer"
+        ],
+        "title": "RCAStep",
+        "type": "object"
+      },
+      "RequestActionBody": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_version": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Version"
+          },
+          "note": {
+            "default": "",
+            "maxLength": 2000,
+            "title": "Note",
+            "type": "string"
+          }
+        },
+        "title": "RequestActionBody",
+        "type": "object"
+      },
+      "RequestDecisionBody": {
+        "additionalProperties": false,
+        "properties": {
+          "comment": {
+            "default": "",
+            "maxLength": 2000,
+            "title": "Comment",
+            "type": "string"
+          },
+          "expected_version": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Version"
+          }
+        },
+        "title": "RequestDecisionBody",
+        "type": "object"
+      },
+      "RiskClass": {
+        "description": "Araç risk sınıfı (ürün sahibiyle tasarlanan katalog).\n\nR0 okuma (yapay zekâ serbest); R1 düşük riskli yazma (yapay zekâ yalnızca politika izin\nverirse: gölge mod kapalı + güven >= eşik); R2 orta (her zaman insan onayı); R3 kritik\n(insan onayı + ikinci onaylayan ya da CAB onaylı değişiklik).",
+        "enum": [
+          "R0",
+          "R1",
+          "R2",
+          "R3"
+        ],
+        "title": "RiskClass",
         "type": "string"
       },
       "RiskLevel": {
@@ -2808,6 +4242,352 @@
           "hits"
         ],
         "title": "SearchResponse",
+        "type": "object"
+      },
+      "SeedResult": {
+        "properties": {
+          "created": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Created",
+            "type": "array"
+          }
+        },
+        "required": [
+          "created"
+        ],
+        "title": "SeedResult",
+        "type": "object"
+      },
+      "ServiceRequestCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "form_values": {
+            "additionalProperties": true,
+            "title": "Form Values",
+            "type": "object"
+          },
+          "item": {
+            "description": "Katalog öğesi kimliği ya da anahtarı",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Item",
+            "type": "string"
+          },
+          "requester": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Başkası adına talep (yalnızca agent/admin); verilmezse oturumdaki kullanıcı",
+            "title": "Requester"
+          }
+        },
+        "required": [
+          "item"
+        ],
+        "title": "ServiceRequestCreate",
+        "type": "object"
+      },
+      "ServiceRequestRead": {
+        "properties": {
+          "actions": {
+            "items": {
+              "$ref": "#/components/schemas/LinkedActionRead"
+            },
+            "title": "Actions",
+            "type": "array"
+          },
+          "approval_comment": {
+            "title": "Approval Comment",
+            "type": "string"
+          },
+          "approval_policy": {
+            "$ref": "#/components/schemas/CatalogApprovalPolicy"
+          },
+          "approval_state": {
+            "$ref": "#/components/schemas/BusinessApprovalState"
+          },
+          "approved_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approved At"
+          },
+          "approved_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approved By"
+          },
+          "approver": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Beklenen iş onaylayanı (yönetici UPN'si ya da grup)",
+            "title": "Approver"
+          },
+          "attempt": {
+            "title": "Attempt",
+            "type": "integer"
+          },
+          "catalog_item_id": {
+            "title": "Catalog Item Id",
+            "type": "string"
+          },
+          "closed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Closed At"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "current_step": {
+            "title": "Current Step",
+            "type": "integer"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "form_values": {
+            "additionalProperties": true,
+            "title": "Form Values",
+            "type": "object"
+          },
+          "fulfilled_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fulfilled At"
+          },
+          "human_approvals": {
+            "title": "Human Approvals",
+            "type": "integer"
+          },
+          "human_edits": {
+            "title": "Human Edits",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "item_key": {
+            "title": "Item Key",
+            "type": "string"
+          },
+          "item_name": {
+            "title": "Item Name",
+            "type": "string"
+          },
+          "number": {
+            "title": "Number",
+            "type": "string"
+          },
+          "opened_by": {
+            "title": "Opened By",
+            "type": "string"
+          },
+          "plan": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Plan",
+            "type": "array"
+          },
+          "requester": {
+            "title": "Requester",
+            "type": "string"
+          },
+          "standard": {
+            "title": "Standard",
+            "type": "boolean"
+          },
+          "state": {
+            "$ref": "#/components/schemas/ServiceRequestState"
+          },
+          "step_results": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Step Results",
+            "type": "array"
+          },
+          "touches": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Touches",
+            "type": "array"
+          },
+          "touchless": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "İnsansız çözüldü mü (karşılandı + sıfır insan onayı + sıfır insan düzenlemesi)",
+            "title": "Touchless"
+          },
+          "touchless_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Touchless Reason"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          },
+          "waiting_action_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Waiting Action Id"
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "catalog_item_id",
+          "item_key",
+          "item_name",
+          "standard",
+          "requester",
+          "opened_by",
+          "form_values",
+          "state",
+          "approval_policy",
+          "approval_state",
+          "approver",
+          "approved_by",
+          "approved_at",
+          "approval_comment",
+          "plan",
+          "current_step",
+          "attempt",
+          "step_results",
+          "waiting_action_id",
+          "error",
+          "human_approvals",
+          "human_edits",
+          "touchless",
+          "touchless_reason",
+          "touches",
+          "version",
+          "created_at",
+          "updated_at",
+          "fulfilled_at",
+          "closed_at"
+        ],
+        "title": "ServiceRequestRead",
+        "type": "object"
+      },
+      "ServiceRequestState": {
+        "enum": [
+          "submitted",
+          "awaiting_approval",
+          "fulfilling",
+          "fulfilled",
+          "rejected",
+          "failed",
+          "cancelled"
+        ],
+        "title": "ServiceRequestState",
+        "type": "string"
+      },
+      "ServiceRequestUpdate": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_version": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Version"
+          },
+          "form_values": {
+            "additionalProperties": true,
+            "title": "Form Values",
+            "type": "object"
+          }
+        },
+        "required": [
+          "form_values"
+        ],
+        "title": "ServiceRequestUpdate",
         "type": "object"
       },
       "SyncEventOut": {
@@ -3113,6 +4893,100 @@
         "title": "TicketKind",
         "type": "string"
       },
+      "TouchlessItemMetrics": {
+        "properties": {
+          "closed": {
+            "title": "Closed",
+            "type": "integer"
+          },
+          "fulfilled": {
+            "title": "Fulfilled",
+            "type": "integer"
+          },
+          "item_key": {
+            "title": "Item Key",
+            "type": "string"
+          },
+          "item_name": {
+            "title": "Item Name",
+            "type": "string"
+          },
+          "standard": {
+            "title": "Standard",
+            "type": "boolean"
+          },
+          "touchless": {
+            "title": "Touchless",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "item_key",
+          "item_name",
+          "standard",
+          "closed",
+          "fulfilled",
+          "touchless"
+        ],
+        "title": "TouchlessItemMetrics",
+        "type": "object"
+      },
+      "TouchlessMetricsRead": {
+        "properties": {
+          "all_closed": {
+            "title": "All Closed",
+            "type": "integer"
+          },
+          "all_touchless": {
+            "title": "All Touchless",
+            "type": "integer"
+          },
+          "by_item": {
+            "items": {
+              "$ref": "#/components/schemas/TouchlessItemMetrics"
+            },
+            "title": "By Item",
+            "type": "array"
+          },
+          "gate_target": {
+            "title": "Gate Target",
+            "type": "number"
+          },
+          "meets_gate": {
+            "title": "Meets Gate",
+            "type": "boolean"
+          },
+          "standard_closed": {
+            "title": "Standard Closed",
+            "type": "integer"
+          },
+          "standard_fulfilled": {
+            "title": "Standard Fulfilled",
+            "type": "integer"
+          },
+          "standard_touchless": {
+            "title": "Standard Touchless",
+            "type": "integer"
+          },
+          "standard_touchless_rate": {
+            "title": "Standard Touchless Rate",
+            "type": "number"
+          }
+        },
+        "required": [
+          "standard_closed",
+          "standard_fulfilled",
+          "standard_touchless",
+          "standard_touchless_rate",
+          "all_closed",
+          "all_touchless",
+          "gate_target",
+          "meets_gate",
+          "by_item"
+        ],
+        "title": "TouchlessMetricsRead",
+        "type": "object"
+      },
       "TransitionRequest": {
         "properties": {
           "expected_version": {
@@ -3159,6 +5033,123 @@
           "to_state"
         ],
         "title": "TransitionRequest",
+        "type": "object"
+      },
+      "TrendClusterRead": {
+        "properties": {
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "ci_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ci Id"
+          },
+          "confidence": {
+            "title": "Confidence",
+            "type": "number"
+          },
+          "incident_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Incident Ids",
+            "type": "array"
+          },
+          "incident_numbers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Incident Numbers",
+            "type": "array"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "priority": {
+            "$ref": "#/components/schemas/Priority"
+          },
+          "similarity": {
+            "title": "Similarity",
+            "type": "number"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "key",
+          "title",
+          "incident_ids",
+          "incident_numbers",
+          "ci_id",
+          "category",
+          "size",
+          "similarity",
+          "confidence",
+          "priority"
+        ],
+        "title": "TrendClusterRead",
+        "type": "object"
+      },
+      "TrendsRead": {
+        "properties": {
+          "clusters": {
+            "items": {
+              "$ref": "#/components/schemas/TrendClusterRead"
+            },
+            "title": "Clusters",
+            "type": "array"
+          },
+          "window_days": {
+            "title": "Window Days",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "window_days",
+          "clusters"
+        ],
+        "title": "TrendsRead",
+        "type": "object"
+      },
+      "TrendsRequest": {
+        "properties": {
+          "window_days": {
+            "default": 30,
+            "description": "Geriye dönük gün sayısı",
+            "maximum": 365.0,
+            "minimum": 1.0,
+            "title": "Window Days",
+            "type": "integer"
+          }
+        },
+        "title": "TrendsRequest",
         "type": "object"
       },
       "Urgency": {
@@ -3238,6 +5229,281 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/actions": {
+      "get": {
+        "description": "Eylem istekleri, en yeni önce. Süresi dolan bekleyen istekler önce `expired` yapılır.",
+        "operationId": "list_actions_actions_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ActionRequestState"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "State"
+            }
+          },
+          {
+            "in": "query",
+            "name": "tool",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 100,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tool"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ActionRequestRead"
+                  },
+                  "title": "Response List Actions Actions Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Actions",
+        "tags": [
+          "actions"
+        ]
+      }
+    },
+    "/actions/{action_id}": {
+      "get": {
+        "operationId": "get_action_actions__action_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "action_id",
+            "required": true,
+            "schema": {
+              "title": "Action Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionRequestRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Action",
+        "tags": [
+          "actions"
+        ]
+      }
+    },
+    "/actions/{action_id}/approve": {
+      "post": {
+        "description": "Onay verir; onay kuralı sağlanınca istek onaylayan kimliğiyle hemen yürütülür.",
+        "operationId": "approve_action_actions__action_id__approve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "action_id",
+            "required": true,
+            "schema": {
+              "title": "Action Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ActionDecisionBody"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionRequestRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Approve Action",
+        "tags": [
+          "actions"
+        ]
+      }
+    },
+    "/actions/{action_id}/reject": {
+      "post": {
+        "operationId": "reject_action_actions__action_id__reject_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "action_id",
+            "required": true,
+            "schema": {
+              "title": "Action Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ActionDecisionBody"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionRequestRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Reject Action",
+        "tags": [
+          "actions"
+        ]
+      }
+    },
     "/audit": {
       "get": {
         "operationId": "list_audit_audit_get",
@@ -3322,6 +5588,284 @@
         "summary": "Verify",
         "tags": [
           "audit"
+        ]
+      }
+    },
+    "/catalog/items": {
+      "get": {
+        "description": "Katalog öğeleri (kategori, ad). Etkin olmayan öğeleri yalnızca admin görebilir.",
+        "operationId": "list_items_catalog_items_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "category",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 100,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Category"
+            }
+          },
+          {
+            "in": "query",
+            "name": "standard",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Standard"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          },
+          {
+            "description": "Etkin olmayanlar da (yalnızca admin)",
+            "in": "query",
+            "name": "include_inactive",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Etkin olmayanlar da (yalnızca admin)",
+              "title": "Include Inactive",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CatalogItemRead"
+                  },
+                  "title": "Response List Items Catalog Items Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Items",
+        "tags": [
+          "catalog"
+        ]
+      },
+      "post": {
+        "operationId": "create_item_catalog_items_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CatalogItemInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogItemRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Item",
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
+    "/catalog/items/{item}": {
+      "get": {
+        "operationId": "get_item_catalog_items__item__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "item",
+            "required": true,
+            "schema": {
+              "title": "Item",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogItemRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Item",
+        "tags": [
+          "catalog"
+        ]
+      },
+      "patch": {
+        "operationId": "update_item_catalog_items__item__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "item",
+            "required": true,
+            "schema": {
+              "title": "Item",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CatalogItemPatchBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogItemRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Update Item",
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
+    "/catalog/seed": {
+      "post": {
+        "description": "Varsayılan 10 katalog öğesini yoksa ekler (var olanlara dokunmaz).",
+        "operationId": "seed_catalog_seed_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeedResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Seed",
+        "tags": [
+          "catalog"
         ]
       }
     },
@@ -6478,6 +9022,1623 @@
         "summary": "Me",
         "tags": [
           "me"
+        ]
+      }
+    },
+    "/problems": {
+      "get": {
+        "operationId": "list_problems_problems_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ProblemState"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "State"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          },
+          {
+            "in": "query",
+            "name": "incident_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Incident Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "ci_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Ci Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ProblemRead"
+                  },
+                  "title": "Response List Problems Problems Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Problems",
+        "tags": [
+          "problems"
+        ]
+      },
+      "post": {
+        "operationId": "create_problem_problems_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProblemCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Problem",
+        "tags": [
+          "problems"
+        ]
+      }
+    },
+    "/problems/trends": {
+      "post": {
+        "description": "Olay eğilimleri (aynı CI + kategori, benzer başlık); salt okuma, hiçbir şey yazmaz.",
+        "operationId": "detect_trends_problems_trends_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrendsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrendsRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Detect Trends",
+        "tags": [
+          "problems"
+        ]
+      }
+    },
+    "/problems/trends/propose": {
+      "post": {
+        "description": "Eşiği aşan her küme için sorun önerisi (`problem.create` R1, aktör `ai:problem`).",
+        "operationId": "propose_from_trends_problems_trends_propose_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrendsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentResultsRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Propose From Trends",
+        "tags": [
+          "problems"
+        ]
+      }
+    },
+    "/problems/{problem_id}": {
+      "get": {
+        "operationId": "get_problem_problems__problem_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "problem_id",
+            "required": true,
+            "schema": {
+              "title": "Problem Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Problem",
+        "tags": [
+          "problems"
+        ]
+      },
+      "patch": {
+        "operationId": "update_problem_problems__problem_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "problem_id",
+            "required": true,
+            "schema": {
+              "title": "Problem Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "if-match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProblemUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Update Problem",
+        "tags": [
+          "problems"
+        ]
+      }
+    },
+    "/problems/{problem_id}/changes": {
+      "post": {
+        "description": "Kalıcı çözüm değişikliklerini (RFC) bağlar.",
+        "operationId": "link_changes_problems__problem_id__changes_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "problem_id",
+            "required": true,
+            "schema": {
+              "title": "Problem Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeLinkRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Link Changes",
+        "tags": [
+          "problems"
+        ]
+      }
+    },
+    "/problems/{problem_id}/cis": {
+      "post": {
+        "operationId": "link_cis_problems__problem_id__cis_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "problem_id",
+            "required": true,
+            "schema": {
+              "title": "Problem Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CILinkRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Link Cis",
+        "tags": [
+          "problems"
+        ]
+      }
+    },
+    "/problems/{problem_id}/fix": {
+      "post": {
+        "description": "Kalıcı çözüm için yapay zekâ taslak RFC önerisi (`problem.propose_fix` R1).",
+        "operationId": "propose_fix_problems__problem_id__fix_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "problem_id",
+            "required": true,
+            "schema": {
+              "title": "Problem Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProposeFixRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentResultRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Propose Fix",
+        "tags": [
+          "problems"
+        ]
+      }
+    },
+    "/problems/{problem_id}/incidents": {
+      "post": {
+        "operationId": "link_incidents_problems__problem_id__incidents_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "problem_id",
+            "required": true,
+            "schema": {
+              "title": "Problem Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IncidentLinkRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Link Incidents",
+        "tags": [
+          "problems"
+        ]
+      }
+    },
+    "/problems/{problem_id}/incidents/{incident_id}": {
+      "delete": {
+        "operationId": "unlink_incident_problems__problem_id__incidents__incident_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "problem_id",
+            "required": true,
+            "schema": {
+              "title": "Problem Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "incident_id",
+            "required": true,
+            "schema": {
+              "title": "Incident Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Unlink Incident",
+        "tags": [
+          "problems"
+        ]
+      }
+    },
+    "/problems/{problem_id}/known-error/publish": {
+      "post": {
+        "description": "Geçici çözümü KEDB makalesi olarak yayımlar (insan; yapay zekâ için R2 araç).",
+        "operationId": "publish_known_error_problems__problem_id__known_error_publish_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "problem_id",
+            "required": true,
+            "schema": {
+              "title": "Problem Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Publish Known Error",
+        "tags": [
+          "problems"
+        ]
+      }
+    },
+    "/problems/{problem_id}/rca": {
+      "put": {
+        "description": "Kesin RCA ve kök neden (insan).",
+        "operationId": "record_rca_problems__problem_id__rca_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "problem_id",
+            "required": true,
+            "schema": {
+              "title": "Problem Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "if-match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RCARecordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Record Rca",
+        "tags": [
+          "problems"
+        ]
+      }
+    },
+    "/problems/{problem_id}/rca/accept": {
+      "post": {
+        "description": "RCA taslağını kesin RCA olarak kabul eder (insan).",
+        "operationId": "accept_rca_draft_problems__problem_id__rca_accept_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "problem_id",
+            "required": true,
+            "schema": {
+              "title": "Problem Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Accept Rca Draft",
+        "tags": [
+          "problems"
+        ]
+      }
+    },
+    "/problems/{problem_id}/rca/draft": {
+      "post": {
+        "description": "Yapay zekâ 5 Neden taslağı (`problem.record_rca` R1; yalnızca `rca_draft`).",
+        "operationId": "draft_rca_problems__problem_id__rca_draft_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "problem_id",
+            "required": true,
+            "schema": {
+              "title": "Problem Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentResultRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Draft Rca",
+        "tags": [
+          "problems"
+        ]
+      }
+    },
+    "/problems/{problem_id}/transition": {
+      "post": {
+        "operationId": "transition_problems__problem_id__transition_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "problem_id",
+            "required": true,
+            "schema": {
+              "title": "Problem Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "if-match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProblemTransitionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Transition",
+        "tags": [
+          "problems"
+        ]
+      }
+    },
+    "/requests": {
+      "get": {
+        "operationId": "list_requests_requests_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ServiceRequestState"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "State"
+            }
+          },
+          {
+            "description": "Katalog öğesi anahtarı",
+            "in": "query",
+            "name": "item",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 100,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Katalog öğesi anahtarı",
+              "title": "Item"
+            }
+          },
+          {
+            "in": "query",
+            "name": "standard",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Standard"
+            }
+          },
+          {
+            "in": "query",
+            "name": "touchless",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Touchless"
+            }
+          },
+          {
+            "description": "Yalnızca talep edeni oturumdaki kullanıcı olanlar",
+            "in": "query",
+            "name": "mine",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Yalnızca talep edeni oturumdaki kullanıcı olanlar",
+              "title": "Mine",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "İş onayımı bekleyen talepler (yönetici / onay grubu üyesi)",
+            "in": "query",
+            "name": "awaiting_my_approval",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "İş onayımı bekleyen talepler (yönetici / onay grubu üyesi)",
+              "title": "Awaiting My Approval",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ServiceRequestRead"
+                  },
+                  "title": "Response List Requests Requests Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Requests",
+        "tags": [
+          "requests"
+        ]
+      },
+      "post": {
+        "description": "Talep açar; iş onayı gerekmiyorsa karşılama hemen başlar (R2/R3 adımlar onay bekler).",
+        "operationId": "create_request_requests_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServiceRequestCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceRequestRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Request",
+        "tags": [
+          "requests"
+        ]
+      }
+    },
+    "/requests/metrics": {
+      "get": {
+        "description": "Faz 3 kapısı: standart taleplerin insansız çözüm oranı (hedef %50).",
+        "operationId": "metrics_requests_metrics_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TouchlessMetricsRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Metrics",
+        "tags": [
+          "requests"
+        ]
+      }
+    },
+    "/requests/{request_id}": {
+      "get": {
+        "operationId": "get_request_requests__request_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceRequestRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Request",
+        "tags": [
+          "requests"
+        ]
+      },
+      "patch": {
+        "description": "Form değerlerini düzeltir (gönderildi / iş onayı bekliyor / başarısız): insan düzenlemesi.",
+        "operationId": "update_request_requests__request_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServiceRequestUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceRequestRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Update Request",
+        "tags": [
+          "requests"
+        ]
+      }
+    },
+    "/requests/{request_id}/approve": {
+      "post": {
+        "description": "İş onayı (yönetici / onay grubu üyesi / admin); onayda karşılama hemen başlar.",
+        "operationId": "approve_request_requests__request_id__approve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/RequestDecisionBody"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceRequestRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Approve Request",
+        "tags": [
+          "requests"
+        ]
+      }
+    },
+    "/requests/{request_id}/cancel": {
+      "post": {
+        "operationId": "cancel_request_requests__request_id__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/RequestActionBody"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceRequestRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Cancel Request",
+        "tags": [
+          "requests"
+        ]
+      }
+    },
+    "/requests/{request_id}/complete-step": {
+      "post": {
+        "description": "Sıradaki el ile adımı tamamlandı işaretler ve karşılamayı sürdürür.",
+        "operationId": "complete_manual_step_requests__request_id__complete_step_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/RequestActionBody"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceRequestRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Complete Manual Step",
+        "tags": [
+          "requests"
+        ]
+      }
+    },
+    "/requests/{request_id}/reject": {
+      "post": {
+        "operationId": "reject_request_requests__request_id__reject_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/RequestDecisionBody"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceRequestRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Reject Request",
+        "tags": [
+          "requests"
+        ]
+      }
+    },
+    "/requests/{request_id}/retry": {
+      "post": {
+        "description": "Başarısız talebi başarısız adımdan yeniden çalıştırır (insan dokunuşu).",
+        "operationId": "retry_request_requests__request_id__retry_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/RequestActionBody"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceRequestRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Retry Request",
+        "tags": [
+          "requests"
         ]
       }
     }

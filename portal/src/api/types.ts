@@ -82,3 +82,40 @@ export type ArticleSearchQuery = QueryOf<'search_articles_knowledge_search_get'>
 export type AuditQuery = QueryOf<'list_audit_audit_get'>;
 export type ChangeListQuery = QueryOf<'list_changes_changes_get'>;
 export type CIListQuery = QueryOf<'list_cis_cmdb_cis_get'>;
+
+// Faz 3: hizmet kataloğu + hizmet talepleri, eylem istekleri (araç onayları), sorun yönetimi
+export type CatalogItem = Schemas['CatalogItemRead'];
+export type CatalogApprovalPolicy = Schemas['CatalogApprovalPolicy'];
+export type ServiceRequest = Schemas['ServiceRequestRead'];
+export type ServiceRequestCreate = WithOptional<
+  Schemas['ServiceRequestCreate'],
+  'form_values' | 'requester'
+>;
+export type ServiceRequestState = Schemas['ServiceRequestState'];
+export type BusinessApprovalState = Schemas['BusinessApprovalState'];
+export type LinkedAction = Schemas['LinkedActionRead'];
+export type TouchlessMetrics = Schemas['TouchlessMetricsRead'];
+export type ActionRequest = Schemas['ActionRequestRead'];
+export type ActionApproval = Schemas['ActionApprovalRead'];
+export type ActionRequestState = Schemas['ActionRequestState'];
+export type RiskClass = Schemas['RiskClass'];
+export type Problem = Schemas['ProblemRead'];
+export type ProblemState = Schemas['ProblemState'];
+export type ProblemCreate = WithOptional<
+  Schemas['ProblemCreate'],
+  'description' | 'ci_ids' | 'incident_ids' | 'priority'
+>;
+export type ProblemUpdate = Omit<Schemas['ProblemUpdate'], 'expected_version'>;
+export type RCA = Schemas['RCA'];
+export type RCAStep = Schemas['RCAStep'];
+export type RCAMethod = Schemas['RCAMethod'];
+export type ProposeFix = Partial<Schemas['ProposeFixRequest']>;
+export type AgentResult = Schemas['AgentResultRead'];
+export type AgentResults = Schemas['AgentResultsRead'];
+export type TrendCluster = Schemas['TrendClusterRead'];
+export type Trends = Schemas['TrendsRead'];
+
+export type CatalogListQuery = QueryOf<'list_items_catalog_items_get'>;
+export type ServiceRequestListQuery = QueryOf<'list_requests_requests_get'>;
+export type ActionListQuery = QueryOf<'list_actions_actions_get'>;
+export type ProblemListQuery = QueryOf<'list_problems_problems_get'>;

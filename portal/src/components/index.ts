@@ -19,6 +19,8 @@ export type { SelectOption, SelectProps } from './Select';
 export { SlaBadge } from './SlaBadge';
 export { Spinner } from './Spinner';
 export { StatusBadge } from './StatusBadge';
+export { Tabs } from './Tabs';
+export type { TabItem } from './Tabs';
 export { ToastProvider } from './Toast';
 export { useToast } from './toastContext';
 export type { ToastOptions, ToastTone } from './toastContext';
