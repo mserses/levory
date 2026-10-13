@@ -83,6 +83,20 @@ describe('CAB oyu', () => {
     );
   });
 
+  it('kimlik karşılaştırması büyük/küçük harf ve boşluğa duyarsız (backend same_identity)', () => {
+    const mixed = makeChange({ state: 'authorize', requested_by: 'Ayse', assignee: ' MEHMET ' });
+    expect(voteBlockReason(mixed, [], { username: 'ayse', roles: ['cab'] })).toMatch(/talep eden/i);
+    expect(voteBlockReason(mixed, [], { username: 'mehmet', roles: ['cab'] })).toMatch(
+      /uygulayıcı/i,
+    );
+    expect(
+      allowedTransitions(makeChange({ state: 'scheduled', assignee: 'Mehmet' }), {
+        username: 'mehmet',
+        roles: ['agent'],
+      }),
+    ).toContain('implement');
+  });
+
   it('rol, durum ve önceki oy denetlenir', () => {
     expect(voteBlockReason(authorize, [], OTHER_AGENT)).toMatch(/CAB üyesi/);
     expect(voteBlockReason(makeChange({ state: 'assess' }), [], CAB)).toMatch(

@@ -211,7 +211,8 @@ async def approve_decision(
     approver = user.username
     if body and body.approver and body.approver != approver:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Başkası adına onay verilemez")
-    if await service_desk.get_decision(session, decision_id) is None:
+    found = await service_desk.get_decision(session, decision_id)
+    if found is None or found.change_id is not None:  # değişiklik kararı bu uçta yok sayılır
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Karar bulunamadı")
     try:
         decision = await service_desk.approve_decision(session, decision_id, approver)

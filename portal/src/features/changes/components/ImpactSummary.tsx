@@ -17,6 +17,12 @@ export function ImpactSummary({ impact }: { impact: ImpactAnalysis }) {
   const services = impact.business_services.map((s) => s.name);
   return (
     <div className="stack">
+      {impact.truncated ? (
+        <p role="alert" style={{ margin: 0 }}>
+          {`Etki analizi ${impact.affected.length} CI sınırında kesildi; liste eksik olabilir. ` +
+            'Risk temkinli (en yüksek kritiklik) hesaplanır.'}
+        </p>
+      ) : null}
       <div className="row">
         <span>{`Etkilenen CI: ${impact.affected.length}`}</span>
         <span aria-hidden="true">·</span>

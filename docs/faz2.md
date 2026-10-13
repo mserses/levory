@@ -43,7 +43,9 @@ ortamda aynı ad tekildir.
 değişince **bütün** (hedef) etkilenir. Genişlik öncelikli, döngü güvenli (her CI bir kez, en kısa yoldan);
 kökler etkilenenler listesinde yer almaz. `ImpactAnalysis`: `root_ci_ids`, `affected[]` (`ci`, `depth`,
 `path` kökten CI'a id listesi, `relationship`), `highest_criticality` (kökler + etkilenenler, en küçük sayı),
-`business_services` (`ci_class=service` olan kök/etkilenenler). `max_depth` 1–20.
+`business_services` (`ci_class=service` olan kök/etkilenenler), `truncated`. `max_depth` 1–20. Büyük grafikte en
+fazla `MAX_IMPACT_NODES` (1000) etkilenen CI raporlanır; sınıra ulaşılırsa `truncated=true` döner, portal uyarı
+gösterir ve risk hesabı (servis + risk ajanı) görülmeyenleri **en kritik** kabul eder (kritiklik 1, etki alanı 15).
 
 HTTP: `GET/POST /cmdb/cis`, `GET/PATCH /cmdb/cis/{id}` (`ETag` / `If-Match`), `GET /cmdb/cis/{id}/relationships`,
 `GET /cmdb/cis/{id}/impact?max_depth=`, `POST /cmdb/impact {ci_ids, max_depth}`, `POST /cmdb/relationships`,
@@ -72,14 +74,21 @@ assess ─► draft (yeniden çalışma)             authorize/scheduled ─► 
 |---|---|---|
 | `draft → assess` | talep eden / change_manager | uygulama + geri dönüş planı + planlanan pencere (**tüm türler**). Risk hesaplanır (`max(hesaplanan, mevcut)`); uygun olmayan standart → `normal` (`change.converted_to_normal`) |
 | `assess → authorize` | change_manager | yalnızca normal/acil |
-| `assess → scheduled` | talep eden / change_manager | yalnızca hâlâ uygun standart (etkin şablon, risk ≤ `max_risk`, tüm CI sınıfları izinli) |
-| `authorize → scheduled` | change_manager | normal: ≥ `SZ_CAB_MIN_APPROVALS` (varsayılan 2) onay ve 0 red; acil: change_manager/admin rolünde ≥ 1 onay. Çakışma yok |
-| `scheduled → implement` | change_manager / uygulayıcı (`assignee`, yoksa talep eden) | `planned_start ≤ şimdi < planned_end`; yetki (onaylar ya da standart uygunluk) ve çakışmalar **yeniden** denetlenir |
+| `assess → scheduled` | talep eden / change_manager | yalnızca hâlâ uygun standart (etkin şablon, en az bir CI, risk ≤ `max_risk`, tüm CI sınıfları izinli). Risk bu anda CMDB'den **yeniden** hesaplanır (`max(saklı, güncel)`): gönderimden sonra ağırlaşan CI/bağımlı CAB'ı atlatamaz |
+| `authorize → scheduled` | change_manager | normal: ≥ `SZ_CAB_MIN_APPROVALS` (varsayılan 2) farklı kişiden onay ve 0 red; acil: change_manager/admin rolünde ≥ 1 onay. Çakışma yok (etkilenen CI satırları `FOR UPDATE` kilitlenir: aynı CI'a eşzamanlı iki zamanlama çakışmayı kaçıramaz) |
+| `scheduled → implement` | change_manager / uygulayıcı (`assignee`, yoksa talep eden) | `planned_start ≤ şimdi < planned_end`; yetki (onaylar ya da CMDB'den taze riskle standart uygunluk) ve çakışmalar (CI kilidiyle) **yeniden** denetlenir |
 | `implement → review / failed`, `failed → review` | change_manager / uygulayıcı | `implementation_outcome` succeeded/failed |
 | `review → closed` | change_manager | acil **veya** başarısız değişiklikte `review_notes` (PIR) zorunlu |
 
 Her geçiş `version`'ı artırır ve `change.transition` denetim kaydı (`from`, `to`, `version`, notlar) yazar.
-`"ai:"` önekli aktör hiçbir geçiş/onay yapamaz (`ChangeForbiddenError`). Taslak dışında düzenleme yapılamaz.
+`"ai:"` önekli aktör hiçbir geçiş/onay yapamaz (`ChangeForbiddenError`). Taslak dışında düzenleme yapılamaz;
+`authorize` ve sonrası taslağa dönemez, bu yüzden bir onay verildiği plan/pencere/CI/tür dışında bir içerik için
+geçerli sayılamaz (değişiklik için iptal + yeni kayıt).
+
+**Kimlik karşılaştırması** (`same_identity`): talep eden/uygulayıcı/onaylayan karşılaştırmaları büyük/küçük harf
+ve kenar boşluğuna duyarsızdır (`assignee` serbest metindir ve kırpılarak saklanır; OIDC upn/e-posta büyük/küçük
+harfe duyarsızdır). "Mehmet" atanmışken `mehmet` belirteciyle oy verilemez; aynı kişi farklı yazımla iki onay
+veremez ve iki kez sayılmaz.
 
 ### Fonksiyonlar
 

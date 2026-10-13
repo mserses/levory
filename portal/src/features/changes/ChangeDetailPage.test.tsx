@@ -72,6 +72,23 @@ describe('ChangeDetailPage — başlık ve aşama göstergesi', () => {
       'href',
       `/cmdb/${app.id}`,
     );
+    expect(within(region).queryByText(/sınırında kesildi/)).not.toBeInTheDocument();
+  });
+
+  it('kesilen etki analizi uyarı olarak gösterilir', async () => {
+    const root = makeCI({ name: 'erp-db-01' });
+    const app = makeCI({ name: 'erp-app', ci_class: 'application' });
+    const change = makeChange({ affected_ci_ids: [root.id] });
+    const api = mockChangeApi(change);
+    api.impact = {
+      ...makeImpact([root], [{ ci: app, depth: 1, path: [root.id, app.id] }]),
+      truncated: true,
+    };
+    renderDetail(change.id);
+    const region = await screen.findByRole('region', { name: 'Etki analizi' });
+    expect(await within(region).findByRole('alert')).toHaveTextContent(
+      /Etki analizi 1 CI sınırında kesildi/,
+    );
   });
 });
 

@@ -32,6 +32,9 @@ _REVERSE_TYPES: frozenset[CIRelationshipType] = frozenset({R.DEPENDS_ON, R.RUNS_
 _FORWARD_TYPES: frozenset[CIRelationshipType] = frozenset({R.PART_OF})
 
 MAX_IMPACT_DEPTH = 20
+# Etki analizinin raporladığı en fazla etkilenen CI (büyük grafikte bellek/sorgu sınırı).
+# Sınıra ulaşılırsa `truncated=True`; risk hesabı görülmeyenleri en kritik kabul eder.
+MAX_IMPACT_NODES = 1000
 _NON_NULLABLE = frozenset(
     {"name", "ci_class", "environment", "criticality", "status", "description", "attributes",
      "external_refs"}
@@ -314,6 +317,8 @@ class ImpactAnalysis:
     affected: list[ImpactedCI] = field(default_factory=list)
     highest_criticality: int | None = None
     business_services: list[ConfigurationItem] = field(default_factory=list)
+    # MAX_IMPACT_NODES sınırında kesildi mi (etkilenenler eksik olabilir)
+    truncated: bool = False
 
 
 async def _dependents(
@@ -353,12 +358,17 @@ async def impact_analysis(
     found: list[tuple[str, int, list[str], CIRelationshipType]] = []
     frontier = list(root_ids)
     depth = 0
-    while frontier and depth < max_depth:
+    limit = MAX_IMPACT_NODES
+    truncated = False
+    while frontier and depth < max_depth and not truncated:
         depth += 1
         next_frontier: list[str] = []
         for changed, affected, rel_type in await _dependents(session, frontier):
             if affected in paths:  # ziyaret edildi (kök ya da daha kısa yol) — döngü güvenliği
                 continue
+            if len(found) >= limit:
+                truncated = True
+                break
             path = [*paths[changed], affected]
             paths[affected] = path
             found.append((affected, depth, path, rel_type))
@@ -374,4 +384,5 @@ async def impact_analysis(
         affected=affected_items,
         highest_criticality=min((c.criticality for c in everything), default=None),
         business_services=[c for c in everything if c.ci_class == CIClass.SERVICE],
+        truncated=truncated,
     )

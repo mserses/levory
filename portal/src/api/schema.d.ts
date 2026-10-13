@@ -1491,6 +1491,12 @@ export interface components {
       highest_criticality: number | null;
       /** Root Ci Ids */
       root_ci_ids: string[];
+      /**
+       * Truncated
+       * @description Etkilenen CI sınırına ulaşıldı; liste eksik olabilir (risk temkinli hesaplanır)
+       * @default false
+       */
+      truncated: boolean;
     };
     /** ImpactRequest */
     ImpactRequest: {

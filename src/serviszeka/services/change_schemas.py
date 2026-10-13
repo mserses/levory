@@ -5,7 +5,15 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Annotated, Self
 
-from pydantic import AfterValidator, AwareDatetime, BaseModel, ConfigDict, Field, model_validator
+from pydantic import (
+    AfterValidator,
+    AwareDatetime,
+    BaseModel,
+    BeforeValidator,
+    ConfigDict,
+    Field,
+    model_validator,
+)
 
 from serviszeka.domain.enums import (
     ApprovalDecision,
@@ -19,6 +27,16 @@ from serviszeka.domain.types import UTCDateTime
 
 # Girdi zamanları saat dilimli olmak zorunda (saat dilimsiz -> 422); UTC'ye çevrilerek saklanır
 AwareUTC = Annotated[AwareDatetime, AfterValidator(lambda v: v.astimezone(UTC))]
+
+
+def _strip_user(value: object) -> object:
+    # Uygulayıcı serbest metin: kenar boşluğu atılır, boş -> None (öz onay denetimi için)
+    if isinstance(value, str):
+        return value.strip() or None
+    return value
+
+
+Assignee = Annotated[str | None, BeforeValidator(_strip_user), Field(max_length=200)]
 
 _IdList = Annotated[list[Annotated[str, Field(min_length=1, max_length=36)]], Field(max_length=200)]
 
@@ -41,7 +59,7 @@ class ChangeCreate(BaseModel):
     planned_end: AwareUTC | None = None
     assignment_group: str | None = Field(default=None, max_length=100)
     # Uygulayıcı; talep eden gibi kendi değişikliğini onaylayamaz
-    assignee: str | None = Field(default=None, max_length=200)
+    assignee: Assignee = None
     affected_ci_ids: _IdList = Field(default_factory=list)
     linked_incident_ids: _IdList = Field(default_factory=list)
 
@@ -62,7 +80,7 @@ class ChangeUpdate(BaseModel):
     planned_start: AwareUTC | None = None
     planned_end: AwareUTC | None = None
     assignment_group: str | None = Field(default=None, max_length=100)
-    assignee: str | None = Field(default=None, max_length=200)
+    assignee: Assignee = None
     affected_ci_ids: _IdList | None = None
     linked_incident_ids: _IdList | None = None
 

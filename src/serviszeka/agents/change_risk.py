@@ -224,11 +224,16 @@ async def deterministic_risk(
     highest: int | None = None
     services: list[str] = []
     affected_count = 0
+    truncated = False
     if roots:
         impact = await cmdb.impact_analysis(session, ci_ids)
         highest = impact.highest_criticality
         services = sorted(s.name for s in impact.business_services)
         affected_count = len(impact.affected)
+        truncated = impact.truncated
+        if truncated:
+            # Analiz sınırda kesildi: görülmeyen CI'lar en kritik kabul edilir (temkinli)
+            highest = 1
     production = any(c.environment == CIEnvironment.PROD for c in roots)
     past_total, past_failed = await _failure_history(session, change, ci_ids, now)
     share = past_failed / past_total if past_total else 0.0
@@ -253,6 +258,7 @@ async def deterministic_risk(
             "highest_criticality": highest,
             "production": production,
             "affected_count": affected_count,
+            "impact_truncated": truncated,
             "business_services": services,
             "past_changes": past_total,
             "past_failures": past_failed,

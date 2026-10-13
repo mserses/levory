@@ -30,6 +30,10 @@ const isAiActor = (username: string) => username.startsWith('ai:');
 
 export const isChangeManager = (roles: readonly string[]) => hasAnyRole(roles, ['change_manager']);
 
+/** Kimlik karşılaştırması (backend `same_identity`): büyük/küçük harf ve kenar boşluğu farkı yok */
+export const sameIdentity = (a: string | null | undefined, b: string | null | undefined) =>
+  a != null && b != null && a.trim().toLowerCase() === b.trim().toLowerCase();
+
 /** Uygulayıcı: assignee, yoksa talep eden */
 export const implementerOf = (change: Change) => change.assignee ?? change.requested_by;
 
@@ -48,11 +52,11 @@ function roleAllowed(change: Change, to: ChangeState, actor: ChangeActor): boole
     to === 'draft' ||
     (to === 'cancelled' && ['draft', 'assess'].includes(from))
   )
-    return manager || actor.username === change.requested_by;
+    return manager || sameIdentity(actor.username, change.requested_by);
   if (to === 'scheduled' && change.change_type === 'standard')
-    return manager || actor.username === change.requested_by;
+    return manager || sameIdentity(actor.username, change.requested_by);
   if (to === 'implement' || to === 'failed' || to === 'review')
-    return manager || actor.username === implementerOf(change);
+    return manager || sameIdentity(actor.username, implementerOf(change));
   return manager;
 }
 
@@ -104,12 +108,12 @@ export function voteBlockReason(
   if (isAiActor(actor.username)) return 'Yapay zekâ aktörü onay veremez.';
   if (!hasAnyRole(actor.roles, ['cab', 'change_manager']))
     return 'Oy vermek için CAB üyesi ya da değişiklik yöneticisi olmalısınız.';
-  if (actor.username === change.requested_by)
+  if (sameIdentity(actor.username, change.requested_by))
     return 'Talep eden olduğunuz değişiklik hakkında karar veremezsiniz (görevler ayrılığı).';
-  if (change.assignee && actor.username === change.assignee)
+  if (sameIdentity(actor.username, change.assignee))
     return 'Uygulayıcısı olduğunuz değişiklik hakkında karar veremezsiniz (görevler ayrılığı).';
   if (change.state !== 'authorize') return 'Oy yalnızca yetkilendirme aşamasında verilebilir.';
-  if (approvals.some((a) => a.approver === actor.username))
+  if (approvals.some((a) => sameIdentity(a.approver, actor.username)))
     return 'Bu değişiklik için kararınızı verdiniz.';
   return null;
 }

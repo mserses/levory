@@ -123,6 +123,7 @@ export function makeImpact(
     affected: affected.map((a) => ({ ...a, relationship: 'depends_on' as const })),
     highest_criticality: all.length ? Math.min(...all.map((c) => c.criticality)) : null,
     business_services: all.filter((c) => c.ci_class === 'service'),
+    truncated: false,
   };
 }
 

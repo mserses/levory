@@ -1139,13 +1139,13 @@
           "assignee": {
             "anyOf": [
               {
-                "maxLength": 200,
                 "type": "string"
               },
               {
                 "type": "null"
               }
             ],
+            "maxLength": 200,
             "title": "Assignee"
           },
           "assignment_group": {
@@ -1266,13 +1266,13 @@
           "assignee": {
             "anyOf": [
               {
-                "maxLength": 200,
                 "type": "string"
               },
               {
                 "type": "null"
               }
             ],
+            "maxLength": 200,
             "title": "Assignee"
           },
           "assignment_group": {
@@ -2002,6 +2002,12 @@
             },
             "title": "Root Ci Ids",
             "type": "array"
+          },
+          "truncated": {
+            "default": false,
+            "description": "Etkilenen CI sınırına ulaşıldı; liste eksik olabilir (risk temkinli hesaplanır)",
+            "title": "Truncated",
+            "type": "boolean"
           }
         },
         "required": [

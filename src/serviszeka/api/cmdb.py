@@ -68,6 +68,7 @@ def _impact_read(result: svc.ImpactAnalysis) -> ImpactRead:
         ],
         highest_criticality=result.highest_criticality,
         business_services=[CIRead.model_validate(c) for c in result.business_services],
+        truncated=result.truncated,
     )
 
 

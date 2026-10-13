@@ -98,3 +98,7 @@ class ImpactRead(BaseModel):
     business_services: list[CIRead] = Field(
         description="Kökler ve etkilenenler arasındaki iş hizmetleri (ci_class=service)"
     )
+    truncated: bool = Field(
+        default=False,
+        description="Etkilenen CI sınırına ulaşıldı; liste eksik olabilir (risk temkinli hesaplanır)",
+    )

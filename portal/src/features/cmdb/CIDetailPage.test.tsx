@@ -92,6 +92,22 @@ function renderCI(user: TestUser = AGENT) {
 }
 
 describe('CIDetailPage (/cmdb/:id)', () => {
+  it('kesilen etki analizi uyarı olarak gösterilir', async () => {
+    mockCI();
+    server.use(
+      http.get(apiUrl('/cmdb/cis/ci-db/impact'), () =>
+        HttpResponse.json({
+          ...makeImpact([db], [{ ci: app, depth: 1, path: [db.id, app.id] }]),
+          truncated: true,
+        }),
+      ),
+    );
+    renderCI();
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      /Etki analizi 1 CI sınırında kesildi/,
+    );
+  });
+
   it('CI alanlarını Türkçe etiketlerle gösterir', async () => {
     mockCI();
     renderCI();

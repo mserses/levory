@@ -618,7 +618,13 @@ async def list_inbox(
     stmt = (
         select(AIDecision, Incident)
         .outerjoin(Incident, AIDecision.incident_id == Incident.id)
-        .where(AIDecision.outcome.in_(list(outcomes)), AIDecision.approved_by.is_(None))
+        .where(
+            AIDecision.outcome.in_(list(outcomes)),
+            AIDecision.approved_by.is_(None),
+            # Değişiklik kararları (change_risk) burada değil, değişiklik ekranında onaylanır;
+            # yalnızca approver olan kullanıcı değişiklikleri göremez
+            AIDecision.change_id.is_(None),
+        )
         .order_by(AIDecision.created_at.desc(), AIDecision.id.desc())
         .limit(limit)
         .offset(offset)

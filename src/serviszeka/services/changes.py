@@ -204,6 +204,24 @@ def _forbid_ai(user: CurrentUser) -> None:
         )
 
 
+def same_identity(a: str | None, b: str | None) -> bool:
+    """Kullanıcı kimliği karşılaştırması: büyük/küçük harf ve kenar boşluğu farkı aynı kişidir.
+
+    `assignee` serbest metindir; OIDC kullanıcı adları (upn/e-posta) büyük/küçük harfe duyarsızdır.
+    "Mehmet" atanmışken "mehmet" belirteciyle öz onay yapılamamalı.
+    """
+    if a is None or b is None:
+        return False
+    return a.strip().casefold() == b.strip().casefold()
+
+
+def is_party(user: CurrentUser, change: ChangeRequest) -> bool:
+    """Kullanıcı değişikliğin talep edeni ya da uygulayıcısı mı (öz onay yasağı)."""
+    return same_identity(user.username, change.requested_by) or same_identity(
+        user.username, change.assignee
+    )
+
+
 def is_change_manager(user: CurrentUser) -> bool:
     return user.has_any(ROLE_CHANGE_MANAGER)
 
@@ -391,7 +409,7 @@ async def update_change(
     """Taslak düzenleme (talep eden ya da change_manager). Taslak dışında değişiklik yapılamaz."""
     change = await _lock(session, change_id, expected_version)
     _forbid_ai(user)
-    if user.username != change.requested_by and not is_change_manager(user):
+    if not same_identity(user.username, change.requested_by) and not is_change_manager(user):
         raise ChangeForbiddenError("Bu değişikliği yalnızca talep eden ya da change_manager düzenler.")
     if change.state != St.DRAFT:
         raise InvalidTransitionError(
@@ -464,11 +482,14 @@ async def _assess(session: AsyncSession, change: ChangeRequest) -> RiskAssessmen
         highest = impact.highest_criticality
         affected_count = len(impact.affected)
         services = [s.name for s in impact.business_services]
+        if impact.truncated:
+            # Analiz sınırda kesildi: görülmeyen CI'lar en kritik kabul edilir (temkinli)
+            highest = 1
         factors["criticality"] = _CRITICALITY_SCORE.get(highest or 4, 0)
         if any(c.environment == CIEnvironment.PROD for c in roots):
             factors["production"] = 10
         if affected_count:
-            factors["blast_radius"] = min(15, 3 * affected_count)
+            factors["blast_radius"] = 15 if impact.truncated else min(15, 3 * affected_count)
         if services:
             factors["business_service"] = 5
     if not (change.test_plan or "").strip():
@@ -484,19 +505,29 @@ async def compute_risk(session: AsyncSession, change_id: str) -> RiskAssessment:
     return await _assess(session, await _require_change(session, change_id))
 
 
-def _standard_ineligibility(change: ChangeRequest) -> list[str]:
-    """Standart değişikliğin CAB'ı atlayamama nedenleri (boş liste = önceden onaylı)."""
+def _standard_ineligibility(
+    change: ChangeRequest, risk_level: RiskLevel | None = None
+) -> list[str]:
+    """Standart değişikliğin CAB'ı atlayamama nedenleri (boş liste = önceden onaylı).
+
+    `risk_level` verilirse (zamanlama/uygulama anında CMDB'den taze hesaplanan) saklı riskin
+    yerine o kullanılır.
+    """
     template = change.template
     if template is None or not template.active:
         return ["Standart değişiklik şablonu etkin değil."]
     reasons: list[str] = []
-    if change.risk_level is None:
+    level = risk_level if risk_level is not None else change.risk_level
+    if level is None:
         reasons.append("Risk değerlendirilmedi.")
-    elif _RISK_RANK[RiskLevel(change.risk_level)] > _RISK_RANK[RiskLevel(template.max_risk)]:
+    elif _RISK_RANK[RiskLevel(level)] > _RISK_RANK[RiskLevel(template.max_risk)]:
         reasons.append(
-            f"Risk ({RiskLevel(change.risk_level).value}) şablon sınırını "
+            f"Risk ({RiskLevel(level).value}) şablon sınırını "
             f"({RiskLevel(template.max_risk).value}) aşıyor."
         )
+    if not change.affected_cis:
+        # Şablon CI sınıflarıyla sınırlıdır; CI'sız değişiklik kapsamı belirsizdir -> CAB
+        reasons.append("Standart değişiklik en az bir yapılandırma öğesi (CI) içermelidir.")
     allowed = set(template.allowed_ci_classes or [])
     bad = sorted({CIClass(c.ci_class).value for c in change.affected_cis} - allowed)
     if bad:
@@ -572,21 +603,31 @@ def _status(
     change: ChangeRequest, approvals: list[ChangeApproval], settings: Settings
 ) -> ApprovalStatus:
     # Savunma: talep eden/uygulayıcı kaydı sayılmaz (kayıt zaten engellenir)
-    own = {change.requested_by, change.assignee}
-    valid = [a for a in approvals if a.approver not in own and not a.approver.startswith(_AI_PREFIX)]
+    valid = [
+        a
+        for a in approvals
+        if not same_identity(a.approver, change.requested_by)
+        and not same_identity(a.approver, change.assignee)
+        and not a.approver.startswith(_AI_PREFIX)
+    ]
     rejections = sum(1 for a in valid if a.decision == ApprovalDecision.REJECT)
     approves = [a for a in valid if a.decision == ApprovalDecision.APPROVE]
     change_type = ChangeType(change.change_type)
+
+    def distinct(items: list[ChangeApproval]) -> int:
+        # Aynı kişi (büyük/küçük harf/boşluk farkı) bir kez sayılır
+        return len({a.approver.strip().casefold() for a in items})
+
     if change_type == ChangeType.STANDARD:
-        return ApprovalStatus(0, len(approves), rejections, rejections == 0)
+        return ApprovalStatus(0, distinct(approves), rejections, rejections == 0)
     if change_type == ChangeType.EMERGENCY:
         required = 1
-        counted = sum(
-            1 for a in approves if {ROLE_CHANGE_MANAGER, ROLE_ADMIN} & set(a.approver_roles or [])
+        counted = distinct(
+            [a for a in approves if {ROLE_CHANGE_MANAGER, ROLE_ADMIN} & set(a.approver_roles or [])]
         )
     else:
         required = settings.cab_min_approvals
-        counted = len(approves)
+        counted = distinct(approves)
     return ApprovalStatus(required, counted, rejections, counted >= required and rejections == 0)
 
 
@@ -612,7 +653,7 @@ async def record_approval(
     _forbid_ai(user)
     if not user.has_any(ROLE_CAB, ROLE_CHANGE_MANAGER):
         raise ChangeForbiddenError("Onay için cab ya da change_manager rolü gerekir.")
-    if user.username in {change.requested_by, change.assignee}:
+    if is_party(user, change):
         raise ChangeForbiddenError(
             "Talep eden ya da uygulayıcı kendi değişikliği hakkında karar veremez."
         )
@@ -621,12 +662,12 @@ async def record_approval(
             f"Onay yalnızca yetkilendirme aşamasında verilebilir (durum: "
             f"{ChangeState(change.state).value})."
         )
-    existing = await session.scalar(
-        select(ChangeApproval.id).where(
-            ChangeApproval.change_id == change.id, ChangeApproval.approver == user.username
+    voters = (
+        await session.scalars(
+            select(ChangeApproval.approver).where(ChangeApproval.change_id == change.id)
         )
-    )
-    if existing is not None:
+    ).all()
+    if any(same_identity(v, user.username) for v in voters):
         raise DuplicateApprovalError()
     approval = ChangeApproval(
         change_id=change.id,
@@ -667,6 +708,24 @@ async def record_approval(
 
 def _envs(change: ChangeRequest) -> set[str]:
     return {CIEnvironment(c.environment).value for c in change.affected_cis}
+
+
+async def _lock_cis(session: AsyncSession, change: ChangeRequest) -> None:
+    """Etkilenen CI satırlarını (id sırasıyla, kilitlenme olmasın diye) FOR UPDATE kilitler.
+
+    Aynı CI'a eşzamanlı iki zamanlama/uygulama, çakışma denetimini birbirini görmeden geçemez:
+    ikinci işlem birincinin commit'ini bekler, sonra onu scheduled olarak görür (PostgreSQL;
+    SQLite yazmaları zaten tek yazıcıyla sıralar).
+    """
+    ci_ids = sorted(change.affected_ci_ids)
+    if not ci_ids:
+        return
+    await session.execute(
+        select(ConfigurationItem.id)
+        .where(ConfigurationItem.id.in_(ci_ids))
+        .order_by(ConfigurationItem.id)
+        .with_for_update()
+    )
 
 
 async def _conflicts(
@@ -813,12 +872,12 @@ def _check_role(change: ChangeRequest, to_state: ChangeState, user: CurrentUser)
     if to_state in (St.ASSESS, St.DRAFT) or (
         to_state == St.CANCELLED and current in (St.DRAFT, St.ASSESS)
     ):
-        allowed = manager or user.username == change.requested_by
+        allowed = manager or same_identity(user.username, change.requested_by)
     elif to_state == St.SCHEDULED and change.change_type == ChangeType.STANDARD:
         # Önceden onaylı standart değişikliği talep eden de zamanlayabilir
-        allowed = manager or user.username == change.requested_by
+        allowed = manager or same_identity(user.username, change.requested_by)
     elif to_state in (St.IMPLEMENT, St.FAILED, St.REVIEW):
-        allowed = manager or user.username == _implementer(change)
+        allowed = manager or same_identity(user.username, _implementer(change))
     else:  # authorize, scheduled, rejected, closed, sonraki aşamada iptal
         allowed = manager
     if not allowed:
@@ -844,10 +903,19 @@ def _require_plans(change: ChangeRequest) -> None:
         )
 
 
-def _assert_authorized(change: ChangeRequest, approvals: list[ChangeApproval], settings) -> None:
-    """Uygulama/zamanlama öncesi yetki kanıtı: standart uygunluk ya da yeterli onay."""
+async def _assert_authorized(
+    session: AsyncSession, change: ChangeRequest, settings: Settings
+) -> None:
+    """Uygulama/zamanlama öncesi yetki kanıtı: standart uygunluk ya da yeterli onay.
+
+    Standart değişiklikte risk CMDB'den yeniden hesaplanır: gönderimden sonra CI kritikliği,
+    ortamı ya da bağımlıları ağırlaştıysa saklı (eski) düşük risk CAB'ı atlatamaz.
+    """
+    approvals = await list_approvals(session, change.id)
     if change.change_type == ChangeType.STANDARD:
-        reasons = _standard_ineligibility(change)
+        fresh = await _assess(session, change)
+        score = max(fresh.score, change.risk_score or 0)
+        reasons = _standard_ineligibility(change, level_for_score(score))
         if reasons:
             raise InvalidTransitionError(
                 "Standart değişiklik önceden onaylı sayılamaz: " + " ".join(reasons)
@@ -900,12 +968,13 @@ async def transition(
         await _enforce_standard(session, change, user.username)
     elif to_state == St.SCHEDULED:
         _require_plans(change)
-        _assert_authorized(change, await list_approvals(session, change.id), settings)
+        await _assert_authorized(session, change, settings)
+        await _lock_cis(session, change)
         conflicts = await _conflicts(session, change)
         if conflicts:
             raise ScheduleConflictError(conflicts)
     elif to_state == St.IMPLEMENT:
-        _assert_authorized(change, await list_approvals(session, change.id), settings)
+        await _assert_authorized(session, change, settings)
         _require_plans(change)
         start, end = ensure_utc(change.planned_start), ensure_utc(change.planned_end)
         if not start <= now < end:
@@ -913,6 +982,7 @@ async def transition(
                 "Uygulama yalnızca planlanan pencere içinde başlatılabilir "
                 f"({start.isoformat()} – {end.isoformat()})."
             )
+        await _lock_cis(session, change)
         conflicts = await _conflicts(session, change)
         if conflicts:
             raise ScheduleConflictError(conflicts)
@@ -1057,7 +1127,7 @@ async def approve_ai_decision(
     if decision.approved_by:
         raise ApprovalError(f"Karar zaten {decision.approved_by} tarafından onaylanmış.")
     change = await _lock(session, decision.change_id, None)
-    if user.username in {change.requested_by, change.assignee}:
+    if is_party(user, change):
         raise ChangeForbiddenError("Kendi değişikliğinizin risk önerisini onaylayamazsınız.")
     output = dict(decision.output or {})
     if change.state not in AI_RISK_STATES or change.version != output.get("change_version"):

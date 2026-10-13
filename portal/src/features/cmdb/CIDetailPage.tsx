@@ -206,6 +206,11 @@ function ImpactSection({ ci }: { ci: ConfigurationItem }) {
         <Spinner label="Etki hesaplanıyor…" />
       ) : (
         <>
+          {data.truncated ? (
+            <p role="alert" style={{ margin: 0 }}>
+              {`Etki analizi ${data.affected.length} CI sınırında kesildi; liste eksik olabilir.`}
+            </p>
+          ) : null}
           <p style={{ margin: 0 }}>
             {`Etkilenen CI: ${data.affected.length} · En yüksek kritiklik: ${criticalityLabel(data.highest_criticality)}`}
             {data.business_services.length > 0 &&
