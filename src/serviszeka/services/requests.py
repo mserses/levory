@@ -804,8 +804,9 @@ async def cancel(
     req.closed_at = now
     # Ölçüm oyununa karşı: başarısız talebi ya da başkasının talebini iptal etmek onu kapı
     # paydasından düşürmez; "kapandı, insansız değil" sayılır. Talep edenin kendi açık talebinden
-    # vazgeçmesi ölçülmez.
-    if previous == RS.FAILED:
+    # vazgeçmesi ölçülmez. Yeniden denenen (attempt > 1) talep daha önce başarısız olarak ölçüldü:
+    # yeniden deneme + iptal de onu paydadan düşüremez.
+    if previous == RS.FAILED or req.attempt > 1:
         req.touchless = False
         req.touchless_reason = f"Başarısız talep iptal edildi ({user.username})."
     elif not same_identity(user.username, req.requester):

@@ -932,6 +932,16 @@ IDENTITY_CONDITIONAL = {
                  identity_standard_groups=["sg-vpn-kullanicilari"],
                  identity_privileged_groups=["sg-vpn-kullanicilari"]),
     ),
+    # Ayrıcalıklı liste harf büyüklüğü / Unicode biçimiyle farklı yazılmış olsa da (Entra grup
+    # kimlikleri büyük/küçük harf duyarsızdır) izin listesindeki grup ayrıcalıklı sayılır
+    "add_to_group/configured_privileged_case_variant": (
+        "identity.add_to_group",
+        {"user": "ali", "group": "sg-vpn-kullanicilari"},
+        "R3",
+        Settings(ai_shadow_mode=False, ai_confidence_threshold=0.0,
+                 identity_standard_groups=["sg-vpn-kullanicilari"],
+                 identity_privileged_groups=["ＳＧ-VPN-KULLANICILARI "]),
+    ),
     "add_to_group/unknown_group": (
         "identity.add_to_group",
         {"user": "ali", "group": "yok-boyle-grup"},

@@ -154,6 +154,29 @@ async def test_execution_revalidates_args(session):
     assert (await session.get(Incident, fx.incident_id)).status == IncidentStatus.NEW
 
 
+async def test_execution_refuses_args_changed_after_request(session):
+    """Onaylayan `args_display`'i (A olayı) onaylar; ham argüman sonradan geçerli ama farklı bir
+    hedefe (B olayı) çevrilirse yürütülmez: onaylanan argüman özetiyle (`args_hash`) eşleşmeli."""
+    from serviszeka.services import incidents as incident_service
+    from serviszeka.services.schemas import IncidentCreate
+
+    fx = await seed(session)
+    other = await incident_service.create_incident(
+        session, IncidentCreate(title="Başka olay", caller="veli"), "ayse"
+    )
+    await session.commit()
+    ar_id = await _resolve_request(session, fx)
+    ar = await session.get(ActionRequest, ar_id)
+    shown = dict(ar.args_display)
+    ar.args = {**ar.args, "incident_id": other.id}  # kuralları atlayan yazma, gösterim aynı kaldı
+    await session.commit()
+    ar = await actions.approve(session, ar_id, APPROVER, settings=LIVE)
+    await session.commit()
+    assert ar.state == "failed" and ar.args_display == shown
+    assert (await session.get(Incident, other.id)).status == IncidentStatus.NEW
+    assert (await session.get(Incident, fx.incident_id)).status == IncidentStatus.NEW
+
+
 async def test_r3_requires_two_distinct_approvers(session, monkeypatch):
     calls: list = []
     with registered(monkeypatch, make_test_tool("test.critical", RiskClass.R3, calls)):

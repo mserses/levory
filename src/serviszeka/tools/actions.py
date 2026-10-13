@@ -47,6 +47,7 @@ from serviszeka.services import changes
 from serviszeka.services.changes import same_identity
 from serviszeka.services.sla import ensure_utc
 from serviszeka.tools import executor
+from serviszeka.tools.redaction import args_hash
 from serviszeka.tools.registry import registry
 from serviszeka.tools.spec import ToolContext, ToolError, risk_rank
 
@@ -486,6 +487,12 @@ async def _execute(
         args: BaseModel = executor.validate_args(spec, dict(ar.args or {}))
     except ToolError as exc:
         await _fail(session, ar, user, exc, now)
+        return
+    if args_hash(ar.tool, dict(ar.args or {})) != ar.args_hash:
+        # Onaylanan (gösterilen) argümanlar değil: istekten sonra değiştirilmiş -> yürütülmez
+        await _fail(
+            session, ar, user, ToolError("Argümanlar istek açıldıktan sonra değiştirilmiş."), now
+        )
         return
     ctx = ToolContext(
         session=session, actor=user, settings=settings, now=now, llm=llm, action_request=ar

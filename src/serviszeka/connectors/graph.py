@@ -71,8 +71,14 @@ MFA_METHOD_SEGMENTS: dict[str, str] = {
 
 
 def _seg(value: str) -> str:
-    """URL yol kesimi (UPN'deki @ ve . korunur; / ve # gibi karakterler kaçışlanır)."""
-    return quote(value.strip(), safe="@.-_")
+    """URL yol kesimi (UPN'deki @ ve . korunur; / ve # gibi karakterler kaçışlanır).
+
+    `.`/`..` tek başına httpx'te yol gezinmesi olur (`/groups/../members` -> `/members`): kaçışlanır.
+    """
+    value = value.strip()
+    if value in (".", ".."):
+        return value.replace(".", "%2E")
+    return quote(value, safe="@.-_")
 
 
 class GraphClient:

@@ -53,7 +53,7 @@ class Settings(BaseSettings):
     # Microsoft Graph uygulama kaydı (client credentials). Gizli bilgi: yalnızca ortamdan.
     graph_tenant_id: str | None = None
     graph_client_id: str | None = None
-    graph_client_secret: str | None = None
+    graph_client_secret: SecretStr | None = None  # repr/günlükte görünmez
     graph_base_url: str = "https://graph.microsoft.com/v1.0"
     graph_login_url: str = "https://login.microsoftonline.com"
     graph_timeout: float = Field(default=10.0, gt=0)

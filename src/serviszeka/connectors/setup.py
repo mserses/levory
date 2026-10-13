@@ -150,7 +150,7 @@ def build_graph(
     client = GraphClient(
         settings.graph_tenant_id or "",
         settings.graph_client_id or "",
-        settings.graph_client_secret or "",
+        settings.graph_client_secret.get_secret_value() if settings.graph_client_secret else "",
         base_url=settings.graph_base_url,
         login_url=settings.graph_login_url,
         timeout=settings.graph_timeout,

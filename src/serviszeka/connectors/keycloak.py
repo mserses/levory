@@ -287,6 +287,10 @@ class KeycloakIdentityProvider:
     ) -> None:
         self.client = client
         self.privileged_groups = {normalize_ref(g) for g in (privileged_groups or ()) if g.strip()}
+        # Kimlikle yapılandırılmış girdiler (alt grup denetimi için ham hâl; yol girdileri hariç)
+        self._privileged_refs = sorted(
+            {g.strip() for g in (privileged_groups or ()) if g.strip() and not g.strip().startswith("/")}
+        )
         self.manager_attribute = manager_attribute
 
     # --- kullanıcı -------------------------------------------------------------------------------
@@ -318,14 +322,19 @@ class KeycloakIdentityProvider:
         ref = user.strip()
         if not ref:
             return None
-        if by_id:
-            found = await self._user_by_id(ref)
-            if found is not None:
-                return found
+        found = await self._user_by_id(ref) if by_id else None
         candidates = await self._search_users("username", ref)
         if "@" in ref:
             candidates += await self._search_users("email", ref)
         unique = {str(u["id"]): u for u in candidates}
+        if found is not None:
+            # Kimlik eşleşmesi başka bir kullanıcının adı/e-postasıyla çakışıyorsa belirsizdir
+            # (kullanıcı adı kurbanın kimliğine eşit hesap, kurbanın hesabına çözülmemeli)
+            if set(unique) - {str(found["id"])}:
+                raise AmbiguousReferenceError(
+                    f"Kullanıcı başvurusu birden fazla kullanıcıya çözülüyor: {ref}"
+                )
+            return found
         if len(unique) > 1:
             raise AmbiguousReferenceError(
                 f"Kullanıcı başvurusu birden fazla kullanıcıya çözülüyor: {ref}"
@@ -501,7 +510,21 @@ class KeycloakIdentityProvider:
             return True
         if self._configured_privileged(found):
             return True
+        if await self._under_privileged_id(found):
+            return True
         return await self._has_privileged_roles(str(found["id"]))
+
+    async def _under_privileged_id(self, data: dict[str, Any]) -> bool:
+        """Kimlikle yapılandırılmış ayrıcalıklı grubun alt grubu mu (yol öneki; rol devralınır)."""
+        path = normalize_ref(str(data.get("path") or ""))
+        if len([s for s in path.split("/") if s]) < 2:
+            return False  # üst grubu yok
+        for ref in self._privileged_refs:
+            parent = await self._group_by_id(ref)
+            parent_path = normalize_ref(str((parent or {}).get("path") or "")).rstrip("/")
+            if parent_path and path.startswith(parent_path + "/"):
+                return True
+        return False
 
     # --- yazma işlemleri -------------------------------------------------------------------------
 

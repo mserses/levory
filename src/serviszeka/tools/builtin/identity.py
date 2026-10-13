@@ -19,6 +19,7 @@ yalnızca kullanıcının doğrulanmış ikincil adresine (`Notifier.send_to_use
 
 from __future__ import annotations
 
+import unicodedata
 from typing import Annotated, Any, Literal
 
 from pydantic import Field
@@ -194,11 +195,16 @@ class GroupArgs(Args):
     request_id: RequestLink
 
 
+def _group_key(value: str) -> str:
+    return unicodedata.normalize("NFKC", unicodedata.normalize("NFKC", value).casefold().strip())
+
+
 async def _add_to_group_risk(ctx: ToolContext, args: GroupArgs) -> RiskClass:
-    # Standart (izin listesindeki) ve ayrıcalıklı olmayan grup R1; diğer her grup R3
+    # Standart (izin listesindeki, tam eşleşme) ve ayrıcalıklı olmayan grup R1; diğer her grup R3.
+    # Ayrıcalıklı liste geniş eşleşir (harf/Unicode varyantı; Entra kimlikleri harf duyarsız).
     if args.group not in set(ctx.settings.identity_standard_groups):
         return RiskClass.R3
-    if args.group in set(ctx.settings.identity_privileged_groups):
+    if _group_key(args.group) in {_group_key(g) for g in ctx.settings.identity_privileged_groups}:
         return RiskClass.R3
     if await _identity().is_privileged_group(args.group):
         return RiskClass.R3
