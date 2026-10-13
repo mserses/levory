@@ -21,7 +21,6 @@ from serviszeka.services.cmdb_schemas import (
     CIRead,
     CIRelationshipCreate,
     CIRelationshipRead,
-    ImpactedCIRead,
     ImpactRead,
     ImpactRequest,
 )
@@ -55,21 +54,7 @@ def _raise(exc: svc.CMDBError) -> None:
 
 
 def _impact_read(result: svc.ImpactAnalysis) -> ImpactRead:
-    return ImpactRead(
-        root_ci_ids=result.root_ci_ids,
-        affected=[
-            ImpactedCIRead(
-                ci=CIRead.model_validate(a.ci),
-                depth=a.depth,
-                path=a.path,
-                relationship=a.relationship,
-            )
-            for a in result.affected
-        ],
-        highest_criticality=result.highest_criticality,
-        business_services=[CIRead.model_validate(c) for c in result.business_services],
-        truncated=result.truncated,
-    )
+    return ImpactRead.from_analysis(result)
 
 
 async def impact_for(session: AsyncSession, ci_ids: list[str], max_depth: int = 5) -> ImpactRead:

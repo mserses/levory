@@ -138,3 +138,77 @@ class ChangeState(StrEnum):
 class ApprovalDecision(StrEnum):
     APPROVE = "approve"
     REJECT = "reject"
+
+
+# --- Faz 3: otomasyon (araçlar ve eylem istekleri) -----------------------------------
+
+
+class RiskClass(StrEnum):
+    """Araç risk sınıfı (ürün sahibiyle tasarlanan katalog).
+
+    R0 okuma (yapay zekâ serbest); R1 düşük riskli yazma (yapay zekâ yalnızca politika izin
+    verirse: gölge mod kapalı + güven >= eşik); R2 orta (her zaman insan onayı); R3 kritik
+    (insan onayı + ikinci onaylayan ya da CAB onaylı değişiklik).
+    """
+
+    R0 = "R0"
+    R1 = "R1"
+    R2 = "R2"
+    R3 = "R3"
+
+
+class ActionRequestState(StrEnum):
+    PENDING = "pending"  # Onay bekliyor
+    APPROVED = "approved"  # Son onay verildi, yürütülüyor (geçici)
+    REJECTED = "rejected"
+    EXECUTED = "executed"
+    FAILED = "failed"  # Onaylandı ama yürütme başarısız (kısmi yazma geri alındı)
+    EXPIRED = "expired"  # Süresi doldu; artık onaylanamaz
+
+
+# --- Faz 3: hizmet kataloğu ve hizmet talepleri ------------------------------------------
+
+
+class CatalogApprovalPolicy(StrEnum):
+    """Katalog öğesinin iş onayı (risk onayından ayrıdır ve ondan önce gelir)."""
+
+    NONE = "none"  # İş onayı gerekmez
+    MANAGER = "manager"  # Talep edenin dizindeki yöneticisi onaylar
+    GROUP = "group"  # Adı verilen dizin grubunun bir üyesi onaylar
+
+
+class ServiceRequestState(StrEnum):
+    SUBMITTED = "submitted"  # Alındı (iş onayı/karşılama henüz başlamadı)
+    AWAITING_APPROVAL = "awaiting_approval"  # İş onayı (yönetici / grup) bekleniyor
+    FULFILLING = "fulfilling"  # Karşılama adımları çalışıyor ya da bir eylem onayı bekleniyor
+    FULFILLED = "fulfilled"
+    REJECTED = "rejected"  # İş onayı ya da bir adımın eylem isteği reddedildi
+    FAILED = "failed"  # Bir adım başarısız oldu / eylem isteğinin süresi doldu
+    CANCELLED = "cancelled"
+
+
+class BusinessApprovalState(StrEnum):
+    NOT_REQUIRED = "not_required"
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+
+
+# --- Faz 3: sorun yönetimi (ITIL 4 Problem Management) -----------------------------------
+
+
+class ProblemState(StrEnum):
+    """new -> investigating -> known_error -> resolved -> closed (bkz. services/problems.py)."""
+
+    NEW = "new"
+    INVESTIGATING = "investigating"  # Kök neden analizi sürüyor
+    KNOWN_ERROR = "known_error"  # Kök neden ve/veya geçici çözüm belgelendi (KEDB)
+    RESOLVED = "resolved"  # Kalıcı çözüm uygulandı
+    CLOSED = "closed"
+
+
+class RCAMethod(StrEnum):
+    """Kök neden analizi yöntemi."""
+
+    FIVE_WHY = "5_why"  # 5 Neden: her adım soru + yanıt
+    TIMELINE = "timeline"  # Zaman çizelgesi: her adım zaman + olay

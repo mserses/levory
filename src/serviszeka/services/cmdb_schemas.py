@@ -102,3 +102,22 @@ class ImpactRead(BaseModel):
         default=False,
         description="Etkilenen CI sınırına ulaşıldı; liste eksik olabilir (risk temkinli hesaplanır)",
     )
+
+    @classmethod
+    def from_analysis(cls, result: Any) -> ImpactRead:
+        """`services.cmdb.ImpactAnalysis` -> ImpactRead (API ve araçlar ortak kullanır)."""
+        return cls(
+            root_ci_ids=result.root_ci_ids,
+            affected=[
+                ImpactedCIRead(
+                    ci=CIRead.model_validate(a.ci),
+                    depth=a.depth,
+                    path=a.path,
+                    relationship=a.relationship,
+                )
+                for a in result.affected
+            ],
+            highest_criticality=result.highest_criticality,
+            business_services=[CIRead.model_validate(c) for c in result.business_services],
+            truncated=result.truncated,
+        )

@@ -130,6 +130,12 @@ def pending(session: AsyncSession) -> list[PendingNotification]:
     return list(_outbox(session.sync_session))
 
 
+def discard_after(session: AsyncSession, count: int) -> None:
+    """Outbox'ı ilk `count` öğeye indirir (geri alınan kısmi işlemin bildirimleri gönderilmez)."""
+    box = _outbox(session.sync_session)
+    del box[count:]
+
+
 async def send_pending(session: AsyncSession, notifier: Notifier) -> list[str]:
     """Commit edilmiş bildirimleri gönderir; her biri için kısa ayrı bir işlemde denetim yazar.
 

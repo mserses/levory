@@ -33,3 +33,19 @@ async def session() -> AsyncIterator[AsyncSession]:
         # Bağlantılar olay döngüsü kapanmadan kapatılmalı; aksi halde aiosqlite
         # iş parçacıkları "Event loop is closed" uyarısı üretir.
         await db.dispose_engine()
+
+
+@pytest.fixture
+def directory():
+    """Sahte dizini (`InMemoryDirectory.demo()`) tüm bağlayıcı türlerine kurar; sonra eskiyi geri yükler."""
+    from serviszeka.connectors.memory import InMemoryDirectory
+    from serviszeka.connectors.setup import build_fake, install
+    from serviszeka.tools.connectors import connectors
+
+    saved = connectors.snapshot()
+    d = InMemoryDirectory.demo()
+    install(connectors, build_fake(d))
+    try:
+        yield d
+    finally:
+        connectors.restore(saved)

@@ -12,6 +12,10 @@ Roller:
 - ``cab``: Değişiklik Danışma Kurulu üyesi; değişiklikleri okur ve onaylar/reddeder
 - ``requester``: self-servis son kullanıcı; yalnızca kendi adına kayıt açar ve yalnızca
   arayanı (caller) kendisi olan kayıtları görür. Yapay zekâ kararlarını (iç ayrıntılar) göremez.
+- ``ai_agent`` (Faz 3): yapay zekâ ajanı hizmet sorumlusu (service principal). Bu rolü taşıyan
+  belirteç her zaman ``ai:<istemci>`` aktörüne ve yalnızca ``{ai_agent}`` rolüne indirgenir
+  (diğer roller yok sayılır); araçlara yalnızca MCP / ``tools.execute_tool`` üzerinden, risk
+  sınıfı ve politika denetimiyle erişir. İnsan uç noktalarını (REST) kullanamaz.
 """
 
 from __future__ import annotations
@@ -37,6 +41,9 @@ ROLE_ADMIN = "admin"
 ROLE_REQUESTER = "requester"
 ROLE_CHANGE_MANAGER = "change_manager"
 ROLE_CAB = "cab"
+ROLE_AI_AGENT = "ai_agent"
+# Yapay zekâ aktörlerinin öneki (değişiklik servisi ve araç boru hattı bu önekle tanır)
+AI_PREFIX = "ai:"
 
 # Simetrik (HS*) ve imzasız ('none') algoritmalar asla kabul edilmez
 ALLOWED_ALGORITHMS: dict[str, str] = {"RS256": "RSA", "ES256": "EC"}
@@ -67,9 +74,33 @@ class CurrentUser:
         return ROLE_ADMIN in self.roles or any(r in self.roles for r in roles)
 
     @property
+    def is_ai(self) -> bool:
+        """Yapay zekâ aktörü mü (``ai:`` önekli kullanıcı adı ya da ``ai_agent`` rolü)."""
+        return self.username.startswith(AI_PREFIX) or ROLE_AI_AGENT in self.roles
+
+    @property
     def is_requester_only(self) -> bool:
         """Yalnızca self-servis yetkisi var (agent/approver/admin değil): kendi kayıtlarıyla sınırlı."""
         return not self.has_any(ROLE_AGENT, ROLE_APPROVER)
+
+
+def principal(
+    username: str, roles: frozenset[str] | set[str], client_id: str | None = None
+) -> CurrentUser:
+    """Kimliği doğrulanmış kullanıcıyı uygulama aktörüne çevirir.
+
+    ``ai_agent`` rolü taşıyan hizmet sorumlusu ``ai:<istemci>`` olur ve yalnızca ``ai_agent``
+    rolünü korur: bir yapay zekâ belirtecine yanlışlıkla verilmiş admin/approver gibi roller
+    insan yetkisi kazandırmaz. İstemci adı önce ``azp``/``appid`` (istemci kimliği), yoksa
+    kullanıcı adıdır.
+    """
+    roles = frozenset(roles)
+    if ROLE_AI_AGENT not in roles:
+        return CurrentUser(username, roles)
+    name = (client_id or username).strip()
+    if not name.startswith(AI_PREFIX):
+        name = f"{AI_PREFIX}{name}"
+    return CurrentUser(name, frozenset({ROLE_AI_AGENT}))
 
 
 def check_startup(settings: Settings) -> None:
@@ -257,7 +288,11 @@ class OIDCAuthenticator:
             )
         except jwt.PyJWTError as exc:
             raise AuthError(f"belirteç doğrulanamadı: {exc}") from exc
-        return CurrentUser(self._username(claims), frozenset(self._roles(claims)))
+        client_id = next(
+            (v for k in ("azp", "appid", "client_id") if isinstance(v := claims.get(k), str) and v),
+            None,
+        )
+        return principal(self._username(claims), frozenset(self._roles(claims)), client_id)
 
     def _username(self, claims: dict[str, Any]) -> str:
         for name in (self.username_claim, *_USERNAME_FALLBACKS):
@@ -287,7 +322,7 @@ def parse_dev_token(token: str, settings: Settings) -> CurrentUser:
     if len(parts) != 2 or not parts[0].strip():
         raise AuthError("geliştirme belirteci biçimi geçersiz")
     roles = frozenset(r.strip() for r in parts[1].split(",") if r.strip())
-    return CurrentUser(parts[0].strip(), roles)
+    return principal(parts[0].strip(), roles)
 
 
 # --- FastAPI bağımlılıkları ---
@@ -346,18 +381,26 @@ async def get_current_user(
             raise _unauthorized(MSG_INVALID, "invalid_request")
         raise _unauthorized(MSG_MISSING)
     token = credentials.credentials
+    if settings.auth_mode != "dev" and authenticator is None:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, MSG_NOT_CONFIGURED)
     try:
-        if settings.auth_mode == "dev":
-            user = parse_dev_token(token, settings)
-        elif authenticator is None:
-            raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, MSG_NOT_CONFIGURED)
-        else:
-            user = await authenticator.authenticate(token)
+        user = await authenticate_token(token, settings, authenticator)
     except AuthError as exc:
         log.info("Kimlik doğrulama reddedildi: %s", exc)
         raise _unauthorized(MSG_INVALID, "invalid_token") from exc
     request.state.user = user
     return user
+
+
+async def authenticate_token(
+    token: str, settings: Settings, authenticator: OIDCAuthenticator | None
+) -> CurrentUser:
+    """Bearer belirtecini doğrular (REST ve MCP ortak yolu). Geçersizse ``AuthError``."""
+    if settings.auth_mode == "dev":
+        return parse_dev_token(token, settings)
+    if authenticator is None:
+        raise AuthError(MSG_NOT_CONFIGURED)
+    return await authenticator.authenticate(token)
 
 
 CurrentUserDep = Annotated[CurrentUser, Depends(get_current_user)]
@@ -399,3 +442,8 @@ CabUser = Annotated[CurrentUser, Depends(require_roles(ROLE_CAB, ROLE_CHANGE_MAN
 # CMDB: agent/CAB/değişiklik yöneticisi okur, yalnızca değişiklik yöneticisi yazar
 CMDBReaderUser = ChangeViewerUser
 CMDBWriterUser = ChangeManagerUser
+# Faz 3 eylem istekleri: onaylayıcı (R3 değişikliğe bağlıysa change_manager da) listeler/onaylar;
+# hangi isteği kimin onaylayabileceğini servis (tools/actions.py) ayrıca denetler
+ActionApproverUser = Annotated[
+    CurrentUser, Depends(require_roles(ROLE_APPROVER, ROLE_CHANGE_MANAGER))
+]

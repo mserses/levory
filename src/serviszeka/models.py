@@ -22,7 +22,10 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from serviszeka.db import Base
 from serviszeka.domain.enums import (
+    ActionRequestState,
     ApprovalDecision,
+    BusinessApprovalState,
+    CatalogApprovalPolicy,
     ChangeState,
     ChangeType,
     CIClass,
@@ -35,7 +38,10 @@ from serviszeka.domain.enums import (
     IncidentStatus,
     OnHoldReason,
     Priority,
+    ProblemState,
+    RiskClass,
     RiskLevel,
+    ServiceRequestState,
     TicketKind,
     Urgency,
 )
@@ -130,6 +136,9 @@ class AIDecision(Base):
     outcome: Mapped[DecisionOutcome] = mapped_column(Enum(DecisionOutcome), index=True)
     # Kararın dayandığı olay sürümü (kendi kısmi uygulamasından sonraki); bayat onayı engeller
     incident_version: Mapped[int | None] = mapped_column(Integer)
+    # Faz 3: araç çağrısı kararının açtığı eylem isteği (onay /actions'ta; olay karar kutusunda
+    # görünmez). SQLite'ta tablo kopyalamamak için FK'siz, indeksli.
+    action_request_id: Mapped[str | None] = mapped_column(String(36), index=True)
     approved_by: Mapped[str | None] = mapped_column(String(200))
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
@@ -392,3 +401,277 @@ class ChangeFreezeWindow(Base):
     environments: Mapped[list[str]] = mapped_column(JSON, default=list)
     created_by: Mapped[str] = mapped_column(String(200), default="")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+# --- Faz 3: otomasyon (araç yürütme, eylem istekleri) --------------------------------------
+
+
+class ActionRequest(Base):
+    """İnsan onayı bekleyen araç çağrısı (R2/R3 ya da politikanın otomatik uygulamadığı R1).
+
+    `args` ham argümanlardır ve yalnızca yürütmede kullanılır (API'de asla dönmez);
+    `args_display` gösterim için maskelenmiş kopyadır. Gizli bilgi argüman olmamalıdır.
+    """
+
+    __tablename__ = "action_requests"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    number: Mapped[str] = mapped_column(String(20), unique=True, index=True)  # ACT0000001
+    tool: Mapped[str] = mapped_column(String(100), index=True)
+    args: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    args_display: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    args_hash: Mapped[str] = mapped_column(String(64))
+    risk_class: Mapped[RiskClass] = mapped_column(_str_enum(RiskClass, 10))
+    state: Mapped[ActionRequestState] = mapped_column(
+        _str_enum(ActionRequestState), default=ActionRequestState.PENDING, index=True
+    )
+    # R3: 2 (ya da CAB onaylı bağlı değişiklikle 1); diğerleri 1
+    required_approvals: Mapped[int] = mapped_column(Integer, default=1)
+    # "ai:<ajan>" ya da insan kullanıcı adı
+    requested_by: Mapped[str] = mapped_column(String(200), index=True)
+    reason: Mapped[str] = mapped_column(Text, default="")
+    confidence: Mapped[float | None] = mapped_column(Float)
+    incident_id: Mapped[str | None] = mapped_column(ForeignKey("incidents.id"), index=True)
+    change_id: Mapped[str | None] = mapped_column(ForeignKey("change_requests.id"), index=True)
+    # Hizmet talebi (service_requests.id); FK'siz indeksli sütun (göç 0008 indeksi ekler)
+    request_id: Mapped[str | None] = mapped_column(String(36), index=True)
+    # Yapay zekâ isteğinde policy.evaluate kararı (AIDecision.id)
+    decision_id: Mapped[str | None] = mapped_column(String(36))
+    result: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    error: Mapped[str | None] = mapped_column(Text)
+    executed_by: Mapped[str | None] = mapped_column(String(200))
+    executed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
+
+
+class ActionApproval(Base):
+    """Eylem isteği kararı; her kişi (büyük/küçük harf duyarsız) bir istek için bir kez karar verir."""
+
+    __tablename__ = "action_approvals"
+    __table_args__ = (UniqueConstraint("action_request_id", "approver_key"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    action_request_id: Mapped[str] = mapped_column(ForeignKey("action_requests.id"), index=True)
+    approver: Mapped[str] = mapped_column(String(200))
+    # Kimlik karşılaştırma anahtarı (kırpılmış, casefold): aynı kişi iki kez sayılamaz
+    approver_key: Mapped[str] = mapped_column(String(200))
+    approver_roles: Mapped[list[str]] = mapped_column(JSON, default=list)
+    decision: Mapped[ApprovalDecision] = mapped_column(_str_enum(ApprovalDecision))
+    comment: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class ToolInvocation(Base):
+    """Idempotency kaydı: aynı aktör + anahtar + argümanlar -> önceki sonuç; farklı argüman -> 409."""
+
+    __tablename__ = "tool_invocations"
+    __table_args__ = (UniqueConstraint("actor", "idempotency_key"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    actor: Mapped[str] = mapped_column(String(200))
+    idempotency_key: Mapped[str] = mapped_column(String(200))
+    tool: Mapped[str] = mapped_column(String(100))
+    # Araç adı + kanonik argümanların SHA-256 özeti
+    args_hash: Mapped[str] = mapped_column(String(64))
+    status: Mapped[str] = mapped_column(String(30))
+    result: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    action_request_id: Mapped[str | None] = mapped_column(String(36))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class CatalogItem(Base):
+    """Hizmet kataloğu öğesi: form şeması, iş onayı politikası ve karşılama planı.
+
+    `form_schema` JSON şeması alt kümesidir (string / enum / boolean / kullanıcı seçici
+    `format: user` / grup seçici `format: group`). `fulfilment_plan` sıralı adımlardır:
+    `{"tool": "identity.add_to_group", "title": "...", "args": {"user": "{{requester}}",
+    "group": "{{form.group}}"}}`. Adımlar `tools.execute_tool` ile `ai:fulfilment` aktörüyle
+    çalışır (services/requests). `standard`: önceden onaylı, tekrarlanabilir talep (Faz 3 kapısı
+    "standart taleplerin %50'si insansız çözülüyor" bunlar üzerinden ölçülür).
+    """
+
+    __tablename__ = "catalog_items"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    # Kararlı anahtar (ör. password_reset); tohumlama ve URL için
+    key: Mapped[str] = mapped_column(String(100), unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(200))
+    description: Mapped[str] = mapped_column(Text, default="")
+    category: Mapped[str] = mapped_column(String(100), index=True)
+    form_schema: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    approval_policy: Mapped[CatalogApprovalPolicy] = mapped_column(
+        _str_enum(CatalogApprovalPolicy), default=CatalogApprovalPolicy.NONE
+    )
+    # approval_policy=group iken onaylayan dizin grubu (kimlik/ad)
+    approval_group: Mapped[str | None] = mapped_column(String(200))
+    fulfilment_plan: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list)
+    standard: Mapped[bool] = mapped_column(Boolean, default=False)
+    active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
+
+
+class ServiceRequest(Base):
+    """Hizmet talebi (REQ0000001): katalog öğesi + form değerleri + karşılama durumu.
+
+    Plan, açılışta katalog öğesinden kopyalanır (`plan`): öğe sonradan değişse de çalışan talep
+    aynı adımları izler. `step_results` her adımın sonucunu (yürütüldü / onay bekliyor / başarısız,
+    `action_request_id`) taşır; bağlı eylem istekleri `action_requests.request_id` üzerindendir.
+    `touchless`: talep insan onayı ve insan düzenlemesi olmadan karşılandı mı
+    (`human_approvals == 0 and human_edits == 0`); değilse `touchless_reason`.
+    """
+
+    __tablename__ = "service_requests"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    number: Mapped[str] = mapped_column(String(20), unique=True, index=True)  # REQ0000001
+    catalog_item_id: Mapped[str] = mapped_column(ForeignKey("catalog_items.id"), index=True)
+    # Açılış anındaki öğe kopyası (anahtar, ad, standart bayrağı, onay politikası)
+    item_key: Mapped[str] = mapped_column(String(100), index=True)
+    item_name: Mapped[str] = mapped_column(String(200))
+    standard: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    plan: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list)
+    # Talep kimin için (self-servis: belirteçteki kullanıcı); opened_by: kaydı açan aktör
+    requester: Mapped[str] = mapped_column(String(200), index=True)
+    opened_by: Mapped[str] = mapped_column(String(200))
+    form_values: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    state: Mapped[ServiceRequestState] = mapped_column(
+        _str_enum(ServiceRequestState), default=ServiceRequestState.SUBMITTED, index=True
+    )
+    # İş onayı (yönetici / grup) — risk onayından (ActionRequest) ayrı ve önce
+    approval_policy: Mapped[CatalogApprovalPolicy] = mapped_column(
+        _str_enum(CatalogApprovalPolicy), default=CatalogApprovalPolicy.NONE
+    )
+    approval_state: Mapped[BusinessApprovalState] = mapped_column(
+        _str_enum(BusinessApprovalState), default=BusinessApprovalState.NOT_REQUIRED
+    )
+    # Beklenen onaylayan: yöneticinin kimliği (UPN) ya da grup
+    approver: Mapped[str | None] = mapped_column(String(200), index=True)
+    approved_by: Mapped[str | None] = mapped_column(String(200))
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    approval_comment: Mapped[str] = mapped_column(Text, default="")
+    # Karşılama ilerlemesi
+    current_step: Mapped[int] = mapped_column(Integer, default=0)
+    attempt: Mapped[int] = mapped_column(Integer, default=1)
+    step_results: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list)
+    # Bekleyen adımın eylem isteği (ActionRequest.id); yoksa null
+    waiting_action_id: Mapped[str | None] = mapped_column(String(36), index=True)
+    error: Mapped[str | None] = mapped_column(Text)
+    # İnsansız çözüm ölçümü
+    human_approvals: Mapped[int] = mapped_column(Integer, default=0)
+    human_edits: Mapped[int] = mapped_column(Integer, default=0)
+    # İnsan dokunuşları: [{"kind": "business_approval|action_approval|edit|retry|complete",
+    # "actor", "at", "detail"}] — touchless_reason buradan üretilir
+    touches: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list)
+    touchless: Mapped[bool | None] = mapped_column(Boolean, index=True)
+    touchless_reason: Mapped[str | None] = mapped_column(Text)
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
+    fulfilled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+# --- Faz 3: sorun yönetimi (ITIL 4 Problem Management) -----------------------------------------
+
+problem_incidents = Table(
+    "problem_incidents",
+    Base.metadata,
+    Column("problem_id", ForeignKey("problems.id"), primary_key=True),
+    Column("incident_id", ForeignKey("incidents.id"), primary_key=True, index=True),
+)
+
+problem_cis = Table(
+    "problem_cis",
+    Base.metadata,
+    Column("problem_id", ForeignKey("problems.id"), primary_key=True),
+    Column("ci_id", ForeignKey("configuration_items.id"), primary_key=True, index=True),
+)
+
+# Kalıcı çözüm için açılan değişiklikler (RFC)
+problem_changes = Table(
+    "problem_changes",
+    Base.metadata,
+    Column("problem_id", ForeignKey("problems.id"), primary_key=True),
+    Column("change_id", ForeignKey("change_requests.id"), primary_key=True, index=True),
+)
+
+
+class Problem(Base):
+    """Sorun kaydı: tekrarlayan olayların ortak kök nedeni (PRB0000001).
+
+    `rca` insanın kabul ettiği kök neden analizidir; `rca_draft` yapay zekânın (ya da aracın)
+    yazdığı taslaktır ve yalnızca insan kabulüyle `rca` + `root_cause` olur. Bilinen hata
+    yayımlanınca `known_error_article_id` KEDB makalesini (KnowledgeArticle.is_known_error) gösterir.
+    """
+
+    __tablename__ = "problems"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    number: Mapped[str] = mapped_column(String(20), unique=True, index=True)
+    title: Mapped[str] = mapped_column(String(300))
+    description: Mapped[str] = mapped_column(Text, default="")
+    state: Mapped[ProblemState] = mapped_column(
+        _str_enum(ProblemState), default=ProblemState.NEW, index=True
+    )
+    priority: Mapped[Priority] = mapped_column(_str_enum(Priority, 10), default=Priority.P3)
+    category: Mapped[str | None] = mapped_column(String(100))
+    assignment_group: Mapped[str | None] = mapped_column(String(100))
+    root_cause: Mapped[str | None] = mapped_column(Text)
+    # {"method": "5_why" | "timeline", "steps": [...], "root_cause": "..."}
+    rca: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    rca_draft: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    workaround: Mapped[str | None] = mapped_column(Text)
+    known_error_article_id: Mapped[str | None] = mapped_column(
+        ForeignKey("knowledge_articles.id"), index=True
+    )
+    # Tespit eden: "ai:problem" (eğilim ajanı) ya da insan; created_by kaydı açan aktördür
+    detected_by: Mapped[str] = mapped_column(String(200), default="")
+    created_by: Mapped[str] = mapped_column(String(200), default="")
+    # Kapanış/çözüm notu
+    resolution: Mapped[str | None] = mapped_column(Text)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
+
+    incidents: Mapped[list[Incident]] = relationship(
+        secondary=problem_incidents, lazy="selectin", order_by=Incident.number
+    )
+    affected_cis: Mapped[list[ConfigurationItem]] = relationship(
+        secondary=problem_cis, lazy="selectin", order_by=ConfigurationItem.name
+    )
+    changes: Mapped[list[ChangeRequest]] = relationship(
+        secondary=problem_changes, lazy="selectin", order_by=ChangeRequest.number
+    )
+
+    def __init__(self, **kwargs: Any) -> None:
+        # Yeni kaydın bağları boştur; async oturumda tembel yüklemeyi önler
+        for key in ("incidents", "affected_cis", "changes"):
+            kwargs.setdefault(key, [])
+        super().__init__(**kwargs)
+
+    @property
+    def incident_ids(self) -> list[str]:
+        return [i.id for i in self.incidents]
+
+    @property
+    def affected_ci_ids(self) -> list[str]:
+        return [ci.id for ci in self.affected_cis]
+
+    @property
+    def change_ids(self) -> list[str]:
+        return [c.id for c in self.changes]

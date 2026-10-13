@@ -15,6 +15,7 @@ dependencies = [
     "anthropic>=0.40",
     "alembic>=1.20.0",
     "pyjwt[crypto]>=2.15.1",
+    "mcp>=2.3.0",
 ]
 
 [dependency-groups]

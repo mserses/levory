@@ -36,7 +36,10 @@ def _strip_user(value: object) -> object:
     return value
 
 
-Assignee = Annotated[str | None, BeforeValidator(_strip_user), Field(max_length=200)]
+# Uzunluk sınırı yalnızca metne uygulanır (None ile temizleme 500 vermesin)
+Assignee = Annotated[
+    Annotated[str, Field(max_length=200)] | None, BeforeValidator(_strip_user)
+]
 
 _IdList = Annotated[list[Annotated[str, Field(min_length=1, max_length=36)]], Field(max_length=200)]
 

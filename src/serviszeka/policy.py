@@ -43,6 +43,63 @@ POLICIES: dict[tuple[str, str], ActionPolicy] = {
     ("change_risk", "assess_risk"): ActionPolicy(
         RiskLevel.LOW, "Ajan risk değerlendirmesi (yalnızca yükseltme otomatik)"
     ),
+    # --- Faz 3 araç kataloğu (tools/): anahtar (alan, fiil) = araç adı `alan.fiil` ---------
+    # R1 araçlar en fazla LOW riskte otomatik; R2/R3 araçlar asla otomatik değildir (insan onayı,
+    # ActionRequest). Koşullu riskli R1 araç (ör. incident.set_priority P1/P2) R2'ye çıktığında
+    # HIGH riskle değerlendirilir ve onaya düşer. Kapı: tests/test_gate_no_unapproved_risk.py.
+    ("incident", "create"): ActionPolicy(RiskLevel.LOW, "Olay açma (P1/P2 olay R2)"),
+    ("incident", "classify"): ActionPolicy(RiskLevel.LOW, "Tür/kategori/hizmet/grup"),
+    ("incident", "set_priority"): ActionPolicy(
+        RiskLevel.LOW, "Etki/aciliyet (yalnızca P3..P5 içinde yükseltme; diğerleri R2)"
+    ),
+    ("incident", "assign"): ActionPolicy(RiskLevel.LOW, "Çözüm grubu/uzman ataması"),
+    ("incident", "link_ci"): ActionPolicy(RiskLevel.LOW, "Olaya CI bağlama"),
+    ("incident", "set_on_hold"): ActionPolicy(
+        RiskLevel.LOW, "Beklemeye alma (SLA saatini durduran nedenler R2)"
+    ),
+    ("change", "draft_rfc"): ActionPolicy(RiskLevel.LOW, "Değişiklik taslağı (RFC) açma"),
+    ("change", "submit_for_cab"): ActionPolicy(None, "Değişikliği CAB'a gönderme (asla otomatik)"),
+    ("change", "record_pir"): ActionPolicy(None, "PIR kaydı ve kapatma (asla otomatik)"),
+    ("kb", "draft_article"): ActionPolicy(RiskLevel.LOW, "Bilgi makalesi taslağı"),
+    ("kb", "update_draft"): ActionPolicy(RiskLevel.LOW, "Taslak makale düzenleme"),
+    ("kb", "publish"): ActionPolicy(None, "Makale yayımlama (asla otomatik)"),
+    ("kb", "retire"): ActionPolicy(None, "Makale arşivleme (asla otomatik)"),
+    ("known_error", "create"): ActionPolicy(RiskLevel.LOW, "Bilinen hata (KEDB) taslağı"),
+    ("notify", "oncall_page"): ActionPolicy(RiskLevel.LOW, "Nöbetçiyi uyarma"),
+    # --- Faz 3 hizmet talepleri ve bağlayıcı araçları (Entra ID / M365 / Teams) ---------------
+    # Katalog planı adımları `ai:fulfilment` aktörüyle aynı politikadan geçer (services/requests).
+    ("request", "create"): ActionPolicy(RiskLevel.LOW, "Hizmet talebi açma (adımlar ayrıca)"),
+    ("request", "run_fulfillment_step"): ActionPolicy(
+        RiskLevel.LOW, "Bekleyen karşılamayı ilerletme (adımlar ayrıca değerlendirilir)"
+    ),
+    ("request", "complete"): ActionPolicy(RiskLevel.LOW, "El ile adımı tamamlandı işaretleme"),
+    ("identity", "reset_password"): ActionPolicy(
+        RiskLevel.LOW, "Parola sıfırlama (yalnızca doğrulanmış self-servis; diğerleri R2)"
+    ),
+    ("identity", "unlock_account"): ActionPolicy(RiskLevel.LOW, "Hesap kilidi açma"),
+    ("identity", "add_to_group"): ActionPolicy(
+        RiskLevel.LOW, "Standart gruba ekleme (izin listesi dışı/ayrıcalıklı grup R3)"
+    ),
+    ("identity", "reset_mfa"): ActionPolicy(None, "MFA sıfırlama (asla otomatik)"),
+    ("identity", "remove_from_group"): ActionPolicy(None, "Gruptan çıkarma (asla otomatik)"),
+    ("identity", "revoke_sessions"): ActionPolicy(None, "Oturumları iptal (asla otomatik)"),
+    ("identity", "disable_user"): ActionPolicy(None, "Hesabı devre dışı bırakma (asla otomatik)"),
+    ("mailbox", "grant_shared_access"): ActionPolicy(
+        None, "Paylaşılan posta kutusu izni (asla otomatik)"
+    ),
+    ("license", "assign"): ActionPolicy(RiskLevel.LOW, "Microsoft 365 lisansı atama"),
+    ("notify", "send_to_user"): ActionPolicy(RiskLevel.LOW, "Kullanıcıya bildirim"),
+    ("notify", "post_to_channel"): ActionPolicy(RiskLevel.LOW, "Teams kanalına mesaj (maskeli)"),
+    # Sorun yönetimi (agents/problem, tools/builtin/problem): yapay zekâ önerir, taslak yazar;
+    # kapatma ve geçici çözümün yayımlanması asla otomatik değildir
+    ("problem", "create"): ActionPolicy(RiskLevel.LOW, "Eğilimden sorun kaydı açma"),
+    ("problem", "link_incidents"): ActionPolicy(RiskLevel.LOW, "Soruna olay bağlama"),
+    ("problem", "record_rca"): ActionPolicy(RiskLevel.LOW, "RCA taslağı (yalnızca rca_draft)"),
+    ("problem", "propose_fix"): ActionPolicy(RiskLevel.LOW, "Kalıcı çözüm için taslak RFC"),
+    ("problem", "close"): ActionPolicy(None, "Sorunu kapatma (asla otomatik)"),
+    ("known_error", "publish_workaround"): ActionPolicy(
+        None, "Geçici çözümü KEDB'de yayımlama (asla otomatik)"
+    ),
 }
 
 

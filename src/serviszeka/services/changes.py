@@ -33,7 +33,7 @@ from datetime import UTC, datetime
 from enum import Enum
 from typing import Any, NoReturn
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -376,10 +376,16 @@ async def list_changes(
     change_type: ChangeType | str | None = None,
     ci_id: str | None = None,
     requested_by: str | None = None,
+    q: str | None = None,
     limit: int = 50,
     offset: int = 0,
 ) -> list[ChangeRequest]:
     stmt = select(ChangeRequest)
+    if q:
+        pattern = f"%{q.strip()}%"
+        stmt = stmt.where(
+            or_(ChangeRequest.number.ilike(pattern), ChangeRequest.title.ilike(pattern))
+        )
     if state is not None:
         stmt = stmt.where(ChangeRequest.state == ChangeState(state))
     if change_type is not None:

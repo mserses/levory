@@ -17,7 +17,7 @@ from datetime import UTC, datetime, timedelta
 from enum import Enum
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from serviszeka import audit
@@ -192,10 +192,21 @@ async def list_incidents(
     assignee: str | None = None,
     assignment_group: str | None = None,
     caller: str | None = None,
+    q: str | None = None,
     limit: int = 50,
     offset: int = 0,
 ) -> list[Incident]:
     stmt = select(Incident)
+    if q:
+        # Numara, başlık ya da açıklamada basit metin araması (büyük/küçük harf duyarsız)
+        pattern = f"%{q.strip()}%"
+        stmt = stmt.where(
+            or_(
+                Incident.number.ilike(pattern),
+                Incident.title.ilike(pattern),
+                Incident.description.ilike(pattern),
+            )
+        )
     if caller is not None:
         stmt = stmt.where(Incident.caller == caller)
     if status is not None:

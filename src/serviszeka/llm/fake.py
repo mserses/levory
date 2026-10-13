@@ -2,7 +2,8 @@
 
 Yalnızca `SZ_ENVIRONMENT=development` iken kullanılabilir (bkz. `check_provider`).
 Anahtar kelime kurallarıyla sınıflandırır (triage); değişiklik risk istemine
-(`agents/change_risk`) deterministik skordan türetilen anlatı ve kontrol listesi döner; aynı girdi her zaman aynı çıktıyı verir. Ajan
+(`agents/change_risk`) deterministik skordan türetilen anlatı ve kontrol listesi, sorun ajanının RCA
+istemine (`agents/problem`) sabit bir 5 Neden taslağı döner; aynı girdi her zaman aynı çıktıyı verir. Ajan
 akışı (maskeleme, KB kaynak doğrulama, politika, denetim) gerçek istemciyle aynen çalışır.
 """
 
@@ -19,6 +20,8 @@ FAKE_MODEL = "fake-deterministic"
 _KB_SECTION = "Bilgi bankası sonuçları"
 # agents/change_risk._user_prompt bu başlıkla deterministik skoru verir
 _RISK_SECTION = "Deterministik risk değerlendirmesi:"
+# agents/problem.rca_prompt bu başlıkla sorun + bağlı olayları verir
+_RCA_SECTION = "Sorun kaydı (kök neden analizi taslağı):"
 
 # (anahtar kelimeler, kategori, hizmet, grup) — ilk eşleşen kazanır
 _RULES: tuple[tuple[tuple[str, ...], str, str, str], ...] = (
@@ -163,6 +166,35 @@ def assess_change_risk(user: str) -> dict[str, Any]:
     }
 
 
+def _line_value(text: str, label: str) -> str:
+    for line in text.splitlines():
+        if line.startswith(label):
+            return line[len(label) :].strip()
+    return ""
+
+
+def draft_rca(user: str) -> dict[str, Any]:
+    """Sorun ajanı RCA şemasıyla deterministik 5 Neden taslağı (yalnızca taslak)."""
+    title = _line_value(user, "Başlık:") or "Sorun"
+    incidents = [ln for ln in user.splitlines() if ln.startswith("- ") and "|" in ln]
+    count = len(incidents)
+    return {
+        "method": "5_why",
+        "steps": [
+            {"question": q, "answer": f"[fake] {a}"}
+            for q, a in (
+                (f"Neden '{title}' yaşanıyor?", f"{count} bağlı olayda aynı belirti tekrar ediyor."),
+                ("Belirti neden tekrar ediyor?", "Olaylar geçici adımlarla kapatılmış."),
+                ("Neden kalıcı çözüm uygulanmamış?", "Ortak bileşendeki hata tespit edilmemiş."),
+                ("Hata neden tespit edilmemiş?", "Bileşen için izleme ve uyarı eşiği yok."),
+                ("İzleme neden tanımlı değil?", "Devreye alma listesinde izleme adımı yok."),
+            )
+        ],
+        "root_cause": "[fake] Ortak bileşende izlenmeyen yapılandırma hatası.",
+        "confidence": 0.8,
+    }
+
+
 class DeterministicFakeLLM:
     """`SZ_LLM_PROVIDER=fake` istemcisi: ağ çağrısı yapmaz, istemi yine maskeler."""
 
@@ -174,6 +206,8 @@ class DeterministicFakeLLM:
         masked = mask_pii(user)
         if _RISK_SECTION in masked:
             return assess_change_risk(masked)
+        if _RCA_SECTION in masked:
+            return draft_rca(masked)
         return classify(masked)
 
 

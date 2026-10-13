@@ -45,7 +45,10 @@
 | `src/serviszeka/llm/` | `LLMClient` protokolü, `AnthropicLLM`, testler için `FakeLLM`, geliştirme/E2E için `SZ_LLM_PROVIDER=fake` (triage sınıflandırması + değişiklik risk anlatısı) |
 | `src/serviszeka/knowledge/` | Bilgi makaleleri ve arama (`search`, `create_article`) |
 | `src/serviszeka/integrations/` | ServiceNow ve Jira SM iki yönlü senkronizasyon; ServiceNow CMDB çekimi (`servicenow_cmdb`, `POST /integrations/servicenow/cmdb/pull`); Jira Assets yalnızca arayüz taslağı |
-| `src/serviszeka/api/` | REST uçları: `incidents`, `knowledge`, `integrations`, `audit`, `me`, `cmdb`, `changes` |
+| `src/serviszeka/api/` | REST uçları: `incidents`, `knowledge`, `integrations`, `audit`, `me`, `cmdb`, `changes`; Faz 3: `actions` (eylem isteği onay kutusu) |
+| `src/serviszeka/tools/` | Faz 3 araç katmanı: `ToolSpec` kaydı (33 araç, R0-R3 risk sınıfı), tek yürütme boru hattı `execute_tool` (politika + `AIDecision` + denetim, idempotency, dry-run), eylem istekleri (`actions`: onay, red, süre aşımı, onay anında yürütme), bağlayıcı arayüzleri (Entra ID / Graph / Teams) — bkz. [`docs/faz3.md`](docs/faz3.md) |
+| Sorun yönetimi | `models.Problem`, `services/problems.py`, `agents/problem.py` (eğilim tespiti, LLM 5 Neden taslağı, taslak RFC; yalnızca araç boru hattından), `tools/builtin/problem.py` (8 araç), `api/problems.py` (`/problems`) — bkz. [`docs/faz3.md`](docs/faz3.md#sorun-yönetimi-itil-4-problem-management) |
+| `src/serviszeka/mcp_server.py` | MCP sunucusu (resmi Python MCP SDK, streamable HTTP, `/mcp`): araç kaydını JSON şeması ve risk sınıfıyla sunar; bearer OIDC, yapay zekâ ajanları `ai_agent` rolüyle `ai:<istemci>` |
 | `src/serviszeka/cors.py` | `SZ_CORS_ORIGINS` ayarından beslenen CORS ara katmanı |
 | `src/serviszeka/openapi_export.py` | OpenAPI şemasını portal tip üretimi için dışa aktarır |
 | `portal/` | Web portalı (Vite + React + TypeScript); bkz. `portal/README.md` |
@@ -138,9 +141,12 @@ Eksik/geçersiz belirteç → `401` (`WWW-Authenticate: Bearer`), yetersiz rol �
 | `admin` | Her şey: entegrasyon durumu, pull/push, denetim günlüğü (`/audit`) dahil; diğer tüm rolleri kapsar |
 | `change_manager` | Değişiklik açma, yetkilendirme/zamanlama/kapatma, CAB oyu ve ECAB onayı (kendi talebi/uygulayıcısı olduğu değişiklik hariç), yapay zekâ risk önerisini onaylama, CMDB yazma, standart değişiklik şablonları ve dondurma pencereleri |
 | `cab` | Değişiklik Danışma Kurulu: değişiklikleri ve CMDB'yi okur, değişiklikleri onaylar/reddeder (talep eden ve uygulayıcı kendi değişikliğini asla onaylayamaz) |
+| `ai_agent` | Faz 3: yapay zekâ ajanı hizmet sorumlusu (client credentials). Aktör `ai:<azp/appid>` olur, diğer roller yok sayılır; yalnızca MCP (`/mcp`) araçlarını risk sınıfı ve politika denetimiyle kullanır, REST insan uçlarına erişemez, hiçbir eylem isteğini onaylayamaz |
 | `requester` | Self-servis son kullanıcı: `POST /incidents` (arayan her zaman kendi kullanıcı adıdır; gövdedeki `caller` ve `impact` yok sayılır) ve yalnızca arayanı kendisi olan olayları `GET /incidents` / `GET /incidents/{id}` ile görür (başkasınınki `404`). Yapay zekâ kararlarını, triage'ı, SLA uyarılarını, bilgi bankasını göremez; yanıtlarda `ai_confidence` her zaman `null` döner |
 
 `requester` ve yalnızca `approver` rolündeki kullanıcı değişiklik (`/changes`) ve CMDB (`/cmdb`) uçlarını göremez. Faz 2 servis API'si, durum makinesi ve kapı kuralları: [`docs/faz2.md`](docs/faz2.md).
+
+**Faz 3 (otomasyon).** Araçlar risk sınıfıyla tanımlanır: R0 okuma (yapay zekâ serbest), R1 düşük riskli yazma (yapay zekâ yalnızca gölge mod kapalı + güven ≥ eşik iken), R2 her zaman insan onayı, R3 insan onayı + ikinci onaylayan ya da CAB onaylı değişiklik. R2/R3 çağrısı çalışmaz, bir eylem isteği açar ve `{"status": "pending_approval", "action_request_id": ...}` döner; `approver`/`admin` (R3 değişikliğe bağlıysa `change_manager`) `GET /actions`, `POST /actions/{id}/approve|reject` ile karar verir, son onayda istek onaylayanın kimliğiyle yürütülür (talep eden kendi isteğini onaylayamaz, istek 24 saatte (`SZ_ACTION_REQUEST_TTL_HOURS`) düşer). MCP istemcileri `POST /mcp` (bearer belirteç) ile bağlanır. Hizmet kataloğu (`/catalog`, 10 Türkçe öğe) ve hizmet talepleri (`/requests`, `REQ0000001`): iş onayı (yönetici/grup) önce gelir, karşılama adımları `ai:fulfilment` aktörüyle araç boru hattından geçer (R2/R3 adım eylem isteği bekler); insansız çözüm oranı `GET /requests/metrics` ve `uv run python evals/run_request_eval.py` ile ölçülür. Kimlik/posta/lisans/bildirim bağlayıcıları `SZ_CONNECTOR_PROVIDER` (`none` | `fake` (yalnızca geliştirme) | `graph`: Entra ID + Microsoft 365 Graph + Teams gelen webhook). Sözleşme: [`docs/faz3.md`](docs/faz3.md).
 
 Rolü olmayan ama kimliği doğrulanmış her kullanıcı `GET /me` ile `{username, roles, ai_confidence_threshold}` bilgisini alabilir (web portalı gezinmeyi buna göre kurar, güven göstergesi eşiği `SZ_AI_CONFIDENCE_THRESHOLD`'dan gelir).
 

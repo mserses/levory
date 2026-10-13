@@ -624,6 +624,8 @@ async def list_inbox(
             # Değişiklik kararları (change_risk) burada değil, değişiklik ekranında onaylanır;
             # yalnızca approver olan kullanıcı değişiklikleri göremez
             AIDecision.change_id.is_(None),
+            # Faz 3 araç kararları eylem isteğiyle (/actions) onaylanır, burada görünmez
+            AIDecision.action_request_id.is_(None),
         )
         .order_by(AIDecision.created_at.desc(), AIDecision.id.desc())
         .limit(limit)

@@ -32,6 +32,32 @@ class Settings(BaseSettings):
     # Değişiklik yönetimi: normal değişikliğin yetkilendirilmesi için gereken en az CAB onayı
     cab_min_approvals: int = Field(default=2, ge=1)
 
+    # Faz 3: onay bekleyen eylem isteğinin (ActionRequest) geçerlilik süresi (saat); dolunca
+    # istek "expired" olur ve artık onaylanıp yürütülemez
+    action_request_ttl_hours: int = Field(default=24, ge=1, le=720)
+
+    # Faz 3: dış sistem bağlayıcıları (kimlik, posta, lisans, mesajlaşma) — serviszeka.connectors
+    # none: bağlayıcı yok (identity.* / mailbox.* / license.* / notify.send_* araçları 503);
+    # fake: bellek içi sahte dizin (yalnızca environment=development; yerel deneme ve E2E);
+    # graph: Microsoft Entra ID + Microsoft 365 (Graph, client credentials) + Teams webhook
+    connector_provider: Literal["none", "fake", "graph"] = "none"
+    # Microsoft Graph uygulama kaydı (client credentials). Gizli bilgi: yalnızca ortamdan.
+    graph_tenant_id: str | None = None
+    graph_client_id: str | None = None
+    graph_client_secret: str | None = None
+    graph_base_url: str = "https://graph.microsoft.com/v1.0"
+    graph_login_url: str = "https://login.microsoftonline.com"
+    graph_timeout: float = Field(default=10.0, gt=0)
+    # Kullanıcı bildirimlerinin (notify.send_to_user) gönderildiği posta kutusu (Mail.Send)
+    graph_sender_mailbox: str | None = None
+    # Teams kanalı -> gelen webhook URL'si (JSON nesnesi): {"servis-masasi": "https://..."}
+    teams_webhook_urls: dict[str, str] = {}
+    # identity.add_to_group: bu izin listesindeki (grup kimliği) ve ayrıcalıklı olmayan gruplar R1;
+    # listede olmayan ya da ayrıcalıklı gruplar R3. Virgülle ayrılmış liste ya da JSON dizisi.
+    identity_standard_groups: Annotated[list[str], NoDecode] = []
+    # Her zaman ayrıcalıklı sayılan gruplar (Graph'ta ayrıca isAssignableToRole=true gruplar)
+    identity_privileged_groups: Annotated[list[str], NoDecode] = []
+
     # ITSM entegrasyonları
     servicenow_instance_url: str | None = None
     servicenow_username: str | None = None
@@ -75,6 +101,16 @@ class Settings(BaseSettings):
     # Ortam değişkeninde virgülle ayrılmış liste ya da JSON dizisi:
     #   SZ_CORS_ORIGINS=http://localhost:5173,https://portal.ornek.com
     cors_origins: Annotated[list[str], NoDecode] = []
+
+    @field_validator("identity_standard_groups", "identity_privileged_groups", mode="before")
+    @classmethod
+    def _split_groups(cls, value: Any) -> Any:
+        if isinstance(value, str):
+            text = value.strip()
+            if text.startswith("["):
+                return json.loads(text)
+            return [g.strip() for g in text.split(",") if g.strip()]
+        return value
 
     @field_validator("cors_origins", mode="before")
     @classmethod
