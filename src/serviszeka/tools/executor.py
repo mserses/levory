@@ -7,7 +7,10 @@ Akış (her çağıran — MCP, iç ajanlar, testler — buradan geçer; işleyi
    bir insan rolü de çağırabiliyor olmalı — `ai_callable`), gereken
    bağlayıcılar yapılandırılmış mı bakılır.
 2. Argümanlar doğrulanır (pydantic) ve kanonik hale getirilir; bağlı kayıtlar (olay/değişiklik)
-   var mı denetlenir. Hata -> hiçbir şey yazılmadan `ToolValidationError`.
+   var mı denetlenir. Hata -> hiçbir şey yazılmadan `ToolValidationError`. Olay/değişiklik
+   kaydını değiştiren (argümanında `expected_version` olan) araçlarda yapay zekâ aktörü ya da MCP
+   çağıranı (`require_version=True`) sürümü vermek zorundadır (iyimser kilit; insan için
+   geriye uyumlu, isteğe bağlı).
 3. Idempotency (R1-R3, `idempotency_key` ile): aynı aktör + anahtar + argüman -> önceki sonuç
    (`replayed`); farklı argüman -> `IdempotencyConflictError` (409). Anahtar işlemden önce
    ayrılır: eşzamanlı aynı anahtar ikinci kez yürütmez (tekil kısıt).
@@ -161,6 +164,7 @@ class ActionLinks:
     incident_id: str | None = None
     change_id: str | None = None
     request_id: str | None = None
+    event_group_id: str | None = None
     extra: dict[str, Any] = field(default_factory=dict)
 
 
@@ -218,6 +222,27 @@ def _errors(exc: ValidationError) -> list[dict[str, Any]]:
     return json.loads(exc.json(include_url=False, include_input=False))
 
 
+# Sürümlü kaydı (olay / değişiklik) değiştiren araçlarda yapay zekâ / MCP çağrısı sürüm taşımalı
+VERSION_REQUIRED_DOMAINS: frozenset[str] = frozenset({"incident", "change"})
+
+
+def check_version_required(
+    spec: ToolSpec, model_args: BaseModel, user: CurrentUser, *, require_version: bool = False
+) -> None:
+    """Yapay zekâ aktörü ya da MCP çağrısında `expected_version` zorunlu (bayat okuma üzerine
+    yazma olmasın). Okuma/yaratma araçlarında (sürüm alanı yok) etkisizdir."""
+    if not (require_version or user.is_ai) or spec.domain not in VERSION_REQUIRED_DOMAINS:
+        return
+    if "expected_version" not in type(model_args).model_fields:
+        return
+    if getattr(model_args, "expected_version", None) is None:
+        raise ToolValidationError(
+            f"{spec.name}: yapay zekâ / MCP yazmasında expected_version zorunludur (kaydı okuyup "
+            "güncel sürümünü verin; uyuşmazsa 409).",
+            errors=[{"type": "missing", "loc": ["expected_version"], "msg": "Field required"}],
+        )
+
+
 def validate_args(spec: ToolSpec, args: Any) -> BaseModel:
     if not isinstance(args, dict):
         raise ToolValidationError(f"{spec.name}: argümanlar nesne olmalı.")
@@ -260,7 +285,7 @@ def _links(
     if isinstance(explicit, dict):
         explicit = ActionLinks(**explicit)
     if explicit is not None:
-        for kind in ("incident", "change", "request"):
+        for kind in ("incident", "change", "request", "event_group"):
             value = getattr(explicit, f"{kind}_id")
             if value:
                 setattr(links, f"{kind}_id", value)
@@ -372,6 +397,7 @@ async def create_action_request(
         incident_id=links.incident_id,
         change_id=links.change_id,
         request_id=links.request_id,
+        event_group_id=links.event_group_id,
         expires_at=now + timedelta(hours=settings.action_request_ttl_hours),
         version=1,
         created_at=now,
@@ -516,8 +542,11 @@ async def execute_tool(
     settings: Settings | None = None,
     llm: Any = None,
     now: datetime | None = None,
+    require_version: bool = False,
 ) -> ToolResult:
     """Aracı risk sınıfına göre çalıştırır ya da onaya gönderir (modül belgesine bakın).
+
+    `require_version`: insan çağıranda da `expected_version` zorunlu (MCP sunucusu verir).
 
     Ön koşul hataları (bulunamadı, yetki, doğrulama, idempotency çakışması, bağlayıcı yok)
     `ToolError` olarak yükseltilir ve hiçbir şey yazılmaz. İşleyici hatası `failed` sonucudur.
@@ -529,6 +558,7 @@ async def execute_tool(
     _authorize(spec, user)
     check_connectors(spec)
     model_args = validate_args(spec, dict(args or {}))
+    check_version_required(spec, model_args, user, require_version=require_version)
     canonical = jsonable(model_args.model_dump(mode="json"))
     ctx = ToolContext(session=session, actor=user, settings=settings, now=now, llm=llm)
     base = RiskClass(spec.risk_class)

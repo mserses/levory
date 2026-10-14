@@ -34,6 +34,10 @@ def _group(group: EventGroup) -> dict[str, Any]:
     return EventGroupRead.model_validate(group).model_dump(mode="json")
 
 
+# Eylem isteğinin indeksli `event_group_id` sütunu (olay ajanı bekleyen isteği SQL'de arar)
+LINK = {"group_id": "event_group"}
+
+
 class _GroupRef(Args):
     group_id: Id = Field(description="Uyarı grubu kimliği (id)")
 
@@ -138,11 +142,11 @@ def register_all() -> None:
                  "CMDB bağımlılık yolu, önerilen öncelik, bekleyen istek.", R0, CorrelateArgs,
                  correlate, READERS),
         ToolSpec("event.acknowledge", "Uyarı grubunu üstlenildi olarak işaretler.", R1, AckArgs,
-                 acknowledge, WRITERS),
+                 acknowledge, WRITERS, links=LINK),
         ToolSpec("event.create_incident", "Uyarı grubu için tek olay açar ya da mevcut olaya "
                  "çalışma notu ekler (asla çözmez). P1/P2 olay açılacaksa R2 (insan onayı).",
-                 R1, _GroupRef, create_incident, WRITERS, risk_fn=_create_risk),
+                 R1, _GroupRef, create_incident, WRITERS, risk_fn=_create_risk, links=LINK),
         ToolSpec("event.silence", "Uyarı grubunu belirli bir süre susturur (her zaman insan "
-                 "onayı).", R2, SilenceArgs, silence, WRITERS),
+                 "onayı).", R2, SilenceArgs, silence, WRITERS, links=LINK),
     ):  # fmt: skip
         registry.register(spec)

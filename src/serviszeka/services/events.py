@@ -56,6 +56,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from serviszeka import audit, taxonomy
 from serviszeka.config import EventCIRule, Settings
 from serviszeka.domain.enums import (
+    ActionRequestState,
     CIRelationshipType,
     EventGroupState,
     EventSeverity,
@@ -1275,14 +1276,17 @@ async def incidents_opened_since(session: AsyncSession, since: datetime) -> int:
 
 
 async def pending_create_request(session: AsyncSession, group_id: str) -> str | None:
-    rows = (
-        await session.scalars(
-            select(ActionRequest).where(
-                ActionRequest.tool == "event.create_incident", ActionRequest.state == "pending"
-            )
+    """Grubun bekleyen olay açma isteği (indeksli `event_group_id` sütunu; JSON taraması yok)."""
+    return await session.scalar(
+        select(ActionRequest.id)
+        .where(
+            ActionRequest.event_group_id == group_id,
+            ActionRequest.tool == "event.create_incident",
+            ActionRequest.state == ActionRequestState.PENDING,
         )
-    ).all()
-    return next((r.id for r in rows if (r.args or {}).get("group_id") == group_id), None)
+        .order_by(ActionRequest.created_at)
+        .limit(1)
+    )
 
 
 async def correlation(

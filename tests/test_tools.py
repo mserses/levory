@@ -164,7 +164,7 @@ async def test_r1_human_runs_directly(session):
 
 async def test_r1_ai_auto_applies_only_when_policy_allows(session):
     fx = await seed(session)
-    args = {"incident_id": fx.incident_id, "assignment_group": "network_ops"}
+    args = {"incident_id": fx.incident_id, "assignment_group": "network_ops", "expected_version": fx.incident_version}
     r = await execute_tool(session, AI, "incident.assign", args, confidence=0.9, settings=LIVE)
     assert r.status == ToolStatus.EXECUTED
     decision = await session.get(AIDecision, r.decision_id)
@@ -184,7 +184,7 @@ async def test_r1_ai_auto_applies_only_when_policy_allows(session):
 )
 async def test_r1_ai_not_auto_creates_action_request(session, settings, confidence, outcome):
     fx = await seed(session)
-    args = {"incident_id": fx.incident_id, "assignment_group": "network_ops"}
+    args = {"incident_id": fx.incident_id, "assignment_group": "network_ops", "expected_version": fx.incident_version}
     r = await execute_tool(
         session, AI, "incident.assign", args, confidence=confidence, settings=settings
     )
@@ -200,14 +200,14 @@ async def test_r1_ai_not_auto_creates_action_request(session, settings, confiden
 async def test_r1_conditional_risk_raises_to_r2(session):
     fx = await seed(session)
     # P5 -> P1 yükseltmesi: R2 (insan onayı), politika ve güven ne olursa olsun
-    args = {"incident_id": fx.incident_id, "impact": "high", "urgency": "high"}
+    args = {"incident_id": fx.incident_id, "impact": "high", "urgency": "high", "expected_version": fx.incident_version}
     r = await execute_tool(
         session, AI, "incident.set_priority", args, confidence=1.0, settings=LIVE
     )
     assert r.status == ToolStatus.PENDING_APPROVAL and r.risk_class == RiskClass.R2
     assert (await session.get(Incident, fx.incident_id)).priority == Priority.P5
     # P5 -> P4 (P3..P5 içinde yükseltme) R1 kalır
-    args = {"incident_id": fx.incident_id, "impact": "low", "urgency": "medium"}
+    args = {"incident_id": fx.incident_id, "impact": "low", "urgency": "medium", "expected_version": fx.incident_version}
     r = await execute_tool(
         session, AI, "incident.set_priority", args, confidence=1.0, settings=LIVE
     )
@@ -227,7 +227,10 @@ async def test_risk_fn_cannot_lower_declared_class(session, monkeypatch):
 async def test_r1_policy_rejected_creates_nothing(session, monkeypatch):
     fx = await seed(session)
     monkeypatch.delitem(policy.POLICIES, ("incident", "assign"))
-    args = {"incident_id": fx.incident_id, "assignment_group": "network_ops"}
+    args = {
+        "incident_id": fx.incident_id, "assignment_group": "network_ops",
+        "expected_version": fx.incident_version,
+    }
     r = await execute_tool(session, AI, "incident.assign", args, confidence=1.0, settings=LIVE)
     assert r.status == ToolStatus.REJECTED
     assert await session.scalar(select(func.count()).select_from(ActionRequest)) == 0
@@ -261,13 +264,14 @@ async def test_r2_creates_action_request_for_humans_too(session, monkeypatch):
 
 async def test_dry_run_reports_outcome_without_writes(session):
     fx = await seed(session)
-    args = {"incident_id": fx.incident_id, "resolution": "x"}
+    args = {"incident_id": fx.incident_id, "resolution": "x", "expected_version": fx.incident_version}
     r = await execute_tool(session, AI, "incident.resolve", args, dry_run=True, settings=LIVE)
     assert r.status == ToolStatus.DRY_RUN
     assert r.result["would"] == "pending_approval" and r.result["risk_class"] == "R2"
     r = await execute_tool(
         session, AI, "incident.assign",
-        {"incident_id": fx.incident_id, "assignee": "x"}, dry_run=True, confidence=0.9, settings=LIVE,
+        {"incident_id": fx.incident_id, "assignee": "x", "expected_version": fx.incident_version}, dry_run=True,
+        confidence=0.9, settings=LIVE,
     )  # fmt: skip
     assert r.result["would"] == "execute"
     assert await session.scalar(select(func.count()).select_from(ActionRequest)) == 0
@@ -303,7 +307,7 @@ async def test_real_identity_tool_without_connector_is_unavailable(session):
 
 async def test_idempotency_same_args_replays_previous_result(session):
     fx = await seed(session)
-    args = {"incident_id": fx.incident_id, "resolution": "Çözüldü"}
+    args = {"incident_id": fx.incident_id, "resolution": "Çözüldü", "expected_version": fx.incident_version}
     first = await execute_tool(session, AI, "incident.resolve", args, idempotency_key="k-1")
     again = await execute_tool(session, AI, "incident.resolve", args, idempotency_key="k-1")
     assert again.replayed and again.action_request_id == first.action_request_id
@@ -634,7 +638,10 @@ async def test_every_r2_handler_runs_after_human_approval(session, directory):
     )
     await _change_in_review(session, fx.change_id)
     cases = {
-        "incident.resolve": {"incident_id": fx.incident_id, "resolution": "Çözüldü"},
+        "incident.resolve": {
+            "incident_id": fx.incident_id, "resolution": "Çözüldü",
+            "expected_version": (await session.get(Incident, fx.incident_id)).version,
+        },
         "change.submit_for_cab": {"change_id": submit.id},
         "change.record_pir": {"change_id": fx.change_id, "review_notes": "PIR tamam"},
         "kb.publish": {"article_id": fx.draft_article_id},

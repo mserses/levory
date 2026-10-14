@@ -11,6 +11,14 @@ Kalıcı outbox (transactional outbox, `models.NotificationOutbox`):
   güncelleme; aynı satırı iki gönderici aynı anda almaz), ardından işlem dışında gönderilir, sonuç
   ayrı bir işlemde yazılır. Çökme olursa kira süresi dolunca yeniden denenir; satırın
   `idempotency_key`'i alıcıya iletilir (`Idempotency-Key` başlığı) ki yinelemeyi ayıklayabilsin.
+- Kiralanan satır `sending` durumuna geçer. İkinci ve sonraki denemelerde (önceki deneme çökmüş,
+  zaman aşımına uğramış ya da başarısız olmuş olabilir; alıcı mesajı almış olabilir) bildiriciye
+  `possibly_delivered=True` geçilir: yinelemeyi denetleyebilen alıcı (Slack botu: kanal geçmişinde
+  anahtar) zaten teslim edildiyse `{"deduplicated": True}` döner ve satır yeniden göndermeden
+  `sent` olur. Kalan pencere (webhook kipleri, okunamayan geçmiş) docs/faz4.md'de.
+- Saklama süresi (`purge_expired`, zamanlayıcı işi `outbox_retention`): `sent` satırlar
+  `SZ_OUTBOX_RETENTION_DAYS` (30), `dead` satırlar `SZ_OUTBOX_DEAD_RETENTION_DAYS` (90) gün sonra
+  toplu silinir; açık olayın SLA tekilleştirme satırları (`sla:*`) silinmez.
 - Başarısız gönderim üstel geri çekilmeyle yeniden denenir (`SZ_NOTIFICATION_BACKOFF_SECONDS`,
   `SZ_NOTIFICATION_MAX_ATTEMPTS`; aşılınca `dead`). Her deneme denetime yazılır
   (`notification.sent` / `notification.failed` / `notification.dead`); `last_error` URL ve gizli
@@ -28,14 +36,14 @@ from typing import Any, Protocol, runtime_checkable
 from uuid import uuid4
 
 import httpx
-from sqlalchemy import event, select, update
+from sqlalchemy import and_, delete, event, not_, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
 from serviszeka import audit
 from serviszeka.config import Settings, get_settings
-from serviszeka.domain.enums import NotificationState
-from serviszeka.models import NotificationOutbox
+from serviszeka.domain.enums import IncidentStatus, NotificationState
+from serviszeka.models import Incident, NotificationOutbox
 
 logger = logging.getLogger(__name__)
 
@@ -268,17 +276,29 @@ def backoff(attempts: int, settings: Settings | None = None) -> timedelta:
 
 
 async def _call_notifier(
-    notifier: Notifier, event_name: str, payload: dict[str, Any], key: str
-) -> None:
+    notifier: Notifier,
+    event_name: str,
+    payload: dict[str, Any],
+    key: str,
+    *,
+    possibly_delivered: bool = False,
+) -> Any:
+    """Bildiriciyi desteklediği isteğe bağlı argümanlarla çağırır (eski imzalar da çalışır)."""
     fn = notifier.notify
     try:
-        accepts_key = "idempotency_key" in inspect.signature(fn).parameters
+        params = inspect.signature(fn).parameters
     except (TypeError, ValueError):
-        accepts_key = False
-    if accepts_key:
-        await fn(event_name, payload, idempotency_key=key)
-    else:
-        await fn(event_name, payload)
+        params = {}
+    kwargs: dict[str, Any] = {}
+    if "idempotency_key" in params:
+        kwargs["idempotency_key"] = key
+    if "possibly_delivered" in params:
+        kwargs["possibly_delivered"] = possibly_delivered
+    return await fn(event_name, payload, **kwargs)
+
+
+# Kiralanabilir durumlar: sending = kirası dolmuş (gönderici çökmüş) satır
+_CLAIMABLE = (NotificationState.PENDING, NotificationState.FAILED, NotificationState.SENDING)
 
 
 async def _claim(session: AsyncSession, outbox_id: str, now: datetime) -> bool:
@@ -287,10 +307,11 @@ async def _claim(session: AsyncSession, outbox_id: str, now: datetime) -> bool:
         update(NotificationOutbox)
         .where(
             NotificationOutbox.id == outbox_id,
-            NotificationOutbox.state.in_([NotificationState.PENDING, NotificationState.FAILED]),
+            NotificationOutbox.state.in_(_CLAIMABLE),
             NotificationOutbox.next_attempt_at <= now,
         )
         .values(
+            state=NotificationState.SENDING,
             next_attempt_at=now + timedelta(seconds=CLAIM_SECONDS),
             attempts=NotificationOutbox.attempts + 1,
             updated_at=now,
@@ -331,6 +352,8 @@ async def deliver(
         logger.exception("Bildirim kuyruğu satırı alınamadı: %s", outbox_id)
         await session.rollback()
         return None
+    # Önceki deneme (çöken gönderici, zaman aşımı, hata) alıcıya ulaşmış olabilir
+    possibly_delivered = attempts > 1
     details = {
         **base_details,
         "event": event_name,
@@ -340,7 +363,12 @@ async def deliver(
     }
     error: str | None = None
     try:
-        await _call_notifier(notifier, event_name, payload, key)
+        outcome = await _call_notifier(
+            notifier, event_name, payload, key, possibly_delivered=possibly_delivered
+        )
+        if isinstance(outcome, dict) and outcome.get("deduplicated") is True:
+            # Alıcıda aynı anahtarlı mesaj zaten var: yeniden gönderilmedi
+            details["deduplicated"] = True
     except Exception as exc:  # bildirim hatası çağıranı asla durdurmamalı
         logger.exception("Nöbetçi bildirimi başarısız: %s", entity_id)
         error = safe_error(exc)
@@ -443,7 +471,8 @@ async def dispatch_due(
     settings: Settings | None = None,
     limit: int = DISPATCH_BATCH,
 ) -> list[str]:
-    """Zamanı gelmiş (pending/failed, `next_attempt_at <= now`) commit edilmiş satırları gönderir.
+    """Zamanı gelmiş (pending/failed ya da kirası dolmuş sending, `next_attempt_at <= now`)
+    commit edilmiş satırları gönderir.
 
     Zamanlayıcı işi (`scheduler.py`); temiz bir oturumla çağrılmalıdır. Dönen: denetim eylemleri.
     """
@@ -453,9 +482,7 @@ async def dispatch_due(
             await session.scalars(
                 select(NotificationOutbox.id)
                 .where(
-                    NotificationOutbox.state.in_(
-                        [NotificationState.PENDING, NotificationState.FAILED]
-                    ),
+                    NotificationOutbox.state.in_(_CLAIMABLE),
                     NotificationOutbox.next_attempt_at <= now,
                 )
                 .order_by(NotificationOutbox.next_attempt_at)
@@ -470,3 +497,90 @@ async def dispatch_due(
         if action is not None:
             actions.append(action)
     return actions
+
+
+# --- saklama süresi (retention) -----------------------------------------------------------------------
+
+PURGE_BATCH = 500
+# Bir çalışmada en fazla bu kadar tur (kalan bir sonraki çalışmaya; uzun kilit/işlem yok)
+PURGE_MAX_BATCHES = 20
+SLA_KEY_PREFIX = "sla:"
+# SLA tekilleştirme satırı olay bu durumlardan birindeyken silinebilir (olay artık açık değil)
+_SLA_RELEASED = (IncidentStatus.RESOLVED, IncidentStatus.CLOSED, IncidentStatus.CANCELLED)
+
+
+def _expired_clause(now: datetime, settings: Settings):
+    sent_cutoff = now - timedelta(days=settings.outbox_retention_days)
+    dead_cutoff = now - timedelta(days=settings.outbox_dead_retention_days)
+    open_incident = (
+        select(Incident.id)
+        .where(
+            Incident.id == NotificationOutbox.entity_id,
+            Incident.status.not_in(_SLA_RELEASED),
+        )
+        .exists()
+    )
+    return and_(
+        or_(
+            and_(
+                NotificationOutbox.state == NotificationState.SENT,
+                NotificationOutbox.sent_at < sent_cutoff,
+            ),
+            and_(
+                NotificationOutbox.state == NotificationState.DEAD,
+                NotificationOutbox.updated_at < dead_cutoff,
+            ),
+        ),
+        # SLA uyarısı olay + durum başına bir kez: tekilleştirme satırı olay açıkken korunur
+        or_(
+            not_(NotificationOutbox.idempotency_key.startswith(SLA_KEY_PREFIX, autoescape=True)),
+            not_(open_incident),
+        ),
+    )
+
+
+async def purge_expired(
+    session: AsyncSession,
+    *,
+    now: datetime | None = None,
+    settings: Settings | None = None,
+    batch_size: int = PURGE_BATCH,
+    max_batches: int = PURGE_MAX_BATCHES,
+) -> dict[str, int]:
+    """Saklama süresi dolan `sent` / `dead` satırları toplu (her tur ayrı işlem) siler.
+
+    `pending` / `failed` / `sending` satırlara dokunmaz. `sla:*` anahtarlı satır, bağlı olay hâlâ
+    açıksa (çözülmüş/kapalı/iptal değil) silinmez — silinseydi `sla_check` aynı ihlal için nöbetçiyi
+    yeniden uyarırdı. Olay çözülüp yeniden açılırsa ve satır silinmişse ihlal bir kez daha
+    bildirilebilir (bilinçli: olay yeniden canlıdır). Dönen: silinen sayılar ve tur sayısı.
+    """
+    settings = settings or get_settings()
+    now = now or _now()
+    clause = _expired_clause(now, settings)
+    counts = {"sent": 0, "dead": 0, "batches": 0}
+    for _ in range(max_batches):
+        rows = (
+            await session.execute(
+                select(NotificationOutbox.id, NotificationOutbox.state)
+                .where(clause)
+                .order_by(NotificationOutbox.created_at, NotificationOutbox.id)
+                .limit(batch_size)
+            )
+        ).all()
+        if not rows:
+            await session.rollback()
+            break
+        await session.execute(
+            delete(NotificationOutbox)
+            .where(NotificationOutbox.id.in_([r[0] for r in rows]), clause)
+            .execution_options(synchronize_session=False)
+        )
+        await session.commit()
+        counts["batches"] += 1
+        for _id, state in rows:
+            counts["sent" if NotificationState(state) == NotificationState.SENT else "dead"] += 1
+        if len(rows) < batch_size:
+            break
+    if counts["batches"]:
+        logger.info("Bildirim kuyruğu temizlendi: %s", counts)
+    return counts

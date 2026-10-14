@@ -764,17 +764,19 @@ async def _conflicts(
             )
     ci_ids = change.affected_ci_ids
     if ci_ids:
+        # Alt sorgu (JOIN + DISTINCT değil): PostgreSQL JSON sütunlarında DISTINCT yapamaz
+        sharing = select(change_affected_cis.c.change_id).where(
+            change_affected_cis.c.ci_id.in_(ci_ids)
+        )
         stmt = (
             select(ChangeRequest)
-            .join(change_affected_cis, change_affected_cis.c.change_id == ChangeRequest.id)
             .where(
-                change_affected_cis.c.ci_id.in_(ci_ids),
+                ChangeRequest.id.in_(sharing),
                 ChangeRequest.id != change.id,
                 ChangeRequest.state.in_(list(BLOCKING_STATES)),
                 ChangeRequest.planned_start < end,
                 ChangeRequest.planned_end > start,
             )
-            .distinct()
             .order_by(ChangeRequest.planned_start)
         )
         mine = set(ci_ids)

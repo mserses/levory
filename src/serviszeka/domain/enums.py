@@ -219,6 +219,9 @@ class RCAMethod(StrEnum):
 
 class NotificationState(StrEnum):
     PENDING = "pending"  # Gönderilecek (ilk deneme ya da kira süresi dolmuş)
+    # Gönderici kiraladı, gönderim sürüyor (ya da gönderici çöktü: kira dolunca yeniden denenir ve
+    # alıcı yinelemeyi denetler — notifications.deliver `possibly_delivered`)
+    SENDING = "sending"
     SENT = "sent"
     FAILED = "failed"  # Son deneme başarısız; next_attempt_at'te yeniden denenir
     DEAD = "dead"  # En fazla deneme aşıldı; artık gönderilmez (denetimde)

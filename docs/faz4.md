@@ -20,7 +20,7 @@ Durum geçmişine (denetim günlüğü) dayanan KPI'lar JSON ayrıntıyı Python
 | Anahtar | Birim / iyi yön | Formül |
 |---|---|---|
 | `mttr` | saat / düşük | `ort(resolved_at − created_at − sla_paused_seconds)`, `resolved_at ∈ W`, iptal hariç; ayrıca medyan, p90; kırılım öncelik / grup / kategori / hizmet. Yeniden açılan olayda son çözüm sayılır |
-| `mtta` | saat / düşük | `ort(responded_at − created_at)`, `responded_at ∈ W` (ilk yanıt = NEW'den ilk çıkış); kırılım öncelik / grup |
+| `mtta` | saat / düşük | `ort(responded_at − created_at)`, `responded_at ∈ W`, **iptal hariç** (MTTR ile tutarlı; 0014 öncesi iptal edilen olaylar da sayılıyordu) (ilk yanıt = NEW'den ilk çıkış); kırılım öncelik / grup |
 | `fcr_rate` | % / yüksek | İlk temasta çözüm vekili: W'de çözülen olaylardan hiç yeniden atanmamış (`assignment_group` dolu bir değerden başka değere hiç değişmemiş — ilk atama sayılmaz) ve hiç yeniden açılmamış olanlar / tümü |
 | `sla_response_compliance` | % / yüksek | Uyumlu / (uyumlu + ihlal). Nüfus: W'de yanıtlanan (`responded_at <= response_due_at` uyumlu) + hâlâ yanıtsız ve vadesi W'de ve şimdiden önce geçen (ihlal; saat şu an duruyorsa ve vade duraklamadan sonraysa sayılmaz). Kırılım öncelik / grup |
 | `sla_resolve_compliance` | % / yüksek | Aynı kural `resolved_at` / `resolve_due_at` ile. Vadeler duraklatma kadar ötelendiğinden duraklatılan süre uyumu bozmaz |
@@ -112,6 +112,11 @@ Göç `migrations/versions/0010_notification_outbox_scheduler.py` (`notification
 - Başarısızlıkta üstel geri çekilme: `SZ_NOTIFICATION_BACKOFF_SECONDS * 2^(n-1)` (en fazla 1 saat);
   `SZ_NOTIFICATION_MAX_ATTEMPTS` (5) aşılınca `dead`. `last_error` URL'leri (`[URL]`, webhook belirteci)
   ve `token=`/`password=` biçimli gizlileri ayıklar, PII maskeler.
+- Kiralanan satır `sending` olur (kira dolunca yeniden kiralanabilir). İkinci ve sonraki denemelerde
+  bildiriciye `possibly_delivered=True` geçer; Slack nöbetçisi kanal geçmişinde anahtarı bulursa
+  yeniden göndermez (`notification.sent`, `details.deduplicated=true`) — bkz. "Açık konular".
+- Saklama: `sent` satırlar `SZ_OUTBOX_RETENTION_DAYS` (30), `dead` satırlar
+  `SZ_OUTBOX_DEAD_RETENTION_DAYS` (90) gün sonra toplu silinir (zamanlayıcı `outbox_retention`).
 - `send_pending` (API, commit sonrası) bu oturumun satırlarını hemen gönderir; gönderilemeyen ya da
   süreç çöktüğü için gönderilmeyen satırı zamanlayıcı (`dispatch_due`) gönderir.
 
@@ -120,7 +125,8 @@ testlerde false; `SZ_SCHEDULER_TICK_SECONDS`=15):
 
 | İş | Aralık | Ne yapar |
 |---|---|---|
-| `outbox_dispatch` | 30 sn | zamanı gelmiş kuyruk satırlarını gönderir |
+| `outbox_dispatch` | 30 sn | zamanı gelmiş kuyruk satırlarını (kirası dolmuş `sending` dahil) gönderir |
+| `outbox_retention` | 3600 sn | saklama süresi dolan `sent` / `dead` satırları 500'lük dilimlerle (çalışma başına en çok 20 dilim) siler; açık olayın `sla:*` satırları korunur |
 | `action_expiry` | 60 sn | süresi dolan bekleyen eylem isteklerini `expired` yapar (önceden yalnızca `GET /actions`); bağlı talep `failed` |
 | `sla_check` | 60 sn | açık **P1/P2** olayda SLA `at_risk` / `breached` için nöbetçi bildirimi (`sla.at_risk` / `sla.breached`) kuyruğa ekler; olay + durum başına bir kez (`idempotency_key = sla:<olay>:<durum>`), denetim `sla.alert` (`system:scheduler`) |
 | `request_expiry` | 300 sn | `SZ_REQUEST_APPROVAL_TTL_HOURS` (168) içinde iş onayı verilmeyen talebi **reddeder** (`rejected`; `failed` değil — yeniden deneme iş onayını atlayamasın), kancası kaçmış bekleyen talebi ilerletir |
@@ -323,11 +329,12 @@ ve E2E'de (`portal/e2e/faz4-events.spec.ts`) sınanır.
 
 ## Entegrasyon: göç zinciri, MTTR kanıtı ve uçtan uca senaryolar
 
-**Göçler** tek doğrusal zincirdir (`0001` … `0013`, `tests/test_migrations.py::test_migration_chain_is_linear_single_head`):
+**Göçler** tek doğrusal zincirdir (`0001` … `0014`, `tests/test_migrations.py::test_migration_chain_is_linear_single_head`):
 `0010` bildirim kuyruğu + zamanlayıcı kiraları, **`0011` KPI indeksleri**
 (`ix_incidents_resolved_at`, `ix_incidents_responded_at`, `ix_audit_log_occurred_at`; KPI pencere
 sorguları ve denetim geçmişi okumaları için, `0004` ile aynı "yalnızca yoksa" üslubu), `0012` izleme /
-olay, `0013` sürekli iyileştirme. Boş veritabanında, `0009`'dan (Faz 3) ve `create_all` ile kurulmuş
+olay, `0013` sürekli iyileştirme, `0014` açık konular (`action_requests.event_group_id` +
+indeks ve geri doldurma, `ix_audit_log_entity`). Boş veritabanında, `0009`'dan (Faz 3) ve `create_all` ile kurulmuş
 güncel şemada `alembic upgrade head` + `alembic check` temizdir; `0010`'a geri alınıp yeniden
 yükseltilebilir (`tests/test_migrations.py::test_faz4_upgrade_from_0009_adds_kpi_indexes_and_downgrades`).
 
@@ -381,3 +388,72 @@ düzeltildi:
 | KPI / SLA API | `end=0001-01-05` gibi tarihte pencere hesabı `OverflowError` → 500 | 422 |
 | Zamanlayıcı | Kira = iş zaman aşımı: iptal gecikmesi / saat kaymasında ikinci kopya aynı işi çalıştırabiliyordu | Kira = zaman aşımı + 60 sn pay |
 
+## Açık konuların kapatılması (göç `0014`)
+
+Testler `tests/test_faz4_open_items.py` (her madde önce başarısız testle); kapı bölüm 4'e
+`test_gate_tools_ai_versioned_write_without_version_writes_nothing` eklendi.
+
+**1. Kuyruk saklama süresi** (`notifications.purge_expired`, zamanlayıcı işi `outbox_retention`,
+saatte bir, tek kopya): `state=sent` ve `sent_at < şimdi − SZ_OUTBOX_RETENTION_DAYS` (30) ile
+`state=dead` ve `updated_at < şimdi − SZ_OUTBOX_DEAD_RETENTION_DAYS` (90) satırlar 500'lük dilimlerle
+silinir; her dilim ayrı işlemdir, çalışma başına en çok 20 dilim (kalan sonraki saate). `pending` /
+`failed` / `sending` satırlara dokunulmaz. **SLA tekilleştirmesi:** `sla:<olay>:<durum>` anahtarlı
+satır, olay hâlâ açıkken (`resolved` / `closed` / `cancelled` değilken) silinmez — silinseydi
+`sla_check` aynı ihlal için nöbetçiyi yeniden çağırırdı. Olay çözülüp kapandıktan sonra satır
+silinebilir; çözülen olay sonradan yeniden açılırsa aynı durum için bir kez daha uyarı gidebilir
+(olay yeniden canlıdır; bilinçli). Denetim kayıtları (`notification.*`) silinmez.
+
+**2. Slack nöbetçi tekilliği.** Kuyruk en az bir kez gönderir; kira alınırken satır `sending` olur
+(`attempts + 1`, kira 120 sn). İkinci ve sonraki denemelerde (önceki deneme çökmüş, zaman aşımına
+uğramış ya da hata almış olabilir — alıcı mesajı almış olabilir) bildiriciye
+`possibly_delivered=True` geçer. `SlackOncallNotifier` bot kipinde mesaja `metadata`
+(`event_type=serviszeka_oncall`, `event_payload.idempotency_key`) ekler; yeniden denemede önce
+`conversations.history` (`include_all_metadata=true`, son 6 saat, en çok 200 mesaj) okur ve anahtar
+varsa göndermez (`{"deduplicated": true}` → satır `sent`, denetimde `deduplicated`). Slack
+`chat.postMessage` belgelenmiş bir istemci tekillik anahtarı (`client_msg_id`) kabul etmez; bu
+yüzden meta veri + geçmiş denetimi. Gerekli ek kapsam: `channels:history` (genel kanal) /
+`groups:history` (özel kanal). **Kalan pencere (çift uyarı olabilir):** (a) webhook kipi
+(`SZ_SLACK_WEBHOOK_URL`) geçmiş okuyamaz — anahtar yalnızca bağlam satırında `ref …` olarak görünür;
+(b) geçmiş okunamazsa (kapsam yok, hız sınırı, Slack hatası) yine gönderilir — çift uyarı, kaçırılan
+uyarıya tercih edilir; (c) kanalda son 6 saatte 200'den fazla mesaj varsa ya da Slack mesajı geçmişte
+henüz göstermiyorsa; (d) `SZ_ONCALL_WEBHOOK_URL` (genel webhook) yinelemeyi yalnızca alıcı
+`Idempotency-Key` ile ayıklarsa önler. İlk denemede geçmiş okunmaz (ek gecikme yok).
+
+**3. SMTP sertleştirme** (`connectors/smtp.py`, `connectors/setup.check_smtp_transport`): TLS
+zorunlu — STARTTLS (`SZ_SMTP_STARTTLS`, varsayılan) ya da örtük TLS (`SZ_SMTP_SSL`, 465; ikisi
+birlikte geçersiz). Sunucu STARTTLS sunmazsa düz metne düşülmez, kimlik bilgisi gönderilmez
+(`ConnectorError`, yalnızca istisna türü). TLS'siz SMTP yalnızca `SZ_SMTP_ALLOW_PLAINTEXT=true` **ve**
+`SZ_ENVIRONMENT=development` iken (aksi halde açılış `ConnectorConfigError`; bildirici de
+kurulmaz). Konu/alıcıda satır sonu (başlık enjeksiyonu) `email` kütüphanesinin `ValueError`'ı
+içeriği (adres, konu, parola) taşımayan ve zinciri kesilmiş `ConnectorError`'a çevrilir; hiçbir şey
+gönderilmez.
+
+**4. Olay ajanı sorguları:** `ActionRequest.event_group_id` (indeksli; araç bağı `event_group`,
+`event.create_incident` / `event.acknowledge` / `event.silence`'ta `group_id`'den dolar; göç eski
+`event.*` isteklerini `args.group_id`'den geri doldurur). `_create_blocked`,
+`services.events.pending_create_request` ve `_resolve_proposed` (indeksli `incident_id` bağı) artık
+tek satırlık indeksli SQL sorgusudur; tüm isteklerin JSON argümanları Python'a okunmaz.
+
+**5. MTTA formülü:** iptal edilen olaylar MTTR'de olduğu gibi MTTA'dan da hariçtir
+(`ort(responded_at − created_at)`, `responded_at ∈ W`, tür=olay, **iptal hariç**). Önceki
+sürümle karşılaştırmada MTTA değeri, pencerede yanıtlanıp sonra iptal edilen olay kadar değişebilir.
+
+**6. CSI geçmiş toplamları SQL'de:** `kpi.reassignment_clause` / `reopen_clause` (JSON yol ifadesi:
+SQLite `json_extract`, PostgreSQL `#>>`) `is_reassignment` / `is_reopen` ile aynı kuralı SQL'de
+uygular; `kpi.not_first_contact_ids` yalnızca eşleşen olay kimliklerini döndürür. CSI ajanının
+`kb_unhelpful` sinyali olay durumu ve ilk temas geçmişini SQL'de süzer (denetim satırı ya da olay
+nesnesi yüklenmez); makale ↔ olay eşleşmesi (`AIDecision.sources` JSON listesi) taşınabilirlik için
+Python'da kalır. Bekleyen CSI istekleri yalnızca `args.signal_key` alanıyla okunur. Yeni indeks
+`ix_audit_log_entity (entity_type, entity_id)` olay başına geçmiş sorgularını tam taramadan çıkarır.
+KPI formülleri (`fcr_rate`, `reopen_rate`, `ai_triage_acceptance`) değişmedi.
+
+**7. Yapay zekâ / MCP yazmalarında zorunlu sürüm:** olay/değişiklik kaydını değiştiren ve
+`expected_version` alanı olan araçlarda (`incident.classify|set_priority|assign|link_ci|set_on_hold|resolve`)
+yapay zekâ aktörü (`ai:` / `ai_agent`) ve **her MCP çağıranı** (`execute_tool(require_version=True)`)
+sürümü vermek zorundadır; yoksa `validation_error` ve hiçbir şey yazılmaz (R2 isteği de açılmaz).
+Uyuşmayan sürüm yürütmede 409 (onaylanan R2 isteği, olay o arada değiştiyse `failed`). Olay ajanının
+`incident.resolve` önerisi sürüm taşır. HTTP'de `PATCH /incidents/{id}`, `PUT /incidents/{id}/cis`
+ve `PATCH /changes/{id}` yapay zekâ aktöründen `If-Match` / `expected_version` olmadan **428**
+döner (değişiklik düzenlemesini servis yapay zekâya zaten kapatır: 403). **İnsanlar için şimdilik
+geriye uyumlu:** portal zaten `If-Match` gönderir; REST'te insan çağıranda sürüm isteğe bağlıdır
+(sonraki sürümde zorunlu yapılması planlanıyor).

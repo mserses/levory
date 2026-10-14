@@ -102,6 +102,9 @@ def test_build_smtp_requires_host_and_sender():
             smtp_username="u",
             smtp_password=SecretStr("p"),
             smtp_starttls=False,
+            # TLS'siz SMTP yalnızca geliştirmede ve açık izinle (tests/test_faz4_open_items.py)
+            smtp_allow_plaintext=True,
+            environment="development",
         ),
         None,
     )

@@ -35,7 +35,8 @@ from serviszeka.tools import ToolStatus, actions, execute_tool
 async def _resolve_request(session, fx, actor=AI) -> str:
     r = await execute_tool(
         session, actor, "incident.resolve",
-        {"incident_id": fx.incident_id, "resolution": "VPN istemcisi güncellendi"},
+        {"incident_id": fx.incident_id, "resolution": "VPN istemcisi güncellendi",
+         "expected_version": fx.incident_version},
         reason="Kullanıcı sorunun bittiğini yazdı",
     )  # fmt: skip
     await session.commit()
@@ -63,7 +64,8 @@ async def test_args_display_is_masked_raw_kept(session):
     fx = await seed(session)
     r = await execute_tool(
         session, AI, "incident.resolve",
-        {"incident_id": fx.incident_id, "resolution": "ali@ornek.com ile görüşüldü"},
+        {"incident_id": fx.incident_id, "resolution": "ali@ornek.com ile görüşüldü",
+         "expected_version": fx.incident_version},
     )  # fmt: skip
     ar = await session.get(ActionRequest, r.action_request_id)
     assert ar.args["resolution"] == "ali@ornek.com ile görüşüldü"

@@ -210,7 +210,7 @@ _DEFS: tuple[KPIDefinition, ...] = (
     ),
     KPIDefinition(
         "mtta", "Ortalama ilk yanıt süresi (MTTA)", "hours", "lower",
-        "ort(responded_at - created_at), responded_at ∈ W, tür=olay",
+        "ort(responded_at - created_at), responded_at ∈ W, tür=olay, iptal hariç",
     ),
     KPIDefinition(
         "fcr_rate", "İlk temasta çözüm oranı (vekil)", "percent", "higher",
@@ -413,7 +413,13 @@ async def _mtta(session: AsyncSession, w: Window, now: datetime) -> KPIResult:
         Incident.priority,
         Incident.assignment_group,
         duration_seconds(Incident.responded_at, Incident.created_at),
-    ).where(_IS_INCIDENT, Incident.responded_at.is_not(None), w.contains(Incident.responded_at))
+    ).where(
+        _IS_INCIDENT,
+        # MTTR ile tutarlı: iptal edilen olay (yanlış/yinelenen kayıt) ortalamayı bozmaz
+        Incident.status != IncidentStatus.CANCELLED,
+        Incident.responded_at.is_not(None),
+        w.contains(Incident.responded_at),
+    )
     rows = [
         ({"priority": _key(p), "assignment_group": g}, float(secs or 0.0))
         for p, g, secs in (await session.execute(stmt)).all()
@@ -448,6 +454,52 @@ async def _incident_history(
 
 # Diğer modüller (agents/improvement) için salt okuma geçmiş erişimi
 incident_history = _incident_history
+
+
+# --- denetim geçmişi yüklemleri SQL'de (is_reassignment / is_reopen ile aynı kural) ------------------
+
+
+def _change_value(field_name: str, index: int) -> ColumnElement[Any]:
+    """`details.changes.<alan>[i]` metin değeri (SQLite json_extract / PostgreSQL #>>)."""
+    return AuditLog.details[("changes", field_name, index)].as_string()
+
+
+def reassignment_clause() -> ColumnElement[bool]:
+    """`is_reassignment` SQL karşılığı: dolu bir gruptan farklı bir değere (boş dahil) geçiş."""
+    old, new = _change_value("assignment_group", 0), _change_value("assignment_group", 1)
+    return and_(old.is_not(None), old != "", or_(new.is_(None), old != new))
+
+
+def reopen_clause() -> ColumnElement[bool]:
+    """`is_reopen` SQL karşılığı: `resolved` -> kapalı/çözülmüş olmayan durum."""
+    old, new = _change_value("status", 0), _change_value("status", 1)
+    return and_(
+        old == IncidentStatus.RESOLVED.value,
+        or_(new.is_(None), new.not_in(sorted(_TERMINAL))),
+    )
+
+
+async def not_first_contact_ids(session: AsyncSession, incident_ids: Sequence[str]) -> set[str]:
+    """Yeniden atanmış ya da yeniden açılmış olaylar (ilk temasta çözüm sayılmaz).
+
+    Denetim satırları Python'a okunmaz: yüklem SQL'de (JSON yol ifadesi) değerlendirilir, yalnızca
+    eşleşen olay kimlikleri döner. Sonuç `is_reassignment` / `is_reopen` ile aynıdır
+    (tests/test_faz4_open_items.py).
+    """
+    found: set[str] = set()
+    for part in _chunks(sorted(set(incident_ids))):
+        stmt = (
+            select(AuditLog.entity_id)
+            .where(
+                AuditLog.entity_type == "incident",
+                AuditLog.action == "incident.update",
+                AuditLog.entity_id.in_(list(part)),
+                or_(reassignment_clause(), reopen_clause()),
+            )
+            .distinct()
+        )
+        found.update((await session.scalars(stmt)).all())
+    return found
 
 
 async def _fcr(session: AsyncSession, w: Window, now: datetime) -> KPIResult:

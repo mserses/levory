@@ -265,6 +265,12 @@ async def update_change(
     expected = parse_if_match(if_match)
     if expected is None:
         expected = body.expected_version
+    if user.is_ai and expected is None:
+        # Yapay zekâ sürümsüz yazamaz (servis yapay zekâ düzenlemesini zaten reddeder: 403)
+        raise HTTPException(
+            status.HTTP_428_PRECONDITION_REQUIRED,
+            'Yapay zekâ yazmasında If-Match başlığı (örn. "3") ya da expected_version zorunludur.',
+        )
     try:
         change = await svc.update_change(session, change_id, body, user, expected_version=expected)
     except svc.ChangeError as exc:

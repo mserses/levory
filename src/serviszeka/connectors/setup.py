@@ -130,8 +130,28 @@ def resolve_providers(settings: Settings) -> ProviderSelection:
     return ProviderSelection(identity, notifier, source)
 
 
+def check_smtp_transport(settings: Settings) -> None:
+    """SMTP taşıma güvenliği: TLS (STARTTLS ya da örtük) zorunlu; düz metin yalnızca geliştirmede."""
+    if not (_present(settings.smtp_host) and _present(settings.smtp_sender)):
+        return
+    if settings.smtp_starttls and settings.smtp_ssl:
+        raise ConnectorConfigError(
+            "SZ_SMTP_STARTTLS ve SZ_SMTP_SSL birlikte açılamaz (STARTTLS 587, örtük TLS 465)."
+        )
+    if settings.smtp_allow_plaintext and settings.environment != "development":
+        raise ConnectorConfigError(
+            "SZ_SMTP_ALLOW_PLAINTEXT=true yalnızca SZ_ENVIRONMENT=development iken kullanılabilir."
+        )
+    if not (settings.smtp_starttls or settings.smtp_ssl or settings.smtp_allow_plaintext):
+        raise ConnectorConfigError(
+            "SMTP TLS'siz yapılandırılmış: SZ_SMTP_STARTTLS=true ya da SZ_SMTP_SSL=true yapın "
+            "(düz metin yalnızca geliştirmede SZ_SMTP_ALLOW_PLAINTEXT=true ile)."
+        )
+
+
 def check_startup(settings: Settings) -> None:
     sel = resolve_providers(settings)
+    check_smtp_transport(settings)
     # Hassas bildirim (geçici parola) yalnızca ikincil adrese gider; teslim edilemeyecekse uyar
     smtp_ready = _present(settings.smtp_host) and _present(settings.smtp_sender)
     if (sel.identity == "keycloak" and (not smtp_ready or sel.notifier == "log")) or (

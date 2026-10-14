@@ -598,7 +598,11 @@ AI_TOOL_USER = CurrentUser("ai:gate", frozenset({"ai_agent"}))
 
 # Her R2/R3 araç için geçerli örnek argümanlar (yeni riskli araç eklenince buraya da eklenmeli)
 RISKY_SAMPLES = {
-    "incident.resolve": lambda fx: {"incident_id": fx.incident_id, "resolution": "Çözüldü"},
+    # Yapay zekâ olay yazması sürüm taşır (expected_version zorunlu; bkz. VERSIONED_AI_SAMPLES)
+    "incident.resolve": lambda fx: {
+        "incident_id": fx.incident_id, "resolution": "Çözüldü",
+        "expected_version": fx.incident_version,
+    },
     "change.submit_for_cab": lambda fx: {"change_id": fx.change_id},
     "change.record_pir": lambda fx: {"change_id": fx.change_id, "review_notes": "PIR notu"},
     "kb.publish": lambda fx: {"article_id": fx.draft_article_id},
@@ -623,15 +627,18 @@ CONDITIONAL_RISKY = {
     ),
     "incident.set_priority/p1": (
         "incident.set_priority",
-        lambda fx: {"incident_id": fx.incident_id, "impact": "high", "urgency": "high"},
+        lambda fx: {"incident_id": fx.incident_id, "impact": "high", "urgency": "high",
+                    "expected_version": fx.incident_version},
     ),
     "incident.set_priority/p2": (
         "incident.set_priority",
-        lambda fx: {"incident_id": fx.incident_id, "impact": "high", "urgency": "medium"},
+        lambda fx: {"incident_id": fx.incident_id, "impact": "high", "urgency": "medium",
+                    "expected_version": fx.incident_version},
     ),
     "incident.set_on_hold/awaiting_caller": (
         "incident.set_on_hold",
-        lambda fx: {"incident_id": fx.incident_id, "hold_reason": "awaiting_caller"},
+        lambda fx: {"incident_id": fx.incident_id, "hold_reason": "awaiting_caller",
+                    "expected_version": fx.incident_version},
     ),
     # Faz 4 izleme: kritiklik 1 CI'da kritik uyarı grubu P1 olay açar -> R2
     "event.create_incident/p1": (
@@ -774,7 +781,15 @@ async def _tool_session_fixtures(session):
     await session.commit()
     from _events import seed_p1_group
 
-    return replace(fx, problem_id=problem.id, event_group_id=await seed_p1_group(session))
+    from serviszeka.models import Incident
+
+    version = (await session.get(Incident, fx.incident_id, populate_existing=True)).version
+    return replace(
+        fx,
+        problem_id=problem.id,
+        event_group_id=await seed_p1_group(session),
+        incident_version=version,
+    )
 
 
 @pytest.mark.parametrize("name", sorted(RISKY_SAMPLES))
@@ -822,6 +837,46 @@ async def test_gate_tools_conditional_risk_needs_approval(session, case):
     inc = await session.get(Incident, fx.incident_id)
     assert inc.priority.value == "P5" and inc.status.value == "new" and inc.sla_paused_at is None
     assert await session.scalar(select(func.count()).select_from(Incident)) == before
+
+
+async def test_gate_tools_ai_versioned_write_without_version_writes_nothing(session):
+    # Yapay zekâ (ve MCP) olay/değişiklik yazmasında expected_version zorunlu: sürümsüz çağrı
+    # en gevşek politikada bile hiçbir şey yazmaz (istek, karar, denetim, kayıt değişikliği yok)
+    from serviszeka.models import ActionRequest, AIDecision, AuditLog, Incident
+    from serviszeka.tools import ToolValidationError, execute_tool, registry
+
+    fx = await _tool_session_fixtures(session)
+    before = (
+        await session.scalar(select(func.count()).select_from(AuditLog)),
+        (await session.get(Incident, fx.incident_id)).version,
+    )
+    versioned = [
+        n for n in registry.names()
+        if n.split(".")[0] in ("incident", "change")
+        and "expected_version" in registry.get(n).input_model.model_fields
+    ]  # fmt: skip
+    assert {"incident.resolve", "incident.assign", "incident.set_priority"} <= set(versioned)
+    samples = {
+        "incident.resolve": {"incident_id": fx.incident_id, "resolution": "x"},
+        "incident.assign": {"incident_id": fx.incident_id, "assignee": "ali"},
+        "incident.set_priority": {"incident_id": fx.incident_id, "impact": "high", "urgency": "high"},
+        "incident.set_on_hold": {"incident_id": fx.incident_id, "hold_reason": "awaiting_caller"},
+        "incident.classify": {"incident_id": fx.incident_id, "service": "vpn"},
+        "incident.link_ci": {"incident_id": fx.incident_id, "ci_ids": [fx.ci_id]},
+    }
+    assert set(versioned) <= set(samples)
+    for name in versioned:
+        with pytest.raises(ToolValidationError):
+            await execute_tool(
+                session, AI_TOOL_USER, name, samples[name], confidence=1.0, settings=LOOSE
+            )
+    assert (await session.scalars(select(ActionRequest))).all() == []
+    assert (await session.scalars(select(AIDecision))).all() == []
+    after = (
+        await session.scalar(select(func.count()).select_from(AuditLog)),
+        (await session.get(Incident, fx.incident_id, populate_existing=True)).version,
+    )
+    assert after == before
 
 
 async def test_gate_tools_r3_single_approval_insufficient(session, monkeypatch):

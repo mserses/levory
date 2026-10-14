@@ -66,37 +66,49 @@ class GroupOutcome:
         return {k: v for k, v in self.__dict__.items() if v not in (None, "")}
 
 
-async def _requests(session: AsyncSession, tool: str) -> list[ActionRequest]:
-    return list(
-        (
-            await session.scalars(
-                select(ActionRequest)
-                .where(ActionRequest.tool == tool, ActionRequest.requested_by == ACTOR.username)
-                .order_by(ActionRequest.created_at)
-            )
-        ).all()
-    )
+_ACTIVE = (ActionRequestState.PENDING, ActionRequestState.APPROVED)
 
 
 async def _create_blocked(session: AsyncSession, group: EventGroup) -> str | None:
-    """Bekleyen (ya da reddedilmiş açma) istek varsa nedeni."""
-    for ar in await _requests(session, CREATE_TOOL):
-        if (ar.args or {}).get("group_id") != group.id:
-            continue
-        state = ActionRequestState(ar.state)
-        if state in (ActionRequestState.PENDING, ActionRequestState.APPROVED):
-            return f"bekleyen istek {ar.number}"
-        if state == ActionRequestState.REJECTED and group.incident_id is None:
-            return f"olay açma isteği reddedildi ({ar.number})"
-    return None
+    """Bekleyen (ya da reddedilmiş açma) istek varsa nedeni.
+
+    İndeksli sütunla (`ActionRequest.event_group_id`, göç 0014) yalnızca bu grubun istekleri
+    okunur; tüm isteklerin JSON argümanları Python'da taranmaz.
+    """
+    states = [*_ACTIVE]
+    if group.incident_id is None:
+        states.append(ActionRequestState.REJECTED)
+    ar = await session.scalar(
+        select(ActionRequest)
+        .where(
+            ActionRequest.event_group_id == group.id,
+            ActionRequest.tool == CREATE_TOOL,
+            ActionRequest.requested_by == ACTOR.username,
+            ActionRequest.state.in_(states),
+        )
+        # Bekleyen/onaylanan istek reddedilenden önce gelir (neden metni)
+        .order_by(ActionRequest.state.in_(_ACTIVE).desc(), ActionRequest.created_at)
+        .limit(1)
+    )
+    if ar is None:
+        return None
+    if ActionRequestState(ar.state) in _ACTIVE:
+        return f"bekleyen istek {ar.number}"
+    return f"olay açma isteği reddedildi ({ar.number})"
 
 
 async def _resolve_proposed(session: AsyncSession, incident_id: str) -> bool:
-    return any(
-        (ar.args or {}).get("incident_id") == incident_id
-        and ActionRequestState(ar.state) != ActionRequestState.EXPIRED
-        for ar in await _requests(session, RESOLVE_TOOL)
+    found = await session.scalar(
+        select(ActionRequest.id)
+        .where(
+            ActionRequest.incident_id == incident_id,  # indeksli bağ sütunu
+            ActionRequest.tool == RESOLVE_TOOL,
+            ActionRequest.requested_by == ACTOR.username,
+            ActionRequest.state != ActionRequestState.EXPIRED,
+        )
+        .limit(1)
     )
+    return found is not None
 
 
 async def _storm(
@@ -215,6 +227,9 @@ async def process_group(
                 RESOLVE_TOOL,
                 {
                     "incident_id": incident.id,
+                    # Yapay zekâ yazması sürüm taşır (iyimser kilit): onaya kadar olay değişirse
+                    # yürütme 409 ile durur, insan güncel kayda bakar
+                    "expected_version": incident.version,
                     "resolution": (
                         f"İzleme: {group.number} grubundaki tüm uyarılar çözüldü. "
                         "Hizmetin normale döndüğünü doğrulayıp çözümü onaylayın."

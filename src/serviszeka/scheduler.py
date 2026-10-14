@@ -4,6 +4,9 @@
 
 - `outbox_dispatch` (30 sn): kalıcı bildirim kuyruğundaki zamanı gelmiş satırları gönderir
   (`notifications.dispatch_due`; üstel geri çekilme, en az bir kez).
+- `outbox_retention` (saatte bir): saklama süresi dolan gönderilmiş (`SZ_OUTBOX_RETENTION_DAYS`) ve
+  ölü (`SZ_OUTBOX_DEAD_RETENTION_DAYS`) kuyruk satırlarını toplu siler; açık olayın SLA
+  tekilleştirme satırları (`sla:*`) korunur (`notifications.purge_expired`).
 - `action_expiry` (60 sn): süresi dolan bekleyen eylem isteklerini `expired` yapar
   (`tools.actions.expire_due`; önceden yalnızca `GET /actions` çağrısında oluyordu). Bağlı hizmet
   talebi `failed` olur.
@@ -100,6 +103,10 @@ async def dispatch_outbox(ctx: JobContext) -> dict[str, Any]:
         "failed": actions.count("notification.failed"),
         "dead": actions.count("notification.dead"),
     }
+
+
+async def purge_outbox(ctx: JobContext) -> dict[str, Any]:
+    return await notifications.purge_expired(ctx.session, now=ctx.now, settings=ctx.settings)
 
 
 async def expire_actions(ctx: JobContext) -> dict[str, Any]:
@@ -209,6 +216,7 @@ async def review_improvements(ctx: JobContext) -> dict[str, Any]:
 
 DEFAULT_JOBS: tuple[Job, ...] = (
     Job("outbox_dispatch", 30, dispatch_outbox),
+    Job("outbox_retention", 3600, purge_outbox),
     Job("action_expiry", 60, expire_actions),
     Job("sla_check", 60, check_sla),
     Job("request_expiry", 300, expire_requests),

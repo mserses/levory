@@ -44,6 +44,8 @@ class Fixtures:
     problem_id: str = ""
     # Faz 4 izleme kapı örnekleri için (seed açmaz; kapı testi tests/_events ile kurar)
     event_group_id: str = ""
+    # Olayın güncel sürümü: yapay zekâ / MCP olay yazması expected_version taşımak zorunda
+    incident_version: int = 1
 
 
 async def seed(session) -> Fixtures:
@@ -79,7 +81,9 @@ async def seed(session) -> Fixtures:
         session, title="Taslak", body="Gövde", state="draft", actor="ayse"
     )
     await session.commit()
-    return Fixtures(inc.id, inc.number, change.id, published.id, draft.id, ci.id)
+    return Fixtures(
+        inc.id, inc.number, change.id, published.id, draft.id, ci.id, incident_version=inc.version
+    )
 
 
 class EmptyArgs(BaseModel):

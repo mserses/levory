@@ -29,7 +29,7 @@ TOOL_NAME_RE = re.compile(r"^[a-z][a-z_]*\.[a-z]+(?:_[a-z]+)*$")
 RESERVED_ARGS: frozenset[str] = frozenset({"dry_run", "idempotency_key", "reason", "confidence"})
 
 # Bağlanabilir kayıt türleri (ActionRequest sütunları)
-LINK_KINDS: frozenset[str] = frozenset({"incident", "change", "request"})
+LINK_KINDS: frozenset[str] = frozenset({"incident", "change", "request", "event_group"})
 
 _RISK_ORDER = {RiskClass.R0: 0, RiskClass.R1: 1, RiskClass.R2: 2, RiskClass.R3: 3}
 
@@ -99,7 +99,8 @@ class ToolSpec:
       (admin-yalnız araçlar yapay zekâya kapalıdır: `executor.ai_callable`).
     - `connectors`: gereken bağlayıcı türleri (`tools.connectors`); yapılandırılmamışsa araç
       kullanılamaz (503).
-    - `links`: argüman adı -> bağ türü (`incident`/`change`/`request`); eylem isteğine işlenir.
+    - `links`: argüman adı -> bağ türü (`incident`/`change`/`request`/`event_group`); eylem
+      isteğinin indeksli sütununa işlenir (bekleyen istek aramaları JSON taramadan SQL'de).
     """
 
     name: str

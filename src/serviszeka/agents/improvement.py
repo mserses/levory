@@ -324,14 +324,17 @@ async def _reopen_signals(session, w, now) -> list[Signal]:
     return out
 
 
-def _helped(inc: Incident | None, events: list[Any]) -> bool:
-    """İlk temasta çözüm vekili: çözüldü, yeniden atanmadı, yeniden açılmadı."""
-    if inc is None or inc.resolved_at is None or inc.status == IncidentStatus.CANCELLED:
-        return False
-    return not any(kpi.is_reassignment(e.details) or kpi.is_reopen(e.details) for e in events)
+async def _incident_ids(session: AsyncSession, ids: list[str], *where: Any) -> set[str]:
+    out: set[str] = set()
+    for i in range(0, len(ids), 500):
+        stmt = select(Incident.id).where(Incident.id.in_(ids[i : i + 500]), *where)
+        out.update((await session.scalars(stmt)).all())
+    return out
 
 
 async def _kb_signals(session, w) -> list[Signal]:
+    """İşe yaramayan makale: öneri eşleştirmesi (JSON `sources` listesi) Python'da; olay durumu ve
+    yeniden atama/açma geçmişi SQL'de (yalnızca kimlikler okunur; denetim satırı yüklenmez)."""
     decisions = (
         await session.scalars(
             select(AIDecision).where(
@@ -353,26 +356,29 @@ async def _kb_signals(session, w) -> list[Signal]:
         a.id: a
         for a in (
             await session.scalars(
-                select(KnowledgeArticle).where(KnowledgeArticle.id.in_(list(candidates)))
+                select(KnowledgeArticle).where(
+                    KnowledgeArticle.id.in_(list(candidates)),
+                    KnowledgeArticle.state == "published",
+                )
             )
         ).all()
-        if a.state == "published"
     }
-    incident_ids = sorted({i for ids in candidates.values() for i in ids})
-    incidents = {
-        i.id: i
-        for i in (await session.scalars(select(Incident).where(Incident.id.in_(incident_ids)))).all()
-    }
-    history = await kpi.incident_history(session, incident_ids)
+    incident_ids = sorted({i for a, ids in candidates.items() if a in articles for i in ids})
+    resolved = await _incident_ids(session, incident_ids, Incident.resolved_at.is_not(None))
+    # İlk temasta çözüm vekili: çözüldü, iptal değil, yeniden atanmadı, yeniden açılmadı
+    eligible = await _incident_ids(
+        session,
+        sorted(resolved),
+        Incident.resolved_at.is_not(None),
+        Incident.status != IncidentStatus.CANCELLED,
+    )
+    helped_ids = eligible - await kpi.not_first_contact_ids(session, sorted(eligible))
     out = []
     for article_id, ids in sorted(candidates.items()):
         article = articles.get(article_id)
-        if article is None:
+        if article is None or ids & helped_ids:
             continue
-        helped = sum(_helped(incidents.get(i), history.get(i, [])) for i in ids)
-        if helped:
-            continue
-        resolved = sum(1 for i in ids if incidents.get(i) and incidents[i].resolved_at)
+        resolved_count = len(ids & resolved)
         out.append(
             Signal(
                 key=f"kb_unhelpful:{article_id}",
@@ -381,11 +387,11 @@ async def _kb_signals(session, w) -> list[Signal]:
                 title=f"{article.number} makalesi önerildiği olaylarda işe yaramıyor",
                 summary=(
                     f"{article.number} '{article.title}' son pencerede {len(ids)} olayda önerildi; "
-                    f"hiçbiri ilk temasta çözülmedi ({resolved} çözülen)."
+                    f"hiçbiri ilk temasta çözülmedi ({resolved_count} çözülen)."
                 ),
                 evidence={
                     "article_number": article.number, "suggested": len(ids), "helped": 0,
-                    "resolved": resolved, "window": _win(w),
+                    "resolved": resolved_count, "window": _win(w),
                 },
                 kpi_key="fcr_rate",
                 benefit=2,
@@ -586,12 +592,16 @@ def describe(signal: Signal, narrative: str | None) -> str:
 
 
 async def _pending_args(session: AsyncSession, tool: str, key: str) -> set[str]:
+    """Bekleyen isteklerdeki argüman değerleri; yalnızca o JSON alanı SQL'de okunur."""
+    value = ActionRequest.args[key].as_string()
     rows = await session.scalars(
-        select(ActionRequest).where(
-            ActionRequest.tool == tool, ActionRequest.state == ActionRequestState.PENDING
+        select(value).where(
+            ActionRequest.tool == tool,
+            ActionRequest.state == ActionRequestState.PENDING,
+            value.is_not(None),
         )
     )
-    return {str((ar.args or {}).get(key)) for ar in rows.all() if (ar.args or {}).get(key)}
+    return {str(v) for v in rows.all() if v}
 
 
 async def propose_improvements(

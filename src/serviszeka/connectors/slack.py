@@ -15,6 +15,14 @@ Uygulananlar:
   değilse `ConnectorError`.
 - `SlackOncallNotifier` (`notifications.Notifier`, `notify(event, payload)`): nöbetçi uyarısını
   `SZ_SLACK_ONCALL_CHANNEL` kanalına (bot) ya da `SZ_SLACK_WEBHOOK_URL` webhook'una gönderir.
+  **Tekillik** (kuyruk en az bir kez gönderir): bot kipinde mesaj `metadata`
+  (`event_type=serviszeka_oncall`, `event_payload.idempotency_key`) taşır; yeniden denemede
+  (`possibly_delivered=True`) önce `conversations.history` (son `ONCALL_HISTORY_LOOKBACK` sn, en çok
+  `ONCALL_HISTORY_LIMIT` mesaj, `include_all_metadata`) okunur, anahtar varsa yeniden gönderilmez
+  (`{"deduplicated": True}`). Slack `chat.postMessage` belgelenmiş bir istemci tekillik anahtarı
+  (`client_msg_id`) kabul etmediği için meta veri + geçmiş kullanılır. Geçmiş okunamazsa (kapsam
+  yok, hata) yine gönderilir: çift uyarı kaçırılan uyarıya tercih edilir. Webhook kipinde geçmiş
+  okunamaz; anahtar mesajın bağlam satırında görünür (kalan pencere docs/faz4.md).
 - `SlackWebhook`: gelen webhook (tek kanala bağlı; yanıt düz metin `ok`, hata metni ör.
   `no_service`, `invalid_payload`).
 
@@ -25,13 +33,16 @@ Kaçışlama: kullanıcı/yapay zekâ metninin tamamı `escape` ile `&`, `<`, `>
 
 Gerekli bot belirteci kapsamları — **doğrulanmalı** (docs/faz3.md "doğrulanmalı"):
 `chat:write` (kanal + DM gönderimi; bot kanala üye olmalı, değilse `not_in_channel`),
-`im:write` (`conversations.open`), `users:read` + `users:read.email` (`users.lookupByEmail`).
+`im:write` (`conversations.open`), `users:read` + `users:read.email` (`users.lookupByEmail`);
+nöbetçi tekilliği için `channels:history` (genel kanal) / `groups:history` (özel kanal).
 """
 
 from __future__ import annotations
 
 import asyncio
+import logging
 import re
+import time
 from collections.abc import Awaitable, Callable, Iterable, Mapping
 from typing import Any
 
@@ -43,6 +54,8 @@ from serviszeka.connectors.base import (
     ConnectorNotFoundError,
     ConnectorNotSupportedError,
 )
+
+logger = logging.getLogger(__name__)
 
 SLACK_API = "https://slack.com/api"
 DEFAULT_TIMEOUT = 10.0
@@ -465,6 +478,12 @@ _ONCALL_LABELS = {
 }
 
 
+ONCALL_METADATA_TYPE = "serviszeka_oncall"
+# Yeniden denemede geçmişte aranacak süre (kuyruk kirası 120 sn + geri çekilme en fazla 1 sa)
+ONCALL_HISTORY_LOOKBACK = 6 * 3600
+ONCALL_HISTORY_LIMIT = 200
+
+
 class SlackOncallNotifier:
     """Nöbetçi uyarısı (`notifications.Notifier`): bot + nöbet kanalı ya da gelen webhook."""
 
@@ -474,14 +493,57 @@ class SlackOncallNotifier:
         *,
         channel: str | None = None,
         webhook: SlackWebhook | None = None,
+        clock: Callable[[], float] = time.time,
     ) -> None:
         if not ((client is not None and channel) or webhook is not None):
             raise ConnectorError("Slack nöbetçi uyarısı için bot + kanal ya da webhook gerekli.")
         self.client = client
         self.channel = channel
         self.webhook = webhook
+        self._clock = clock
 
-    async def notify(self, event: str, payload: dict[str, Any]) -> None:
+    async def already_posted(self, idempotency_key: str) -> bool:
+        """Nöbet kanalının yakın geçmişinde bu anahtarlı mesaj var mı (yalnızca bot kipi).
+
+        Okunamazsa False (gönderim sürer; çift uyarı kaçırılan uyarıdan iyidir).
+        """
+        if self.client is None or not self.channel:
+            return False
+        try:
+            body = await self.client.api(
+                "conversations.history",
+                params={
+                    "channel": self.channel,
+                    "oldest": f"{self._clock() - ONCALL_HISTORY_LOOKBACK:.6f}",
+                    "limit": ONCALL_HISTORY_LIMIT,
+                    "include_all_metadata": "true",
+                },
+            )
+        except ConnectorError as exc:
+            logger.warning("Slack nöbet kanalı geçmişi okunamadı (%s); uyarı yeniden gönderilir.", exc)
+            return False
+        for message in body.get("messages") or []:
+            meta = message.get("metadata") if isinstance(message, dict) else None
+            if not isinstance(meta, dict) or meta.get("event_type") != ONCALL_METADATA_TYPE:
+                continue
+            data = meta.get("event_payload")
+            if isinstance(data, dict) and data.get("idempotency_key") == idempotency_key:
+                return True
+        return False
+
+    async def notify(
+        self,
+        event: str,
+        payload: dict[str, Any],
+        *,
+        idempotency_key: str | None = None,
+        possibly_delivered: bool = False,
+    ) -> dict[str, Any] | None:
+        bot = self.client is not None and bool(self.channel)
+        if bot and idempotency_key and possibly_delivered and await self.already_posted(
+            idempotency_key
+        ):
+            return {"deduplicated": True}
         text = payload.get("message") or payload.get("title") or event
         severity = payload.get("severity") or payload.get("proposed_priority")
         title = f"Nöbetçi uyarısı ({severity})" if severity else "Nöbetçi uyarısı"
@@ -490,12 +552,23 @@ class SlackOncallNotifier:
             for k, v in payload.items()
             if k in _ONCALL_LABELS and isinstance(v, (str, int, float))
         ]
-        message = build_message(title, str(text), fields=fields, context=[f"{CONTEXT_LABEL} · {event}"])
-        if self.client is not None and self.channel:
+        context = f"{CONTEXT_LABEL} · {event}"
+        if idempotency_key:
+            # İnsan da yinelemeyi tanıyabilsin (webhook kipinde tek tekillik ipucu)
+            context += f" · ref {idempotency_key[:120]}"
+        message = build_message(title, str(text), fields=fields, context=[context])
+        if bot:
+            assert self.client is not None and self.channel
+            if idempotency_key:
+                message["metadata"] = {
+                    "event_type": ONCALL_METADATA_TYPE,
+                    "event_payload": {"idempotency_key": idempotency_key},
+                }
             await self.client.post_message(self.channel, message)
         else:
             assert self.webhook is not None
             await self.webhook.post(message)
+        return None
 
 
 # --- ayarlardan kurulum ------------------------------------------------------------------------------

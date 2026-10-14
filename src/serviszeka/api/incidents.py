@@ -88,6 +88,18 @@ def _parse_if_match(value: str | None) -> int | None:
     return int(m.group(1))
 
 
+def _require_version_for_ai(user: CurrentUser, expected: int | None) -> None:
+    """Yapay zekâ aktörü (`ai:` / `ai_agent`) sürümsüz yazamaz: 428 (iyimser kilit zorunlu).
+
+    İnsanlar (portal zaten If-Match gönderir) için şimdilik geriye uyumlu: sürüm isteğe bağlı.
+    """
+    if user.is_ai and expected is None:
+        raise HTTPException(
+            status.HTTP_428_PRECONDITION_REQUIRED,
+            'Yapay zekâ yazmasında If-Match başlığı (örn. "3") ya da expected_version zorunludur.',
+        )
+
+
 async def _get_or_404(session: AsyncSession, incident_id: str, user: CurrentUser | None = None):
     incident = await svc.get_incident(session, incident_id)
     # Self-servis kullanıcı başkasının kaydını göremez; varlığı da sızdırılmaz (404)
@@ -250,6 +262,7 @@ async def update_incident(
     expected = _parse_if_match(if_match)
     if expected is None:
         expected = data.expected_version
+    _require_version_for_ai(user, expected)
     try:
         incident = await svc.update_incident(
             session, incident_id, data, user.username, expected_version=expected
@@ -288,6 +301,7 @@ async def set_incident_cis(
     expected = _parse_if_match(if_match)
     if expected is None:
         expected = body.expected_version
+    _require_version_for_ai(user, expected)
     try:
         incident = await svc.set_affected_cis(
             session, incident_id, body.ci_ids, user.username, expected_version=expected

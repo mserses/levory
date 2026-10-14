@@ -52,7 +52,8 @@ INSTRUCTIONS = (
     "riskli yazma (politika izin verirse otomatik, yoksa onaya düşer); R2/R3 her zaman insan onayı "
     'ister ve {"status": "pending_approval", "action_request_id": ...} döner. Yazan araçlara '
     "güven skorunuzu (confidence, 0-1) ve gerekçenizi (reason) verin; tekrar denemede aynı "
-    "idempotency_key'i kullanın; emin değilseniz önce dry_run=true deneyin."
+    "idempotency_key'i kullanın; emin değilseniz önce dry_run=true deneyin. Olay/değişiklik "
+    "kaydını değiştiren araçlarda expected_version zorunludur (kaydı okuyup güncel sürümü verin)."
 )
 
 ENVELOPE_SCHEMA: dict[str, Any] = {
@@ -253,6 +254,8 @@ class MCPGateway:
                     model=f"mcp:{user.username}"[:100],
                     settings=settings,
                     llm=self.llm_provider(),
+                    # MCP üzerinden olay/değişiklik yazması sürüm taşır (iyimser kilit)
+                    require_version=True,
                 )
             except ToolError as exc:
                 await session.rollback()

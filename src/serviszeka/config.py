@@ -106,6 +106,11 @@ class Settings(BaseSettings):
     smtp_username: str | None = None
     smtp_password: SecretStr | None = None
     smtp_starttls: bool = True
+    # Örtük TLS (SMTPS, genellikle 465): STARTTLS yerine bağlantı baştan TLS'tir (ikisi birlikte
+    # geçersiz). TLS'siz (düz metin) SMTP yalnızca SZ_SMTP_ALLOW_PLAINTEXT=true VE
+    # SZ_ENVIRONMENT=development iken kabul edilir; aksi halde uygulama açılmaz.
+    smtp_ssl: bool = False
+    smtp_allow_plaintext: bool = False
     # Slack (connectors/slack.py): bot belirteci (xoxb-..., gizli) varsa `messaging` bağlayıcısı
     # Slack olur (kanal mesajı + DM); hassas bildirim yine ikincil adrese (Graph/sahte) gider.
     slack_bot_token: SecretStr | None = None
@@ -134,6 +139,11 @@ class Settings(BaseSettings):
     # üstel geri çekilme tabanı (sn; deneme n için taban * 2^(n-1), en fazla 1 saat)
     notification_max_attempts: int = Field(default=5, ge=1, le=50)
     notification_backoff_seconds: float = Field(default=30.0, gt=0)
+    # Kuyruk saklama süresi (zamanlayıcı işi outbox_retention): gönderilmiş satırlar bu kadar gün,
+    # ölü (dead) satırlar ayrı süre sonra toplu silinir. Açık olayın SLA tekilleştirme satırları
+    # (`sla:*`) olay açık kaldıkça silinmez. Denetim kayıtları (notification.*) etkilenmez.
+    outbox_retention_days: int = Field(default=30, ge=1, le=3650)
+    outbox_dead_retention_days: int = Field(default=90, ge=1, le=3650)
     # Arka plan zamanlayıcısı (scheduler.py; FastAPI lifespan): kuyruk gönderimi, eylem isteği süre
     # aşımı, SLA ihlal/risk uyarısı, bekleyen hizmet talepleri. Birden fazla kopyada her işi tek
     # kopya çalıştırır (scheduler_leases). Testlerde kapalı.

@@ -12,6 +12,7 @@ from sqlalchemy import (
     Enum,
     Float,
     ForeignKey,
+    Index,
     Integer,
     String,
     Table,
@@ -157,6 +158,8 @@ class AuditLog(Base):
     """Değiştirilemez denetim günlüğü: her kayıt bir öncekinin hash'ine zincirlenir."""
 
     __tablename__ = "audit_log"
+    # Kayıt geçmişi okumaları (KPI / CSI: olay başına incident.update satırları) indeksli (göç 0014)
+    __table_args__ = (Index("ix_audit_log_entity", "entity_type", "entity_id"),)
 
     seq: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     # Faz 4: KPI geçmiş okumaları (yeniden açılma, FCR, AI kabulü) pencereyle süzer (göç 0011)
@@ -445,6 +448,9 @@ class ActionRequest(Base):
     change_id: Mapped[str | None] = mapped_column(ForeignKey("change_requests.id"), index=True)
     # Hizmet talebi (service_requests.id); FK'siz indeksli sütun (göç 0008 indeksi ekler)
     request_id: Mapped[str | None] = mapped_column(String(36), index=True)
+    # İzleme uyarı grubu (event_groups.id); FK'siz indeksli sütun (göç 0014): olay ajanının
+    # bekleyen/reddedilen istek aramaları JSON `args` taraması yerine indeksli SQL
+    event_group_id: Mapped[str | None] = mapped_column(String(36), index=True)
     # Yapay zekâ isteğinde policy.evaluate kararı (AIDecision.id)
     decision_id: Mapped[str | None] = mapped_column(String(36))
     result: Mapped[dict[str, Any] | None] = mapped_column(JSON)

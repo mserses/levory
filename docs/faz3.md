@@ -302,7 +302,7 @@ posta/lisans/bildirim Keycloak'ta yok — `messaging` için Slack ayarlanabilir)
   değerler alınır; boş ayar özniteliği kapatır. Arama sonucu öznitelik taşımıyorsa kullanıcı `GET /users/{id}`
   tam gösteriminden okunur. Keycloak e-posta göndermez: teslimat **SMTP bildiricisi** (`connectors/smtp.py`,
   `SZ_SMTP_HOST` + `SZ_SMTP_SENDER`, isteğe bağlı `SZ_SMTP_PORT`=587, `SZ_SMTP_USERNAME`, `SZ_SMTP_PASSWORD`
-  (gizli), `SZ_SMTP_STARTTLS`=true) ile yapılır: hassas bildirim yalnızca `other_mails[0]`'a (yoksa
+  (gizli), `SZ_SMTP_STARTTLS`=true ya da örtük TLS `SZ_SMTP_SSL`; TLS'siz yalnızca geliştirmede `SZ_SMTP_ALLOW_PLAINTEXT` — bkz. docs/faz4.md "Açık konular") ile yapılır: hassas bildirim yalnızca `other_mails[0]`'a (yoksa
   `ConnectorError`, birincil posta kutusuna asla), diğer bildirimler birincil e-postaya; kanal mesajı
   desteklenmez. Keycloak + SMTP'de `messaging` SMTP'dir; Slack ayarlıysa `messaging` Slack olur ve hassas
   bildirim SMTP'ye devredilir. SMTP hatası yalnızca istisna türünü taşır (sunucu yanıtı/parola/mesaj yok).

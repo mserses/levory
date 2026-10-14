@@ -105,7 +105,10 @@ async def test_mcp_r0_result_is_pii_masked_for_ai(mcp_app, session):
 
 async def test_mcp_r2_returns_pending_approval(mcp_app, session):
     fx = await seed(session)
-    args = {"incident_id": fx.incident_id, "resolution": "Güncellendi", "reason": "Kullanıcı onayı"}
+    args = {
+        "incident_id": fx.incident_id, "resolution": "Güncellendi", "reason": "Kullanıcı onayı",
+        "expected_version": fx.incident_version,
+    }
     async with mcp_client(AI_H) as c:
         res = await c.call_tool("incident.resolve", args)
     body = _payload(res)
@@ -123,6 +126,7 @@ async def test_mcp_r1_policy_and_idempotency(mcp_app, session):
         "assignment_group": "network_ops",
         "confidence": 0.95,
         "idempotency_key": "mcp-1",
+        "expected_version": fx.incident_version,
     }
     async with mcp_client(AI_H) as c:
         first = _payload(await c.call_tool("incident.assign", args))
@@ -156,7 +160,8 @@ async def test_mcp_dry_run(mcp_app, session):
     fx = await seed(session)
     async with mcp_client(AI_H) as c:
         res = await c.call_tool(
-            "incident.resolve", {"incident_id": fx.incident_id, "resolution": "x", "dry_run": True}
+            "incident.resolve",
+            {"incident_id": fx.incident_id, "resolution": "x", "dry_run": True, "expected_version": fx.incident_version},
         )
     body = _payload(res)
     assert body["status"] == "dry_run" and body["result"]["would"] == "pending_approval"
@@ -183,7 +188,8 @@ async def test_mcp_oidc_service_principal(session, monkeypatch):
         async with mcp_client({"Authorization": f"Bearer {token}"}) as c:
             body = _payload(
                 await c.call_tool(
-                    "incident.resolve", {"incident_id": fx.incident_id, "resolution": "x"}
+                    "incident.resolve",
+                    {"incident_id": fx.incident_id, "resolution": "x", "expected_version": fx.incident_version},
                 )
             )
         bad = idp.token(sub="x", roles=["ai_agent"], exp=1)
@@ -196,3 +202,24 @@ async def test_mcp_oidc_service_principal(session, monkeypatch):
     assert ar.requested_by == "ai:servicedesk-copilot"
     actors = set((await session.scalars(select(AuditLog.actor))).all())
     assert "ai:servicedesk-copilot" in actors
+
+
+async def test_mcp_versioned_write_requires_expected_version(mcp_app, session):
+    # MCP üzerinden olay yazması (yapay zekâ ya da insan) sürüm taşımalı; sürümsüz çağrı hiçbir
+    # şey yazmaz. Okuma araçları etkilenmez.
+    fx = await seed(session)
+    for headers in (AI_H, dev_headers("ayse", "agent")):
+        async with mcp_client(headers) as c:
+            res = await c.call_tool(
+                "incident.assign", {"incident_id": fx.incident_id, "assignee": "mehmet"}
+            )
+            assert res.is_error and _payload(res)["error"]["code"] == "validation_error"
+            assert "expected_version" in _payload(res)["error"]["message"]
+            assert not (await c.call_tool("incident.get", {"incident_id": fx.incident_id})).is_error
+    assert (await session.scalars(select(ActionRequest))).all() == []
+    async with mcp_client(dev_headers("ayse", "agent")) as c:
+        res = await c.call_tool(
+            "incident.assign",
+            {"incident_id": fx.incident_id, "assignee": "mehmet", "expected_version": fx.incident_version},
+        )
+    assert _payload(res)["status"] == "executed"

@@ -170,15 +170,12 @@ async def _failure_history(
     """(sonuçlanan değişiklik sayısı, başarısız olanlar) — aynı CI'lar, son 180 gün."""
     if not ci_ids:
         return 0, 0
-    stmt = (
-        select(ChangeRequest)
-        .join(change_affected_cis, change_affected_cis.c.change_id == ChangeRequest.id)
-        .where(
-            change_affected_cis.c.ci_id.in_(ci_ids),
-            ChangeRequest.id != change.id,
-            ChangeRequest.implementation_outcome.is_not(None),
-        )
-        .distinct()
+    # Alt sorgu (JOIN + DISTINCT değil): PostgreSQL JSON sütunlarında DISTINCT yapamaz
+    sharing = select(change_affected_cis.c.change_id).where(change_affected_cis.c.ci_id.in_(ci_ids))
+    stmt = select(ChangeRequest).where(
+        ChangeRequest.id.in_(sharing),
+        ChangeRequest.id != change.id,
+        ChangeRequest.implementation_outcome.is_not(None),
     )
     cutoff = now - FAILURE_WINDOW
     total = failed = 0

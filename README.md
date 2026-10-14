@@ -58,6 +58,17 @@
 | `src/serviszeka/main.py` | FastAPI uygulaması, `/health` |
 | `migrations/` | Alembic veritabanı göçleri (`alembic.ini`, async `env.py`) |
 
+## Demo (tek komut)
+
+SENTETİK Türkçe demo verisiyle (26 CI, son 60 güne yayılmış 40 olay, sorun/bilinen hata, bilgi bankası, insansız katalog talepleri, CAB'da bekleyen değişiklik, bağıntılı uyarı grubu, ölçülmeye hazır iyileştirme) API + portal; geliştirme kipi (dev kimlik, sahte LLM, sahte dizin, zamanlayıcı açık). 10 dakikalık rehberli tur ve kullanıcılar: [`DEMO.md`](DEMO.md).
+
+```bash
+docker compose -f docker-compose.demo.yml up --build   # PostgreSQL; portal http://localhost:8080
+./scripts/demo.sh                                      # Docker'sız: SQLite + uv + npm; portal http://localhost:5173
+./scripts/demo.sh --check                              # duman testi (başlat, /health + portal kökü, durdur)
+uv run python -m serviszeka.demo_seed                  # yalnızca tohum (idempotent; SZ_ENVIRONMENT=development dışında reddeder)
+```
+
 ## Yerelde çalıştırma (uv)
 
 Gereksinim: Python 3.11+ ve [uv](https://docs.astral.sh/uv/).
@@ -353,6 +364,12 @@ Gerçek veri **değildir**: bellek içi SQLite'ta deterministik bir önce/sonra 
 Gerçek bir kurulumda aynı kanıt `GET /kpi?kpi=mttr&days=30` (önceki pencereye göre `delta_pct`) ve kapanan iyileştirmenin `measurement` alanıdır.
 
 Uçtan uca (`portal/e2e/faz4-*.spec.ts`; gölge mod kapalı, SENTETİK geçmişle tohumlanmış ayrı backend + portal çifti, `E2E_PROFILE=faz4`): Alertmanager webhook'u veritabanı CI'sı ve bağımlı uygulamada ateşleyen uyarılarla **tek** bağıntılı grup ve **tek** olay (P2 → onay bekler, onaylanınca açılır) üretir, çözülen uyarı aynı olaya not ekler; KPI panosu tohumlanmış veriyle API ile aynı değerleri gösterir; tohumdaki MTTR gerilemesinden CSI ajanı iyileştirme önerir → onay → uygulama → ölçüm → kapanış ve ölçülen değer görünür.
+
+## Üretim belgeleri
+
+- [`docs/KURULUM.md`](docs/KURULUM.md) — mimari, PostgreSQL ve göçler, tüm `SZ_` ayarları (`docs/_gen_settings.py` ile üretilir), Keycloak / Entra ID OIDC, bağlayıcı izinleri, MCP istemcisi, TLS/CSP, yedekleme ve sürüm yükseltme
+- [`docs/ISLETIM.md`](docs/ISLETIM.md) — sağlık kontrolleri, zamanlayıcı kiraları, ölü bildirimler, denetim zinciri, gizli döndürme, olay oyun kitapları, KVKK, kapıların yeniden ölçümü
+- [`docs/GUVENLIK.md`](docs/GUVENLIK.md) — tehdit modeli, yapılan incelemeler, kalan riskler
 
 ## Yol haritası
 
