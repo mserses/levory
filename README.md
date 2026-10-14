@@ -71,7 +71,7 @@ uv run python -m serviszeka.demo_seed                  # yalnızca tohum (idempo
 
 ### Yayınlanmış Docker imajları
 
-`.github/workflows/serviszeka-docker.yml`, `main`'e gelen her değişiklikte ve `serviszeka-v*` etiketlerinde iki imajı GitHub Container Registry'ye yayınlar (linux/amd64 + linux/arm64):
+`.github/workflows/docker.yml`, `main`'e gelen her değişiklikte ve `serviszeka-v*` etiketlerinde iki imajı GitHub Container Registry'ye yayınlar (linux/amd64 + linux/arm64):
 
 | İmaj | İçerik |
 | --- | --- |
@@ -91,7 +91,7 @@ Paketler ilk yayında GitHub'da özeldir; herkese açmak için GitHub > Packages
 Gereksinim: Python 3.11+ ve [uv](https://docs.astral.sh/uv/).
 
 ```bash
-cd serviszeka
+cd levory
 uv sync                       # bağımlılıkları kur
 cp .env.example .env          # ayarları düzenleyin (varsayılan: SQLite)
 uv run uvicorn serviszeka.main:app --reload

@@ -487,7 +487,7 @@ async def test_rejected_create_request_is_not_reproposed(session):
     await chain(session)
     res = await _ingest(session, am_alert("fp-host", ci="db-host-01"), at=T0)
     [out] = await event_agent.process_groups(session, res.group_ids, settings=LIVE, now=T0)
-    await actions.reject(session, out.action_request_id, HUMAN, "Bakım çalışması")
+    await actions.reject(session, out.action_request_id, HUMAN, "Bakım çalışması", now=T0)
     [again] = await event_agent.process_groups(session, res.group_ids, settings=LIVE, now=T0)
     assert again.action == "skipped" and "reddedildi" in again.reason
     assert await _count(session, ActionRequest) == 1
