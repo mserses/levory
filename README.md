@@ -69,6 +69,23 @@ docker compose -f docker-compose.demo.yml up --build   # PostgreSQL; portal http
 uv run python -m serviszeka.demo_seed                  # yalnızca tohum (idempotent; SZ_ENVIRONMENT=development dışında reddeder)
 ```
 
+### Yayınlanmış Docker imajları
+
+`.github/workflows/serviszeka-docker.yml`, `main`'e gelen her değişiklikte ve `serviszeka-v*` etiketlerinde iki imajı GitHub Container Registry'ye yayınlar (linux/amd64 + linux/arm64):
+
+| İmaj | İçerik |
+| --- | --- |
+| `ghcr.io/mserses/serviszeka-api` | API; üretim ve demo için aynı imaj, davranış `SZ_*` ortam değişkenleriyle seçilir |
+| `ghcr.io/mserses/serviszeka-portal-demo` | Demo portalı: dev girişi ve `http://localhost:8000` API adresi pakete gömülü. Üretim portalı kurumun OIDC/API adresleriyle kendi derlemesini gerektirir (`docs/KURULUM.md`) |
+
+Etiketler: `latest` (main), `sha-<kısa commit>`, `serviszeka-v1.2.3` etiketinden `1.2.3`. Demo'yu derlemeden, yayınlanmış imajlarla açmak için:
+
+```bash
+docker compose -f docker-compose.demo.yml -f docker-compose.ghcr.yml up
+```
+
+Paketler ilk yayında GitHub'da özeldir; herkese açmak için GitHub > Packages > paket ayarları > "Change visibility".
+
 ## Yerelde çalıştırma (uv)
 
 Gereksinim: Python 3.11+ ve [uv](https://docs.astral.sh/uv/).
