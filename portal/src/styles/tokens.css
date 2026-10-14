@@ -44,12 +44,16 @@
   --shadow-md: 0 4px 12px rgb(15 23 42 / 0.08), 0 1px 3px rgb(15 23 42 / 0.06);
   --shadow-lg: 0 16px 40px rgb(15 23 42 / 0.18);
   --z-header: 10;
+  --z-sticky: 5;
+  --z-drawer: 40;
   --z-dialog: 50;
   --z-toast: 60;
 
   /* Yerleşim */
   --content-max: 1200px;
   --header-height: 56px;
+  --sidebar-width: 240px;
+  --sidebar-width-drawer: 288px;
   --control-height: 40px;
   --focus-ring-width: 3px;
 

@@ -22,6 +22,7 @@ import { usePageTitle } from '@/lib/usePageTitle';
 import { Drawer } from './components/Drawer';
 import { RequestDetails } from './components/RequestDetails';
 import styles from './MyRequestsPage.module.css';
+import { cx } from '@/lib/cx';
 
 /** Tek istekte çekilen en fazla kayıt (backend üst sınırı 500) */
 export const MY_REQUESTS_LIMIT = 200;
@@ -134,7 +135,7 @@ export default function MyRequestsPage() {
             description="Diğer talepleri görmek için “Göster” seçimini değiştirin."
           />
         ) : (
-          <div className={styles.tableWrap}>
+          <div className={cx(styles.tableWrap, styles.listWrap)}>
             <table className={styles.table}>
               <caption className="visually-hidden">
                 Talepleriniz; ayrıntı için başlığa tıklayın

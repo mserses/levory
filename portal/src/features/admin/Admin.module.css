@@ -218,3 +218,11 @@
     overflow-wrap: anywhere;
   }
 }
+
+/* Ortak tablo düzeni: satırlar ince çizgiyle ayrılır ve üzerine gelince vurgulanır. */
+.table tbody tr {
+  transition: background-color var(--duration-fast) var(--easing);
+}
+.table tbody tr:hover {
+  background: var(--color-surface-muted);
+}

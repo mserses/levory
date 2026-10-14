@@ -1,11 +1,12 @@
 import { screen, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { makeArticle } from '@/test/fixtures';
 import { apiUrl } from '@/test/handlers';
 import { server } from '@/test/server';
 import { ADMIN, AGENT, APPROVER, REQUESTER, renderApp } from '@/test/render';
-import { homePathFor, navItemsFor } from './navigation';
+import { COMPACT_QUERY } from './AppShell';
+import { NAV_GROUPS, homePathFor, navGroupsFor, navItemsFor } from './navigation';
 
 const navLabels = async () => {
   const nav = await screen.findByRole('navigation', { name: 'Ana menü' });
@@ -70,6 +71,39 @@ describe('navigasyon haritası', () => {
     expect(navItemsFor(['approver']).map((i) => i.path)).not.toContain('/cmdb');
   });
 
+  it('menü grupları sabit sırada; her öğe bir gruba ait, boş gruplar gizlenir', () => {
+    const groupLabels = (roles: string[]) => navGroupsFor(roles).map((g) => g.label);
+    expect(NAV_GROUPS.map((g) => g.label)).toEqual([
+      'Self-servis',
+      'Hizmet operasyonu',
+      'Değişiklik ve yapılandırma',
+      'Bilgi',
+      'Performans',
+      'Yönetim',
+    ]);
+    expect(navGroupsFor(['admin']).map((g) => [g.label, g.items.map((i) => i.label)])).toEqual([
+      ['Self-servis', ['Yeni talep', 'Hizmet kataloğu', 'Taleplerim']],
+      ['Hizmet operasyonu', ['Kayıtlar', 'Sorunlar', 'Olaylar', 'Onaylar']],
+      ['Değişiklik ve yapılandırma', ['Değişiklikler', 'CMDB']],
+      ['Bilgi', ['Bilgi bankası']],
+      ['Performans', ['Panolar', 'SLA tahmini', 'İyileştirmeler']],
+      ['Yönetim', ['Denetim', 'Entegrasyonlar']],
+    ]);
+    expect(groupLabels(['requester'])).toEqual(['Self-servis']);
+    expect(groupLabels(['cab'])).toEqual(['Değişiklik ve yapılandırma']);
+    expect(groupLabels(['change_manager'])).toEqual([
+      'Hizmet operasyonu',
+      'Değişiklik ve yapılandırma',
+    ]);
+    expect(groupLabels(['approver'])).toEqual([
+      'Self-servis',
+      'Hizmet operasyonu',
+      'Bilgi',
+      'Performans',
+    ]);
+    expect(groupLabels([])).toEqual([]);
+  });
+
   it('açılış sayfası', () => {
     expect(homePathFor(['requester'])).toBe('/taleplerim');
     expect(homePathFor(['agent', 'approver'])).toBe('/kayitlar');
@@ -104,14 +138,45 @@ describe('uygulama kabuğu', () => {
       'Taleplerim',
       'Kayıtlar',
       'Sorunlar',
-      'Bilgi bankası',
+      'Olaylar',
       'Değişiklikler',
       'CMDB',
+      'Bilgi bankası',
       'Panolar',
       'SLA tahmini',
-      'Olaylar',
       'İyileştirmeler',
     ]);
+  });
+
+  it('menü grupları role göre çizilir (boş grup başlığı yok)', async () => {
+    renderApp({ user: REQUESTER, route: '/taleplerim' });
+    const nav = await screen.findByRole('navigation', { name: 'Ana menü' });
+    expect(within(nav).getAllByRole('group')).toHaveLength(1);
+    expect(within(nav).getByRole('group', { name: 'Self-servis' })).toBeInTheDocument();
+    expect(within(nav).queryByText('Yönetim')).not.toBeInTheDocument();
+  });
+
+  it('admin+agent: tüm grup başlıkları ve etkin bağlantı vurgusu', async () => {
+    server.use(http.get(apiUrl('/integrations/status'), () => HttpResponse.json([])));
+    renderApp({
+      user: { username: 'tam', roles: ['agent', 'admin'] },
+      route: '/yonetim/entegrasyonlar',
+    });
+    await screen.findByRole('heading', { level: 1, name: 'Entegrasyonlar' });
+    const nav = screen.getByRole('navigation', { name: 'Ana menü' });
+    const admin = within(nav).getByRole('group', { name: 'Yönetim' });
+    expect(within(admin).getByRole('link', { name: 'Entegrasyonlar' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    expect(within(admin).getByRole('link', { name: 'Denetim' })).not.toHaveAttribute(
+      'aria-current',
+    );
+    expect(
+      within(nav)
+        .getAllByRole('group')
+        .map((g) => g.firstChild?.textContent),
+    ).toEqual(NAV_GROUPS.map((g) => g.label));
   });
 
   it('approver: onaylar', async () => {
@@ -210,5 +275,95 @@ describe('uygulama kabuğu', () => {
     expect(document.documentElement).toHaveAttribute('data-theme', 'dark');
     await user.selectOptions(screen.getByRole('combobox', { name: 'Tema' }), 'system');
     expect(document.documentElement).not.toHaveAttribute('data-theme');
+  });
+});
+
+describe('dar ekran çekmece menüsü', () => {
+  function mockCompact(matches: boolean) {
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn((query: string) => ({
+        matches: query === COMPACT_QUERY ? matches : false,
+        media: query,
+        onchange: null,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      })),
+    );
+  }
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('Menü butonu çekmeceyi açar: odak etkin bağlantıda, kaydırma kilitli; Escape kapatır, odak butona döner', async () => {
+    mockCompact(true);
+    const { user } = renderApp({ user: AGENT, route: '/kayitlar' });
+    await screen.findByRole('heading', { level: 1, name: 'Kayıtlar' });
+    const button = screen.getByRole('button', { name: 'Menü' });
+    expect(button).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByRole('dialog', { name: 'Menü' })).not.toBeInTheDocument();
+
+    await user.click(button);
+    const drawer = screen.getByRole('dialog', { name: 'Menü' });
+    expect(button).toHaveAttribute('aria-expanded', 'true');
+    expect(drawer).toHaveAttribute('aria-modal', 'true');
+    expect(within(drawer).getByRole('link', { name: 'Kayıtlar' })).toHaveFocus();
+    expect(document.body.style.overflow).toBe('hidden');
+    // Kullanıcı bilgisi, tema ve çıkış dar ekranda çekmecede
+    expect(within(drawer).getByRole('combobox', { name: 'Tema' })).toBeInTheDocument();
+    expect(within(drawer).getByRole('button', { name: 'Çıkış' })).toBeInTheDocument();
+
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog', { name: 'Menü' })).not.toBeInTheDocument();
+    expect(button).toHaveAttribute('aria-expanded', 'false');
+    expect(button).toHaveFocus();
+    expect(document.body.style.overflow).toBe('');
+  });
+
+  it('odak çekmecede tutulur; kapat butonu ve arka plan kapatır', async () => {
+    mockCompact(true);
+    const { user } = renderApp({ user: REQUESTER, route: '/taleplerim' });
+    await screen.findByRole('heading', { level: 1, name: 'Taleplerim' });
+    const button = screen.getByRole('button', { name: 'Menü' });
+    await user.click(button);
+    const drawer = screen.getByRole('dialog', { name: 'Menü' });
+    // Son öğeden (Çıkış) Tab: başa (Menüyü kapat) döner
+    within(drawer).getByRole('button', { name: 'Çıkış' }).focus();
+    await user.tab();
+    expect(within(drawer).getByRole('button', { name: 'Menüyü kapat' })).toHaveFocus();
+    await user.tab({ shift: true });
+    expect(within(drawer).getByRole('button', { name: 'Çıkış' })).toHaveFocus();
+
+    await user.click(within(drawer).getByRole('button', { name: 'Menüyü kapat' }));
+    expect(screen.queryByRole('dialog', { name: 'Menü' })).not.toBeInTheDocument();
+    expect(button).toHaveFocus();
+
+    await user.click(button);
+    await user.click(screen.getByTestId('nav-backdrop'));
+    expect(screen.queryByRole('dialog', { name: 'Menü' })).not.toBeInTheDocument();
+  });
+
+  it('çekmeceden sayfa seçilince kapanır ve odak yeni içeriğe geçer', async () => {
+    mockCompact(true);
+    const { user } = renderApp({ user: AGENT, route: '/kayitlar' });
+    await screen.findByRole('heading', { level: 1, name: 'Kayıtlar' });
+    await user.click(screen.getByRole('button', { name: 'Menü' }));
+    const drawer = screen.getByRole('dialog', { name: 'Menü' });
+    await user.click(within(drawer).getByRole('link', { name: 'Yeni talep' }));
+    await screen.findByRole('heading', { level: 1, name: /talep/i });
+    expect(screen.queryByRole('dialog', { name: 'Menü' })).not.toBeInTheDocument();
+    expect(screen.getByRole('main')).toHaveFocus();
+  });
+
+  it('geniş ekranda kenar çubuğu her zaman görünür, çekmece/dialog yok', async () => {
+    mockCompact(false);
+    renderApp({ user: AGENT, route: '/kayitlar' });
+    await screen.findByRole('heading', { level: 1, name: 'Kayıtlar' });
+    expect(screen.getByRole('navigation', { name: 'Ana menü' })).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Menüyü kapat' })).not.toBeInTheDocument();
   });
 });

@@ -6,6 +6,7 @@ import { EmptyState, ErrorState, Select, Spinner, buttonClassName } from '@/comp
 import { formatDate } from '@/lib/format';
 import { RequestStateBadge, TouchlessBadge } from './RequestBadges';
 import styles from './Requests.module.css';
+import { cx } from '@/lib/cx';
 
 /** Tek istekte çekilen en fazla talep (backend üst sınırı 200) */
 export const MY_SERVICE_REQUESTS_LIMIT = 200;
@@ -80,7 +81,7 @@ export function ServiceRequestList({ canCreate }: { canCreate: boolean }) {
       {visible.length === 0 ? (
         <EmptyState icon="✓" title="Bu görünümde hizmet talebi yok" />
       ) : (
-        <div className={styles.tableWrap}>
+        <div className={cx(styles.tableWrap, styles.listWrap)}>
           <table className={styles.table}>
             <caption className="visually-hidden">
               Hizmet talepleriniz; ayrıntı için hizmet adına tıklayın

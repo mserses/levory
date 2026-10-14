@@ -20,6 +20,7 @@ import { groupLabel } from '@/lib/taxonomy';
 import { usePageTitle } from '@/lib/usePageTitle';
 import styles from './Cmdb.module.css';
 import { useCIList } from './hooks';
+import { cx } from '@/lib/cx';
 
 const pick = <K extends string>(labels: Record<K, string>, value: string | null): K | undefined =>
   value && value in labels ? (value as K) : undefined;
@@ -129,7 +130,7 @@ export default function CmdbListPage() {
             headingLevel={3}
           />
         ) : (
-          <div className={styles.tableWrap}>
+          <div className={cx(styles.tableWrap, styles.listWrap)}>
             <table className={styles.table} aria-busy={list.isFetching}>
               <thead>
                 <tr>

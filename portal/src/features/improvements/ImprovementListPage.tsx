@@ -12,6 +12,7 @@ import { kpiName, scopeText } from './KpiScope';
 import { TargetBadge } from './TargetBadge';
 import { unitFor, valueText } from './model';
 import styles from './Improvements.module.css';
+import { cx } from '@/lib/cx';
 
 const LIMIT = 100;
 const isState = (v: string): v is ImprovementState => v in IMPROVEMENT_STATE_LABELS;
@@ -57,7 +58,7 @@ export default function ImprovementListPage() {
         <p className={styles.count} aria-live="polite">
           {list.data.length} iyileştirme
         </p>
-        <div className={styles.tableWrap}>
+        <div className={cx(styles.tableWrap, styles.listWrap)}>
           <table className={styles.table}>
             <caption className="visually-hidden">İyileştirme kaydı</caption>
             <thead>

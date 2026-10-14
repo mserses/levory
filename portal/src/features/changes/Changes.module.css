@@ -430,3 +430,75 @@
 .radioRow input {
   accent-color: var(--color-primary);
 }
+
+/* Ortak tablo düzeni: satırlar ince çizgiyle ayrılır ve üzerine gelince vurgulanır. */
+.table tbody tr {
+  transition: background-color var(--duration-fast) var(--easing);
+}
+.table tbody tr:hover {
+  background: var(--color-surface-muted);
+}
+/* Planlanan pencere: tarih + saat bir arada kalsın */
+.when {
+  white-space: nowrap;
+}
+/* Dar ekran: değişiklik listesi satırları etiketli kartlara dönüşür (yatay kaydırma yok) */
+@media (max-width: 760px) {
+  .when {
+    white-space: normal;
+  }
+  .listWrap .table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+  .listWrap .table,
+  .listWrap .table tbody,
+  .listWrap .table td {
+    display: block;
+    width: 100%;
+  }
+  .listWrap .table tr {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-2) var(--space-3);
+    padding: var(--space-3);
+    border-bottom: 1px solid var(--color-border);
+  }
+  .listWrap .table tbody tr:last-child {
+    border-bottom: 0;
+  }
+  .listWrap .table td {
+    padding: 0;
+    border: 0;
+    min-width: 0;
+  }
+  .listWrap .table td::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 2px;
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+  }
+  .listWrap .table td.titleCell {
+    grid-column: 1 / -1;
+  }
+  .listWrap .table td.titleCell::before {
+    display: none;
+  }
+}
+/* Liste sayfaları (.listWrap): geniş ekranda tablo sığar: kap kaydırma kabı olmaz (clip), başlık satırı sayfa kaydırılırken
+   üst barın altında yapışkan kalır. Daha dar ekranda kap yatay kaydırılır, başlık yapışmaz. */
+@media (min-width: 1200px) {
+  .listWrap {
+    overflow: clip;
+  }
+  .listWrap .table thead th {
+    position: sticky;
+    top: var(--header-height);
+    z-index: var(--z-sticky);
+    box-shadow: inset 0 -1px 0 var(--color-border);
+  }
+}

@@ -11,6 +11,7 @@ import { toCreateBody } from './form';
 import { useArticleList, useArticleSearch, useCreateArticle } from './hooks';
 import { ARTICLE_STATE_LABELS, ARTICLE_STATES, categoryLabel, isArticleState } from './labels';
 import styles from './Knowledge.module.css';
+import { cx } from '@/lib/cx';
 
 const STATE_OPTIONS = ARTICLE_STATES.map((value) => ({
   value,
@@ -195,7 +196,7 @@ export default function KnowledgeListPage() {
             }
           />
         ) : (
-          <div className={styles.tableWrap}>
+          <div className={cx(styles.tableWrap, styles.listWrap)}>
             <table className={styles.table}>
               <caption className="visually-hidden">Bilgi bankası makaleleri, sayfa {page}</caption>
               <thead>

@@ -105,7 +105,7 @@ verilmeyen IdP'lerde sessiz yenileme), çıkış dönüşü `<origin>/giris` ola
 
 ```
 src/
-  app/                 Kabuk (AppShell), rota tablosu (routes.tsx), rol→menü haritası (navigation.ts), genel sayfalar
+  app/                 Kabuk (AppShell), rota tablosu (routes.tsx), rol→menü haritası + kenar çubuğu grupları (navigation.ts), genel sayfalar
   auth/                AuthProvider, useAuth, RequireRole, roller, OIDC/dev bağdaştırıcıları
   api/                 fetch sarmalayıcısı (client.ts), ApiError, alan bazlı uç noktalar, queryKeys, üretilmiş tipler
   components/          Paylaşılan UI bileşenleri (+ testleri) — index.ts'den içe aktarın

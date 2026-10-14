@@ -5,6 +5,7 @@ import { AWAITING_MY_APPROVAL_QUERY, queryKeys, requestsApi } from '@/api';
 import { EmptyState, ErrorState, Spinner } from '@/components';
 import { formatDate } from '@/lib/format';
 import styles from './Requests.module.css';
+import { cx } from '@/lib/cx';
 
 /** /taleplerim "Onayımı bekleyenler" sekmesi: GET /requests?awaiting_my_approval=true */
 export function AwaitingApprovalList() {
@@ -38,7 +39,7 @@ export function AwaitingApprovalList() {
     );
   }
   return (
-    <div className={styles.tableWrap}>
+    <div className={cx(styles.tableWrap, styles.listWrap)}>
       <table className={styles.table}>
         <caption className="visually-hidden">
           İş onayınızı bekleyen hizmet talepleri (en eski önce); karar için hizmet adına tıklayın

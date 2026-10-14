@@ -168,7 +168,7 @@ function ForecastRow({ forecast: f }: { forecast: BreachForecast }) {
           {f.sample_resolved} çözülmüş + {f.sample_censored} açık olay
         </p>
       </td>
-      <td>
+      <td className={styles.reasonsCell}>
         {reasons.length > 0 ? (
           <ul className={styles.reasons}>
             {reasons.map((r) => (

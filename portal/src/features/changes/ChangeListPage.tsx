@@ -29,6 +29,7 @@ import {
   type ChangeFilters,
 } from './listParams';
 import { isAwaitingMyVote } from './rules';
+import { cx } from '@/lib/cx';
 
 /** /degisiklikler — değişiklik listesi ve takvimi (sahibi: changes). GET /changes, /calendar */
 export default function ChangeListPage() {
@@ -210,7 +211,7 @@ function ChangeList({
             headingLevel={3}
           />
         ) : (
-          <div className={styles.tableWrap}>
+          <div className={cx(styles.tableWrap, styles.listWrap)}>
             <table className={styles.table}>
               <thead>
                 <tr>
@@ -231,16 +232,16 @@ function ChangeList({
                         <span>{c.title}</span>
                       </Link>
                     </td>
-                    <td>
+                    <td data-label="Tür">
                       <ChangeTypeBadge type={c.change_type} />
                     </td>
-                    <td>
+                    <td data-label="Durum">
                       <ChangeStateBadge state={c.state} />
                     </td>
-                    <td>
+                    <td data-label="Risk">
                       <RiskBadge level={c.risk_level} score={c.risk_score} />
                     </td>
-                    <td>
+                    <td data-label="Planlanan pencere" className={styles.when}>
                       {c.planned_start ? (
                         <>
                           {formatDateTime(c.planned_start)}
@@ -251,7 +252,7 @@ function ChangeList({
                         <span className="muted">Planlanmadı</span>
                       )}
                     </td>
-                    <td>{c.requested_by}</td>
+                    <td data-label="Talep eden">{c.requested_by}</td>
                   </tr>
                 ))}
               </tbody>

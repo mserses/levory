@@ -32,6 +32,7 @@ import { usePageTitle } from '@/lib/usePageTitle';
 import { ProblemStateBadge } from './ProblemStateBadge';
 import { TREND_KIND_LABELS, agentOutcome } from './model';
 import styles from './Problems.module.css';
+import { cx } from '@/lib/cx';
 
 const LIMIT = 100;
 const WINDOWS = [
@@ -133,7 +134,7 @@ function ProblemTable({ problems }: { problems: readonly Problem[] }) {
         {problems.length} sorun
         {problems.length >= LIMIT && ` (en yeni ${String(LIMIT)})`}
       </p>
-      <div className={styles.tableWrap}>
+      <div className={cx(styles.tableWrap, styles.listWrap)}>
         <table className={styles.table}>
           <caption className="visually-hidden">Sorun kayıtları</caption>
           <thead>

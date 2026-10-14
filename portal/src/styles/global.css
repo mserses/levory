@@ -21,6 +21,8 @@ body {
   font-size: var(--text-md);
   line-height: var(--leading-normal);
   -webkit-font-smoothing: antialiased;
+  /* Uzun Türkçe etiketler/kimlikler taşmasın, satır kırsın */
+  overflow-wrap: break-word;
 }
 
 h1,
@@ -33,6 +35,7 @@ h4 {
 }
 h1 {
   font-size: var(--text-2xl);
+  letter-spacing: -0.01em;
 }
 h2 {
   font-size: var(--text-xl);
@@ -95,6 +98,7 @@ pre {
 /* Sayfa düzeni yardımcıları (ekranlar bunları kullanabilir) */
 .page {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-6);
 }
 .page-header {
@@ -119,6 +123,7 @@ pre {
 }
 .stack {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-4);
 }
 .row {

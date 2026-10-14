@@ -90,7 +90,7 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
-  overflow: hidden;
+  overflow-x: auto;
 }
 .table {
   width: 100%;
@@ -271,5 +271,26 @@
   }
   .table td.titleCell::before {
     display: none;
+  }
+}
+
+/* Ortak tablo düzeni: satırlar ince çizgiyle ayrılır ve üzerine gelince vurgulanır. */
+.table tbody tr {
+  transition: background-color var(--duration-fast) var(--easing);
+}
+.table tbody tr:hover {
+  background: var(--color-surface-muted);
+}
+/* Liste sayfaları (.listWrap): geniş ekranda tablo sığar: kap kaydırma kabı olmaz (clip), başlık satırı sayfa kaydırılırken
+   üst barın altında yapışkan kalır. Daha dar ekranda kap yatay kaydırılır, başlık yapışmaz. */
+@media (min-width: 1200px) {
+  .listWrap {
+    overflow: clip;
+  }
+  .listWrap .table thead th {
+    position: sticky;
+    top: var(--header-height);
+    z-index: var(--z-sticky);
+    box-shadow: inset 0 -1px 0 var(--color-border);
   }
 }

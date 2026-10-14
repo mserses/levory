@@ -9,6 +9,7 @@ import { EVENT_GROUP_STATE_LABELS } from '@/lib/labels';
 import { usePageTitle } from '@/lib/usePageTitle';
 import { GroupStatus, LinkedIncident, SeverityBadge } from './GroupStatus';
 import styles from './Events.module.css';
+import { cx } from '@/lib/cx';
 
 const LIMIT = 100;
 const isState = (v: string): v is EventGroupState => v in EVENT_GROUP_STATE_LABELS;
@@ -88,7 +89,7 @@ function GroupTable({ groups }: { groups: readonly EventGroup[] }) {
       <p className={styles.count} aria-live="polite">
         {groups.length} uyarı grubu{groups.length >= LIMIT && ` (en yeni ${String(LIMIT)})`}
       </p>
-      <div className={styles.tableWrap}>
+      <div className={cx(styles.tableWrap, styles.listWrap)}>
         <table className={styles.table}>
           <caption className="visually-hidden">Uyarı grupları</caption>
           <thead>

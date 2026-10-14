@@ -30,6 +30,7 @@ import {
   type QueueSort,
 } from './queueParams';
 import { sortBySlaDue } from './queueSort';
+import { cx } from '@/lib/cx';
 
 const SORT_OPTIONS = [
   { value: 'sla', label: 'SLA vadesi (en yakın önce)' },
@@ -195,7 +196,7 @@ export default function IncidentQueuePage() {
             }
           />
         ) : (
-          <div className={styles.tableWrap}>
+          <div className={cx(styles.tableWrap, styles.listWrap)}>
             <table className={styles.table}>
               <caption className="visually-hidden">
                 Kayıt kuyruğu, {filters.sort === 'sla' ? 'SLA vadesine' : 'oluşturulma zamanına'}{' '}
