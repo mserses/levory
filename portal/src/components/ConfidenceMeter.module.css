@@ -1,0 +1,50 @@
+.meter {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 160px;
+  font-size: var(--text-sm);
+}
+.label {
+  color: var(--color-text-muted);
+}
+.track {
+  position: relative;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--tone-neutral-bg);
+  border: 1px solid var(--tone-neutral-border);
+  overflow: hidden;
+}
+.fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: inherit;
+}
+.threshold {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 2px;
+  background: var(--color-text);
+  opacity: 0.6;
+}
+.value {
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--weight-semibold);
+}
+.high .fill {
+  background: var(--tone-success-fg);
+}
+.mid .fill {
+  background: var(--tone-warning-fg);
+}
+.low .fill {
+  background: var(--tone-danger-fg);
+}
+.note {
+  grid-column: 1 / -1;
+  font-size: var(--text-xs);
+  color: var(--tone-warning-fg);
+}

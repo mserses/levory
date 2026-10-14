@@ -1,0 +1,12 @@
+# Güvenlik başlıkları. Her location bloğu bu dosyayı içerir (nginx add_header kalıtımı nedeniyle);
+# .inc uzantısı conf.d/*.conf ile http düzeyinde yüklenmesini önler.
+# CSP: yalnızca kendi kökenimizden betik/stil; API ve OIDC kökenleri çalışma zamanında verilir.
+# Çerçeveleme ($sz_frame_*): default.conf'taki map; yalnızca /auth/silent aynı kökenden çerçevelenir.
+add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self' ${PORTAL_API_ORIGIN} ${PORTAL_OIDC_ORIGIN}; frame-src ${PORTAL_OIDC_ORIGIN} 'self'; form-action 'self' ${PORTAL_OIDC_ORIGIN}; frame-ancestors $sz_frame_ancestors; base-uri 'self'; object-src 'none'; manifest-src 'self'; worker-src 'self'" always;
+add_header X-Content-Type-Options "nosniff" always;
+add_header X-Frame-Options "$sz_frame_options" always;
+add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()" always;
+add_header Cross-Origin-Opener-Policy "same-origin" always;
+add_header Cross-Origin-Resource-Policy "same-origin" always;
+add_header Strict-Transport-Security "max-age=63072000; includeSubDomains" always;

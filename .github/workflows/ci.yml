@@ -1,0 +1,148 @@
+name: ServisZeka CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: uv kurulumu
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Python kurulumu
+        run: uv python install ${{ matrix.python-version }}
+
+      - name: Bağımlılıklar
+        run: uv sync --frozen --python ${{ matrix.python-version }}
+
+      - name: Ruff
+        run: uv run ruff check .
+
+      - name: Testler
+        run: uv run pytest -q
+
+      - name: Göçler (SQLite)
+        env:
+          SZ_DATABASE_URL: sqlite+aiosqlite:///./ci-migrations.db
+        run: |
+          uv run alembic upgrade head
+          uv run alembic check
+
+      - name: Göçler (Faz 1 şemasından yükseltme ve geri alma)
+        env:
+          SZ_DATABASE_URL: sqlite+aiosqlite:///./ci-upgrade.db
+        run: |
+          uv run alembic upgrade 0004
+          uv run alembic upgrade head
+          uv run alembic check
+          uv run alembic downgrade 0004
+          uv run alembic upgrade head
+          uv run alembic check
+
+      - name: Göçler (Faz 3 şemasından Faz 4'e yükseltme ve geri alma)
+        env:
+          SZ_DATABASE_URL: sqlite+aiosqlite:///./ci-faz4.db
+        run: |
+          uv run alembic upgrade 0009
+          uv run alembic upgrade head
+          uv run alembic check
+          uv run alembic downgrade 0009
+          uv run alembic upgrade head
+          uv run alembic check
+
+      - name: Faz kapıları (LLM'siz, ağ yok)
+        run: |
+          uv run python evals/run_eval.py --oracle
+          uv run python evals/run_request_eval.py
+          for stack in memory entra keycloak; do
+            uv run python evals/run_automation_eval.py --stack "$stack"
+          done
+          uv run python evals/run_mttr_evidence.py
+
+  portal:
+    name: portal (typecheck, lint, test, build, E2E)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: portal
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: uv kurulumu
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Python kurulumu (OpenAPI dışa aktarımı ve E2E backend'i)
+        run: uv python install 3.12
+
+      - name: Backend bağımlılıkları
+        run: uv sync --frozen --python 3.12
+
+      - name: Node kurulumu
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: portal/package-lock.json
+
+      - name: Bağımlılıklar
+        run: npm ci
+
+      - name: OpenAPI, tipler ve taksonomi güncel mi
+        run: |
+          npm run sync:api
+          git diff --exit-code -- openapi.json src/api/schema.d.ts src/lib/taxonomy.json
+
+      - name: Tip denetimi
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Biçim
+        run: npm run format:check
+
+      - name: Birim testleri
+        run: npm test -- --run
+
+      - name: Derleme
+        run: npm run build
+
+      - name: Playwright tarayıcısı
+        run: npx playwright install --with-deps chromium
+
+      - name: Uçtan uca testler (gerçek backend + sahte LLM)
+        run: npm run e2e
+
+      - name: E2E raporu
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            portal/playwright-report
+            portal/test-results
+          retention-days: 7
+
+      - name: Portal Docker imajı (nginx + CSP)
+        run: docker build -t serviszeka-portal:ci .
+
+      - name: Portal imajı güvenlik başlıkları (CSP, çerçeveleme, önbellek)
+        run: |
+          docker run -d --name portal-ci -p 18080:8080 serviszeka-portal:ci
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:18080/healthz >/dev/null && break; sleep 1; done
+          sh scripts/check-nginx-headers.sh http://127.0.0.1:18080
+          docker rm -f portal-ci

@@ -1,0 +1,54 @@
+{
+  "kind": ["incident", "service_request", "question"],
+  "category": {
+    "ag": "Ağ ve bağlantı (VPN, Wi-Fi, internet, kablolu ağ)",
+    "donanim": "Donanım arızası (dizüstü, monitör, klavye, docking)",
+    "yazilim": "Masaüstü yazılım ve uygulama hataları (Office, tarayıcı, kurulu uygulamalar)",
+    "erisim_kimlik": "Hesap, parola, MFA, yetki ve rol talepleri",
+    "eposta_isbirligi": "E-posta, takvim, Teams, paylaşılan posta kutuları",
+    "guvenlik": "Oltalama, zararlı yazılım, şüpheli etkinlik, veri sızıntısı",
+    "is_uygulamasi": "Kurumsal iş uygulamaları (ERP, CRM, İK portalı)",
+    "veritabani": "Veritabanı performansı, erişimi, yedekleri",
+    "altyapi_bulut": "Sunucu, depolama, bulut kaynakları, dosya paylaşımı",
+    "yazici": "Yazıcı ve tarayıcılar",
+    "mobil": "Kurumsal telefon, tablet ve mobil cihaz yönetimi"
+  },
+  "service": {
+    "eposta": "Kurumsal e-posta (Exchange Online / Outlook)",
+    "vpn": "Uzaktan erişim VPN",
+    "kablosuz_ag": "Ofis Wi-Fi",
+    "erp": "ERP (SAP)",
+    "crm": "CRM",
+    "ik_portali": "İK portalı (izin, bordro)",
+    "dosya_paylasimi": "Dosya paylaşımı (ağ sürücüleri, SharePoint)",
+    "teams": "Microsoft Teams",
+    "kurumsal_web": "Kurumsal web sitesi ve intranet",
+    "yazdirma": "Yazdırma hizmeti",
+    "mdm": "Mobil cihaz yönetimi",
+    "kimlik": "Kimlik ve erişim (Active Directory, SSO, MFA)",
+    "is_istasyonu": "Kullanıcı bilgisayarı ve masaüstü ortamı",
+    "veri_platformu": "Veritabanları ve raporlama"
+  },
+  "assignment_group": {
+    "service_desk_l1": "1. seviye hizmet masası: basit sorular, parola sıfırlama, yönlendirme",
+    "end_user_support": "Masaüstü/saha destek: donanım, yazılım kurulumu, yazıcı",
+    "network_ops": "Ağ operasyonları: VPN, Wi-Fi, bağlantı",
+    "identity_access": "Kimlik ve erişim yönetimi: yetki, rol, MFA, hesap",
+    "collaboration": "E-posta, Teams, SharePoint ekibi",
+    "security_ops": "Güvenlik operasyon merkezi (SOC)",
+    "business_apps": "ERP, CRM, İK portalı uygulama desteği",
+    "dba": "Veritabanı yöneticileri",
+    "infra_cloud": "Sunucu, depolama ve bulut operasyonları",
+    "mobility": "Mobil cihaz ekibi"
+  },
+  "impact": {
+    "high": "Birden çok birim, kurumun tamamı veya müşteriye dönük kritik hizmet etkileniyor",
+    "medium": "Bir birim/ekip veya kritik bir kullanıcı grubu (ör. yönetim, kasa) etkileniyor",
+    "low": "Tek kullanıcı etkileniyor"
+  },
+  "urgency": {
+    "high": "İş durmuş, geçici çözüm yok veya zaman kritik (bugün kapanış, güvenlik olayı sürüyor)",
+    "medium": "İş zorlaşmış ama geçici çözüm var ya da birkaç saat bekleyebilir",
+    "low": "İş etkilenmiyor veya planlı/ertelenebilir"
+  }
+}

@@ -1,0 +1,42 @@
+/* Sekmeler (WAI-ARIA tablist). Yalnızca tokens.css değişkenleri. */
+.tabsRoot {
+  display: grid;
+  gap: var(--space-5);
+  min-width: 0;
+}
+.tablist {
+  display: flex;
+  gap: var(--space-1);
+  border-bottom: 1px solid var(--color-border);
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.tab {
+  flex: 0 0 auto;
+  min-height: var(--control-height);
+  padding: var(--space-2) var(--space-4);
+  border: 0;
+  border-bottom: 3px solid transparent;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    color var(--duration-fast) var(--easing),
+    border-color var(--duration-fast) var(--easing);
+}
+.tab:hover {
+  color: var(--color-text);
+}
+.tab:focus-visible {
+  outline-offset: -2px;
+}
+.tabActive {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+  font-weight: var(--weight-semibold);
+}
+.panel {
+  min-width: 0;
+}

@@ -1,0 +1,190 @@
+/* Küçük SVG grafikler (kütüphanesiz). Renkler yalnızca tokens.css: --viz-*, metin token'ları. */
+
+.figure {
+  margin: 0;
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.caption {
+  display: grid;
+  gap: var(--space-1);
+}
+.title {
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+}
+.description {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+.plot {
+  position: relative;
+}
+.svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+.grid {
+  stroke: var(--viz-grid);
+  stroke-width: 1;
+}
+.axis {
+  stroke: var(--viz-axis);
+  stroke-width: 1;
+}
+.tick {
+  fill: var(--color-text-muted);
+  font-size: 11px;
+  font-family: var(--font-sans);
+}
+.line {
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.marker {
+  stroke: var(--color-surface);
+  stroke-width: 2;
+}
+.crosshair {
+  stroke: var(--color-border-strong);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+.hit {
+  fill: transparent;
+  cursor: crosshair;
+}
+.bar {
+  rx: 4px;
+}
+.barValue {
+  fill: var(--color-text);
+  font-size: 12px;
+  font-family: var(--font-sans);
+}
+.c0 {
+  stroke: var(--viz-1);
+  fill: var(--viz-1);
+}
+.c1 {
+  stroke: var(--viz-2);
+  fill: var(--viz-2);
+}
+.c2 {
+  stroke: var(--viz-3);
+  fill: var(--viz-3);
+}
+.c3 {
+  stroke: var(--viz-4);
+  fill: var(--viz-4);
+}
+.c4 {
+  stroke: var(--viz-5);
+  fill: var(--viz-5);
+}
+.line.c0,
+.line.c1,
+.line.c2,
+.line.c3,
+.line.c4 {
+  fill: none;
+}
+.legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  font-size: var(--text-sm);
+  color: var(--color-text);
+}
+.legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.swatch {
+  width: 18px;
+  height: 10px;
+  overflow: visible;
+}
+.tooltip {
+  position: absolute;
+  top: 0;
+  z-index: 1;
+  min-width: 9rem;
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  font-size: var(--text-sm);
+  color: var(--color-text);
+  pointer-events: none;
+}
+.tooltip strong {
+  display: block;
+  margin-bottom: var(--space-1);
+}
+.tooltipRow {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.tooltipRow span:first-child {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--color-text-muted);
+}
+.empty {
+  margin: 0;
+  padding: var(--space-6) 0;
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+.details summary {
+  cursor: pointer;
+  font-size: var(--text-sm);
+  color: var(--color-primary);
+}
+.dataTable {
+  width: 100%;
+  margin-top: var(--space-2);
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+.dataTable th,
+.dataTable td {
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.dataTable th:first-child,
+.dataTable td:first-child {
+  text-align: left;
+}
+.dataTable thead th {
+  color: var(--color-text-muted);
+  font-weight: var(--weight-semibold);
+}
+
+@media (forced-colors: active) {
+  .line {
+    stroke: CanvasText;
+  }
+  .marker,
+  .bar {
+    fill: CanvasText;
+  }
+}

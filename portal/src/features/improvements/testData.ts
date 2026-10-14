@@ -1,0 +1,62 @@
+import type { Improvement, KPIDefinition } from '@/api/types';
+
+export function makeImprovement(over: Partial<Improvement> = {}): Improvement {
+  return {
+    id: 'csi-1',
+    number: 'CSI0000001',
+    title: 'Ağ grubunda MTTR’yi düşür',
+    description: 'Tekrarlayan VPN olayları için bilinen hata makalesi ve otomatik tanı.',
+    source: 'kpi',
+    state: 'in_progress',
+    kpi_key: 'mttr',
+    kpi_dimension: 'assignment_group',
+    kpi_dimension_value: 'network_ops',
+    baseline_value: 10,
+    baseline_start: '2026-08-01T00:00:00Z',
+    baseline_end: '2026-08-31T00:00:00Z',
+    target_value: 6,
+    measured_value: null,
+    measured_at: null,
+    target_met: null,
+    measurement: null,
+    measure_days: 30,
+    owner: 'ayse',
+    benefit_estimate: 4,
+    effort: 2,
+    priority_score: 40,
+    problem_id: 'prb-1',
+    change_id: null,
+    evidence: { incidents: ['INC0000004', 'INC0000005'], mttr_previous: 7.5, window: '30 gün' },
+    signal_key: 'mttr_increase:network_ops',
+    detected_by: 'ai:csi',
+    created_by: 'ai:csi',
+    approved_by: 'sef.ali',
+    approved_at: '2026-09-02T09:00:00Z',
+    started_at: '2026-09-03T09:00:00Z',
+    implemented_at: null,
+    closed_by: null,
+    closed_at: null,
+    resolution: null,
+    version: 3,
+    created_at: '2026-09-01T09:00:00Z',
+    updated_at: '2026-09-03T09:00:00Z',
+    ...over,
+  };
+}
+
+export const KPI_DEFINITIONS: KPIDefinition[] = [
+  {
+    key: 'mttr',
+    name: 'Ortalama çözüm süresi (MTTR)',
+    unit: 'hours',
+    better: 'lower',
+    formula: '',
+  },
+  {
+    key: 'automation_rate',
+    name: 'İnsansız karşılama oranı',
+    unit: 'percent',
+    better: 'higher',
+    formula: '',
+  },
+];

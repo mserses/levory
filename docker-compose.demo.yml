@@ -1,0 +1,76 @@
+# ServisZeka DEMO: tek komutla API + portal + PostgreSQL ve SENTETİK Türkçe demo verisi.
+#
+#   docker compose -f docker-compose.demo.yml up --build      # kaynak koddan derler
+#   docker compose -f docker-compose.demo.yml -f docker-compose.ghcr.yml up   # yayınlanmış imajlarla
+#   -> portal http://localhost:8080 (giriş: DEMO.md'deki kullanıcılar), API http://localhost:8000/docs
+#   Sıfırlamak için: docker compose -f docker-compose.demo.yml down -v
+#
+# YALNIZCA DEMO / GELİŞTİRME: imzasız dev kimlik doğrulaması (Bearer dev:<kullanıcı>:<roller>), sahte
+# LLM (anahtarsız, deterministik) ve bellek içi sahte dizin. Üretimde docker-compose.yml + OIDC kullanın.
+name: serviszeka-demo
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: serviszeka
+      POSTGRES_USER: serviszeka
+      POSTGRES_PASSWORD: serviszeka-demo
+    volumes:
+      - demo-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U serviszeka -d serviszeka"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      SZ_ENVIRONMENT: development
+      SZ_AUTH_MODE: dev
+      SZ_LLM_PROVIDER: fake
+      # Sahte dizin (kimlik + posta + lisans + bildirim); standart (R1) gruplar demo tohumuyla aynı
+      SZ_IDENTITY_PROVIDER: memory
+      SZ_IDENTITY_STANDARD_GROUPS: sg-yazilim-standart,sg-vpn-kullanicilari,m365-ekip-proje-x
+      # Ajanlar uygular (R1); R2/R3 her zaman insan onayına düşer
+      SZ_AI_SHADOW_MODE: "false"
+      SZ_SCHEDULER_ENABLED: "true"
+      SZ_DATABASE_URL: postgresql+asyncpg://serviszeka:serviszeka-demo@db:5432/serviszeka
+      SZ_AUTO_CREATE_SCHEMA: "false"
+      SZ_CORS_ORIGINS: http://localhost:8080
+      # İzleme webhook'u (DEMO.md'deki curl örneği); yalnızca demo değeri
+      SZ_EVENTS_WEBHOOK_SECRET: demo-olay-gizli
+    # Şema göçlerle kurulur, demo verisi yüklenir (idempotent: yeniden başlatmada eklemez), API açılır
+    command:
+      - sh
+      - -c
+      - >-
+        alembic upgrade head
+        && python -m serviszeka.demo_seed
+        && exec uvicorn serviszeka.main:app --host 0.0.0.0 --port 8000
+    ports:
+      # İmzasız dev kimliği: yalnızca bu makineden erişilir (ağa açmayın)
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  portal:
+    build:
+      context: ./portal
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: http://localhost:8000
+        VITE_AUTH_MODE: dev
+    environment:
+      PORTAL_API_ORIGIN: http://localhost:8000
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      - app
+
+volumes:
+  demo-pgdata:

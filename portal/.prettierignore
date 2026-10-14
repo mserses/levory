@@ -1,0 +1,8 @@
+dist
+coverage
+node_modules
+openapi.json
+package-lock.json
+src/lib/taxonomy.json
+playwright-report
+test-results

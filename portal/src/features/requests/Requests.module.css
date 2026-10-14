@@ -1,0 +1,185 @@
+/* Hizmet talepleri: liste, ayrıntı, adım zaman çizelgesi. Yalnızca tokens.css değişkenleri. */
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.count {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+.tableWrap {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  overflow-x: auto;
+}
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+.table th,
+.table td {
+  padding: var(--space-3) var(--space-4);
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--color-border);
+}
+.table thead th {
+  background: var(--color-surface-muted);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+.table tbody tr:last-child th,
+.table tbody tr:last-child td {
+  border-bottom: 0;
+}
+.table a {
+  color: var(--color-primary);
+  font-weight: var(--weight-medium);
+  overflow-wrap: anywhere;
+}
+.number {
+  font-family: var(--font-mono);
+  white-space: nowrap;
+  color: var(--color-text-muted);
+}
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+/* --- Ayrıntı --- */
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: var(--space-5);
+  align-items: start;
+}
+@media (max-width: 860px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.sectionHeading {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-lg);
+}
+.facts {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+  font-size: var(--text-sm);
+}
+.facts dt {
+  color: var(--color-text-muted);
+}
+.facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.notice {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  border-left: 4px solid var(--tone-success-fg);
+  background: var(--tone-success-bg);
+  color: var(--color-text);
+}
+.noticeWarn {
+  border-left-color: var(--tone-warning-fg);
+  background: var(--tone-warning-bg);
+}
+.noticeDanger {
+  border-left-color: var(--tone-danger-fg);
+  background: var(--tone-danger-bg);
+}
+
+/* --- Zaman çizelgesi --- */
+.timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0;
+}
+.step {
+  position: relative;
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr);
+  gap: var(--space-3);
+  padding-bottom: var(--space-4);
+}
+.step:not(:last-child)::before {
+  content: '';
+  position: absolute;
+  left: calc(1rem - 1px);
+  top: 2rem;
+  bottom: 0;
+  width: 2px;
+  background: var(--color-border);
+}
+.marker {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  border: 2px solid var(--color-border);
+  background: var(--color-surface);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-muted);
+}
+.marker[data-state='executed'] {
+  border-color: var(--tone-success-fg);
+  color: var(--tone-success-fg);
+}
+.marker[data-state='pending_approval'],
+.marker[data-state='waiting_manual'] {
+  border-color: var(--tone-warning-fg);
+  color: var(--tone-warning-fg);
+}
+.marker[data-state='failed'] {
+  border-color: var(--tone-danger-fg);
+  color: var(--tone-danger-fg);
+}
+.stepBody {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.stepTitle {
+  margin: 0;
+  font-size: var(--text-md);
+}
+.stepMeta {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+.tool {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+.stepError {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--tone-danger-fg);
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}

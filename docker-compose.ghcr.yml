@@ -1,0 +1,13 @@
+# Demo'yu kaynak koddan derlemek yerine GitHub Container Registry'de yayınlanmış imajlarla çalıştırır:
+#
+#   docker compose -f docker-compose.demo.yml -f docker-compose.ghcr.yml up
+#   SZ_IMAGE_TAG=sha-1a2b3c4 docker compose -f docker-compose.demo.yml -f docker-compose.ghcr.yml up
+#
+# İmajlar .github/workflows/serviszeka-docker.yml ile yayınlanır (varsayılan etiket: latest).
+services:
+  app:
+    image: ghcr.io/mserses/serviszeka-api:${SZ_IMAGE_TAG:-latest}
+    pull_policy: always
+  portal:
+    image: ghcr.io/mserses/serviszeka-portal-demo:${SZ_IMAGE_TAG:-latest}
+    pull_policy: always
