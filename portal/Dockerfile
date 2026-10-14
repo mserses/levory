@@ -44,6 +44,7 @@ FROM nginx:1.28.0-alpine3.21 AS runtime
 # CSP'ye yazılacak kökenler (boşluklarla birden çok köken verilebilir)
 ENV PORTAL_API_ORIGIN=http://localhost:8000 \
     PORTAL_OIDC_ORIGIN="" \
+    PORTAL_HSTS="" \
     NGINX_ENVSUBST_FILTER="^PORTAL_"
 
 RUN rm -f /etc/nginx/conf.d/default.conf \

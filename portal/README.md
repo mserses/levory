@@ -78,7 +78,7 @@ sahte Entra ID / M365 dizini + tohumlanmış katalog, standart grup izin listesi
   `.map` ve gizli dosyalar `404`, `/healthz` sağlık ucu.
 - Güvenlik başlıkları her yanıtta: sıkı CSP (`script-src 'self'`, `style-src 'self'`, `frame-ancestors 'none'`,
   `object-src 'none'`), `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy`,
-  `Cross-Origin-Opener-Policy`, HSTS. Tek istisna OIDC sessiz yenileme sayfası `/auth/silent`: yalnızca aynı
+  `Cross-Origin-Opener-Policy`; HSTS yalnızca `PORTAL_HSTS` verilirse (HTTPS arkasında). Tek istisna OIDC sessiz yenileme sayfası `/auth/silent`: yalnızca aynı
   kökenden çerçevelenebilir (`frame-ancestors 'self'`, `X-Frame-Options: SAMEORIGIN`); uygulama orada kurulmaz,
   yalnızca yanıt üst pencereye iletilir. Başlıklar `scripts/check-nginx-headers.sh <adres>` ile denetlenir (CI).
 - `PORTAL_API_ORIGIN` ve `PORTAL_OIDC_ORIGIN` (çalışma zamanı) CSP `connect-src` / `frame-src` / `form-action`

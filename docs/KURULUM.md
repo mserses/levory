@@ -512,9 +512,13 @@ curl -s -d grant_type=client_credentials -d client_id="$AJAN_ID" -d client_secre
 ## 8. TLS, CSP ve ters vekil
 
 - API ve portal TLS'i ters vekilde sonlandırır; uygulama `:8000`, portal `:8080` yalnızca iç
-  ağdan erişilebilir olmalı. Portal imajı HSTS, CSP, `X-Frame-Options: DENY`,
+  ağdan erişilebilir olmalı. Portal imajı CSP, `X-Frame-Options: DENY`,
   `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`, COOP/CORP başlıklarını
   kendisi ekler; vekil bunları ezmemeli.
+- HSTS yalnızca HTTPS'te anlamlıdır: portal imajında `PORTAL_HSTS` (örn.
+  `max-age=63072000; includeSubDomains`) ile açın ya da TLS'i sonlandıran vekilde ekleyin.
+  Varsayılan boştur; HTTP üzerinden (localhost demo) gönderilen HSTS Safari'de CSS/JS'nin HTTPS'e
+  yükseltilip yüklenememesine (stilsiz sayfa) yol açar.
 - Portal CSP'si: `script-src 'self'`, `style-src 'self'` (`'unsafe-inline'` yok);
   `connect-src` yalnızca `'self' PORTAL_API_ORIGIN PORTAL_OIDC_ORIGIN`; yalnızca `/auth/silent`
   aynı kökenden çerçevelenebilir. API kökeni ya da IdP değişince `PORTAL_*_ORIGIN` güncellenmeli.

@@ -9,4 +9,7 @@ add_header Referrer-Policy "strict-origin-when-cross-origin" always;
 add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()" always;
 add_header Cross-Origin-Opener-Policy "same-origin" always;
 add_header Cross-Origin-Resource-Policy "same-origin" always;
-add_header Strict-Transport-Security "max-age=63072000; includeSubDomains" always;
+# HSTS yalnızca HTTPS arkasında anlamlıdır. HTTP (localhost demo) üzerinde gönderilirse Safari
+# CSS/JS'yi HTTPS'e yükseltip yükleyemez (stilsiz sayfa). PORTAL_HSTS boşsa nginx başlığı göndermez;
+# üretimde örn. PORTAL_HSTS="max-age=63072000; includeSubDomains".
+add_header Strict-Transport-Security "${PORTAL_HSTS}" always;
