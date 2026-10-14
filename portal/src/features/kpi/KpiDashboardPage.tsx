@@ -109,7 +109,7 @@ function KpiTile({ kpi }: { kpi: KPIValue }) {
         {kpi.name}
       </h3>
       <p className={styles.tileValue}>{formatKpiValue(kpi.value, kpi.unit)}</p>
-      <div>
+      <div className={styles.tileTrend}>
         <Badge tone={trendTone(kpi)}>{deltaText(kpi)}</Badge>
       </div>
       <p className={styles.tileMeta}>

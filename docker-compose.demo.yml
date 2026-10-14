@@ -40,7 +40,7 @@ services:
       SZ_SCHEDULER_ENABLED: "true"
       SZ_DATABASE_URL: postgresql+asyncpg://serviszeka:serviszeka-demo@db:5432/serviszeka
       SZ_AUTO_CREATE_SCHEMA: "false"
-      SZ_CORS_ORIGINS: http://localhost:8080
+      SZ_CORS_ORIGINS: http://localhost:8080,http://127.0.0.1:8080
       # İzleme webhook'u (DEMO.md'deki curl örneği); yalnızca demo değeri
       SZ_EVENTS_WEBHOOK_SECRET: demo-olay-gizli
     # Şema göçlerle kurulur, demo verisi yüklenir (idempotent: yeniden başlatmada eklemez), API açılır

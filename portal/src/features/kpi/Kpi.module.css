@@ -34,6 +34,16 @@
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
 }
+/* Uzun "önceki döneme göre" rozeti dar kartta taşmasın, satır kırsın */
+.tile {
+  min-width: 0;
+}
+
+.tileTrend > * {
+  max-width: 100%;
+  white-space: normal;
+}
+
 .tileName {
   margin: 0;
   font-size: var(--text-sm);
