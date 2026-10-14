@@ -32,6 +32,12 @@ const CatalogItemPage = lazy(() => import('@/features/catalog/CatalogItemPage'))
 const RequestDetailPage = lazy(() => import('@/features/requests/RequestDetailPage'));
 const ProblemListPage = lazy(() => import('@/features/problems/ProblemListPage'));
 const ProblemDetailPage = lazy(() => import('@/features/problems/ProblemDetailPage'));
+const KpiDashboardPage = lazy(() => import('@/features/kpi/KpiDashboardPage'));
+const SlaForecastPage = lazy(() => import('@/features/kpi/SlaForecastPage'));
+const EventGroupListPage = lazy(() => import('@/features/events/EventGroupListPage'));
+const EventGroupDetailPage = lazy(() => import('@/features/events/EventGroupDetailPage'));
+const ImprovementListPage = lazy(() => import('@/features/improvements/ImprovementListPage'));
+const ImprovementDetailPage = lazy(() => import('@/features/improvements/ImprovementDetailPage'));
 const AuditPage = lazy(() => import('@/features/admin/AuditPage'));
 const IntegrationsPage = lazy(() => import('@/features/admin/IntegrationsPage'));
 
@@ -85,6 +91,18 @@ export function AppRoutes() {
         />
         <Route path="cmdb" element={guard(ROUTE_ROLES.cmdb, <CmdbListPage />)} />
         <Route path="cmdb/:id" element={guard(ROUTE_ROLES.cmdb, <CIDetailPage />)} />
+        <Route path="panolar" element={guard(ROUTE_ROLES.dashboards, <KpiDashboardPage />)} />
+        <Route path="sla-tahmin" element={guard(ROUTE_ROLES.slaForecast, <SlaForecastPage />)} />
+        <Route path="olaylar" element={guard(ROUTE_ROLES.events, <EventGroupListPage />)} />
+        <Route path="olaylar/:id" element={guard(ROUTE_ROLES.events, <EventGroupDetailPage />)} />
+        <Route
+          path="iyilestirmeler"
+          element={guard(ROUTE_ROLES.improvements, <ImprovementListPage />)}
+        />
+        <Route
+          path="iyilestirmeler/:id"
+          element={guard(ROUTE_ROLES.improvements, <ImprovementDetailPage />)}
+        />
         <Route path="yonetim/denetim" element={guard(ROUTE_ROLES.audit, <AuditPage />)} />
         <Route
           path="yonetim/entegrasyonlar"

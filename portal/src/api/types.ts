@@ -119,3 +119,30 @@ export type CatalogListQuery = QueryOf<'list_items_catalog_items_get'>;
 export type ServiceRequestListQuery = QueryOf<'list_requests_requests_get'>;
 export type ActionListQuery = QueryOf<'list_actions_actions_get'>;
 export type ProblemListQuery = QueryOf<'list_problems_problems_get'>;
+
+// Faz 4: KPI'lar, tahmine dayalı SLA, izleme / olay yönetimi (docs/faz4.md)
+export type KPIReport = Schemas['KPIReportRead'];
+export type KPIValue = Schemas['KPIValueRead'];
+export type KPIGroupStat = Schemas['KPIGroupStat'];
+export type KPIDefinition = Schemas['KPIDefinitionRead'];
+export type KPIWindow = Schemas['KPIWindowRead'];
+export type BreachForecast = Schemas['BreachForecastRead'];
+export type ForecastReason = Schemas['ForecastReason'];
+export type ForecastReport = Schemas['ForecastReportRead'];
+export type EventGroup = Schemas['EventGroupRead'];
+export type EventGroupDetail = Schemas['EventGroupDetailRead'];
+export type EventGroupState = Schemas['EventGroupState'];
+export type MonitoringEvent = Schemas['EventRead'];
+export type CorrelatedMember = Schemas['CorrelatedMember'];
+export type EventSeverity = Schemas['EventSeverity'];
+export type EventStatus = Schemas['EventStatus'];
+
+export type KPIReportQuery = QueryOf<'kpi_report_kpi_get'>;
+export type ForecastQuery = QueryOf<'sla_forecast_list_sla_forecast_get'>;
+export type EventGroupListQuery = QueryOf<'list_groups_events_groups_get'>;
+
+// Faz 4: sürekli iyileştirme (CSI) kaydı
+export type Improvement = Schemas['ImprovementRead'];
+export type ImprovementState = Schemas['ImprovementState'];
+export type ImprovementSource = Schemas['ImprovementSource'];
+export type ImprovementListQuery = QueryOf<'list_improvements_improvements_get'>;

@@ -1,6 +1,9 @@
 """Katalog araçları (33 + sorun yönetimi 8). Yeni alan modülü burada kayda alınır."""
 
 from serviszeka.tools.builtin import catalog, change, identity, incident, kb, ops, problem
+from serviszeka.tools.builtin import csi as csi_tools
+from serviszeka.tools.builtin import event as event_tools
+from serviszeka.tools.builtin import kpi as kpi_tools
 
 _registered = False
 
@@ -9,6 +12,8 @@ def register_builtin_tools() -> None:
     global _registered
     if _registered:
         return
-    for module in (incident, change, kb, ops, problem, catalog, identity):
+    for module in (
+        incident, change, kb, ops, problem, catalog, identity, kpi_tools, event_tools, csi_tools
+    ):
         module.register_all()
     _registered = True

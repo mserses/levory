@@ -612,6 +612,8 @@ RISKY_SAMPLES = {
     "identity.revoke_sessions": lambda fx: {"user": "ali"},
     "identity.disable_user": lambda fx: {"user": "ali", "reason_code": "offboarding"},
     "mailbox.grant_shared_access": lambda fx: {"mailbox": "muhasebe", "user": "ali"},
+    # Faz 4 izleme: uyarı grubunu susturmak her zaman insan onayı ister
+    "event.silence": lambda fx: {"group_id": fx.event_group_id, "minutes": 60, "comment": "Bakım"},
 }
 # Koşullu riskin R2'ye çıktığı R1 araç çağrıları (P1/P2 önceliği, SLA saatini durduran bekleme)
 CONDITIONAL_RISKY = {
@@ -630,6 +632,11 @@ CONDITIONAL_RISKY = {
     "incident.set_on_hold/awaiting_caller": (
         "incident.set_on_hold",
         lambda fx: {"incident_id": fx.incident_id, "hold_reason": "awaiting_caller"},
+    ),
+    # Faz 4 izleme: kritiklik 1 CI'da kritik uyarı grubu P1 olay açar -> R2
+    "event.create_incident/p1": (
+        "event.create_incident",
+        lambda fx: {"group_id": fx.event_group_id},
     ),
 }
 
@@ -681,6 +688,50 @@ def test_gate_tools_handlers_only_reached_through_pipeline():
     assert offenders == []
 
 
+def _admin_only(spec) -> bool:
+    from serviszeka.auth import ROLE_ADMIN
+
+    return not (set(spec.roles) - {ROLE_ADMIN})
+
+
+def test_gate_tools_ai_never_calls_admin_only_tools():
+    # Ürün sahibi kararı: yapay zekâ yalnızca admin olmayan bir insan rolünün de çağırabildiği
+    # araçları çağırır (denetim günlüğü okuma/doğrulama gibi admin-yalnız okumalar hariç)
+    import dataclasses
+
+    from serviszeka.tools import can_call, registry
+
+    admin_only = {n for n in registry.names() if _admin_only(registry.get(n))}
+    assert {"audit.search", "audit.verify_chain"} <= admin_only
+    ai_users = (
+        AI_TOOL_USER,
+        CurrentUser("ai:gate", frozenset({"ai_agent", "admin"})),
+        CurrentUser("mcp-istemci", frozenset({"ai_agent", "admin", "agent"})),
+    )
+    for name in sorted(admin_only):
+        spec = registry.get(name)
+        assert spec.ai_allowed is False, f"{name}: admin-yalnız araç ai_allowed=False olmalı"
+        for user in ai_users:
+            assert not can_call(spec, user), (name, user.username)
+        # Yapısal kural: bayrak unutulsa da admin-yalnız araç yapay zekâya kapalıdır
+        assert not can_call(dataclasses.replace(spec, ai_allowed=True), AI_TOOL_USER), name
+        # İnsan admin çağırabilir
+        assert can_call(spec, CurrentUser("admin1", frozenset({"admin"}))), name
+
+
+@pytest.mark.parametrize("name", ["audit.search", "audit.verify_chain"])
+async def test_gate_tools_ai_admin_only_call_is_forbidden_and_writes_nothing(session, name):
+    from serviszeka.models import AuditLog, ToolInvocation
+    from serviszeka.tools import ToolForbiddenError, execute_tool
+
+    before = await session.scalar(select(func.count()).select_from(AuditLog))
+    for user in (AI_TOOL_USER, CurrentUser("ai:gate", frozenset({"ai_agent", "admin"}))):
+        with pytest.raises(ToolForbiddenError):
+            await execute_tool(session, user, name, {}, confidence=1.0, settings=LOOSE)
+    assert await session.scalar(select(func.count()).select_from(AuditLog)) == before
+    assert await session.scalar(select(func.count()).select_from(ToolInvocation)) == 0
+
+
 _GATE_DIRECTORY: dict = {}
 
 
@@ -721,7 +772,9 @@ async def _tool_session_fixtures(session):
         TOOL_AGENT,
     )
     await session.commit()
-    return replace(fx, problem_id=problem.id)
+    from _events import seed_p1_group
+
+    return replace(fx, problem_id=problem.id, event_group_id=await seed_p1_group(session))
 
 
 @pytest.mark.parametrize("name", sorted(RISKY_SAMPLES))
@@ -747,6 +800,7 @@ async def test_gate_tools_ai_cannot_run_r2_r3_without_approval(session, monkeypa
     assert not {
         "incident.update", "change.transition", "knowledge.publish", "knowledge.retire",
         "problem.transition", "problem.known_error.publish",
+        "event.group.silence", "event.group.incident", "incident.work_note",
     } & acts
     if fx.problem_id:
         from serviszeka.models import Problem
@@ -952,6 +1006,14 @@ IDENTITY_CONDITIONAL = {
     "reset_password/no_request": ("identity.reset_password", {"user": "ali"}, "R2", LOOSE),
     # Kilit açma da parola sıfırlama gibi: doğrulanmış self-servis talep dışında R2
     "unlock_account/no_request": ("identity.unlock_account", {"user": "ali"}, "R2", LOOSE),
+    # Ürün sahibi kararı: standart gruba ekleme ve lisans atama da hesaba/erişime dokunur;
+    # doğrulanmış self-servis talep dışında (talepsiz / başkası adına / devre dışı hesap) R2
+    "add_to_group/standard_no_request": (
+        "identity.add_to_group", {"user": "ali", "group": "sg-vpn-kullanicilari"}, "R2", LOOSE_STD
+    ),
+    "license_assign/no_request": (
+        "license.assign", {"user": "ali", "sku": "SPE_E3"}, "R2", LOOSE
+    ),
 }
 
 
@@ -1003,6 +1065,18 @@ RISKY_REQUESTS = {
     ),
     "password_reset_on_behalf": ("password_reset", "ali", "ayse", {}, False, "R2", "reset_password"),
     "account_unlock_on_behalf": ("account_unlock", "ali", "ayse", {}, False, "R2", "unlock_account"),
+    # Standart grup / lisans: başkası adına açılan talepte R2 (verify_self_service)
+    "vpn_access_on_behalf": (
+        "vpn_access", "ali", "ayse", {"justification": "Uzaktan çalışma"}, False, "R2",
+        "add_to_group",
+    ),
+    "software_group_on_behalf": (
+        "standard_software_group", "ali", "ayse", {"group": "sg-yazilim-standart"}, False, "R2",
+        "add_to_group",
+    ),
+    "m365_license_on_behalf": (
+        "m365_license", "ali", "ayse", {"sku": "SPE_E3"}, False, "R2", "assign_license"
+    ),
     "new_employee": (
         "new_employee_account", "mehmet", "mehmet",
         {"user": "yeni.calisan", "mailbox": "muhasebe"}, True, "R2", "grant_shared_access",
@@ -1024,6 +1098,31 @@ async def test_gate_request_risky_steps_wait_for_human_approval(session, case):
     assert ar.risk_class.value == risk and ar.request_id == req.id
     assert [w for w in d.writes if w[0] == forbidden] == []
     assert req.touchless is None and req.fulfilled_at is None
+
+
+@pytest.mark.parametrize(
+    ("key", "form", "forbidden"),
+    [
+        ("vpn_access", {"justification": "Uzaktan çalışma"}, "add_to_group"),
+        ("standard_software_group", {"group": "sg-yazilim-standart"}, "add_to_group"),
+        ("m365_license", {"sku": "SPE_E3"}, "assign_license"),
+    ],
+)
+async def test_gate_request_disabled_account_group_or_license_needs_approval(
+    session, key, form, forbidden
+):
+    # Devre dışı hesap kendi talebini açmış olsa da standart grup / lisans adımı R2 (insan onayı)
+    from serviszeka.models import ActionRequest
+
+    d = _GATE_DIRECTORY["d"]
+    ali = await d.get_user("ali")
+    d.users[ali.id].account_enabled = False
+    req = await _open(session, key, "ali", CurrentUser("ali", frozenset({"requester"})), form)
+    assert req.state == "fulfilling" and req.waiting_action_id, (req.state, req.error)
+    ar = await session.get(ActionRequest, req.waiting_action_id)
+    assert ar.state == "pending" and ar.risk_class.value == "R2"
+    assert [w for w in d.writes if w[0] == forbidden] == []
+    assert req.touchless is None
 
 
 async def test_gate_request_r3_step_needs_two_distinct_humans(session):
@@ -1144,7 +1243,9 @@ async def test_gate_request_form_edit_after_business_approval_is_refused(session
     # Güvenlik incelemesi: İK, `yeni.calisan` için onay verdi; adım başarısız olunca formu başka
     # bir kullanıcıya çevirip yeniden denemek, onaylanmamış hedefe R1 adımları (lisans, grup)
     # çalıştırırdı. Onaylı talebin formu değiştirilemez; yeniden deneme onaylı değerlerle çalışır.
+    from serviszeka.models import ActionRequest
     from serviszeka.services import requests
+    from serviszeka.tools import actions
 
     d = _GATE_DIRECTORY["d"]
     _, zeynep, ayse, mehmet = _req_users()
@@ -1152,12 +1253,20 @@ async def test_gate_request_form_edit_after_business_approval_is_refused(session
     req = await _open(session, "new_employee_account", "mehmet", mehmet,
                       {"user": "yeni.calisan", "mailbox": "muhasebe"})
     req = await requests.decide(session, req.id, zeynep, "approve", settings=LOOSE_STD)
+    # Başkası adına lisans atama R2: BT onayıyla yürütülür, boş lisans olmadığı için başarısız
+    it = CurrentUser("sef.ali", frozenset({"approver"}))
+    ar = await session.get(ActionRequest, req.waiting_action_id)
+    assert ar.tool == "license.assign" and ar.risk_class.value == "R2"
+    await actions.approve(session, ar.id, it, settings=LOOSE_STD)
     assert req.state == "failed", (req.state, req.error)
     with pytest.raises(requests.RequestStateError):
         await requests.update_form(session, req.id, ayse, {"user": "ali", "mailbox": "muhasebe"})
     assert req.form_values["user"] == "yeni.calisan"
     d.add_sku("sku-spe-e3", "SPE_E3", enabled=100, consumed=10)
     req = await requests.retry(session, req.id, ayse, settings=LOOSE_STD)
+    ar = await session.get(ActionRequest, req.waiting_action_id)
+    assert ar.tool == "license.assign" and ar.args["user"] == "yeni.calisan"
+    await actions.approve(session, ar.id, it, settings=LOOSE_STD)
     assigned = [w[1]["user_id"] for w in d.writes if w[0] == "assign_license"]
     assert assigned == ["u-yeni.calisan"]
     # Onay verilmemiş (iş onayı gerekmeyen) talepte düzeltme serbest kalır (insan dokunuşu)
@@ -1305,3 +1414,336 @@ async def test_gate_labelled_requests_half_touchless_zero_false_touchless():
     assert report.false_touchless == [] and report.violations == [] and report.unresolved == []
     assert report.llm_calls == 0
     assert report.standard_touchless_rate >= 0.5 and report.passed
+
+
+# --- 7) Faz 4: raporlama araçları (KPI / SLA raporu / ihlal tahmini) yalnızca okur ---------------
+#
+# Kapı: kpi.report, sla.report ve sla.forecast R0'dır, koşullu riski yoktur, politika tablosunda
+# girdisi vardır; yapay zekâ en gevşek politikada çağırdığında bile karar/eylem isteği/idempotency
+# kaydı ya da kayıt değişikliği oluşmaz (yalnızca `tool.read` denetimi). Hesaplayan servisler
+# (services/kpi.py, services/sla_forecast.py) statik olarak yazma/commit/denetim çağrısı içermez.
+
+PHASE4_READ_TOOLS = {
+    "kpi.report": {"days": 30, "kpis": ["mttr", "backlog"]},
+    "sla.report": {"days": 7},
+    "sla.forecast": {"assignment_group": "network_ops", "min_probability": 0.0},
+}
+
+
+def test_gate_phase4_reporting_tools_are_r0_with_policy():
+    from serviszeka.domain.enums import RiskClass
+    from serviszeka.tools import registry
+
+    for name in PHASE4_READ_TOOLS:
+        spec = registry.get(name)
+        assert spec.risk_class == RiskClass.R0 and spec.risk_fn is None, name
+        assert (spec.domain, spec.verb) in POLICIES, name
+        assert POLICIES[(spec.domain, spec.verb)].max_auto_risk in (RiskLevel.LOW, None), name
+
+
+def test_gate_phase4_services_never_write():
+    banned = re.compile(
+        r"session\.(add|add_all|flush|commit|delete|merge|refresh)\b"
+        r"|(?<![.\w])(insert|update|delete)\("
+        r"|audit\.record|notifications\.stage|execute_tool|with_for_update"
+    )
+    for rel in ("services/kpi.py", "services/sla_forecast.py", "tools/builtin/kpi.py"):
+        source = (TOOLS_DIR / rel).read_text(encoding="utf-8")
+        assert not banned.search(source), (rel, banned.search(source).group(0))
+
+
+@pytest.mark.parametrize("name", sorted(PHASE4_READ_TOOLS))
+async def test_gate_phase4_ai_reporting_call_writes_nothing(session, name):
+    from serviszeka.models import ActionRequest, AIDecision, AuditLog, Incident, ToolInvocation
+    from serviszeka.services import incidents as incident_service
+    from serviszeka.services.schemas import IncidentCreate
+    from serviszeka.tools import ToolStatus, execute_tool
+
+    inc = await incident_service.create_incident(
+        session, IncidentCreate(title="VPN kopuyor", caller="ali"), "ayse"
+    )
+    version = inc.version
+    before = await session.scalar(select(func.count()).select_from(AuditLog))
+    r = await execute_tool(
+        session, AI_TOOL_USER, name, PHASE4_READ_TOOLS[name], idempotency_key="k-1",
+        confidence=1.0, settings=LOOSE,
+    )  # fmt: skip
+    assert r.status == ToolStatus.EXECUTED, r.error
+    for model in (AIDecision, ActionRequest, ToolInvocation):
+        assert await session.scalar(select(func.count()).select_from(model)) == 0, model
+    actions = (await session.scalars(select(AuditLog.action).order_by(AuditLog.seq))).all()
+    assert len(actions) == before + 1 and actions[-1] == "tool.read"
+    assert (await session.get(Incident, inc.id)).version == version
+
+
+# --- 8) Faz 4: izleme ve olay yönetimi (event.*, agents/events.py) --------------------------------
+#
+# Kapı: uyarılardan olay açma yapay zekâ eylemidir ve araç boru hattından (`ai:events`) geçer.
+# - event.list_alerts / event.correlate R0 (yazmaz), event.acknowledge R1, event.create_incident R1
+#   (P1/P2 olay açacaksa R2), event.silence R2; hepsinin politika girdisi var.
+# - En gevşek politikada bile: P1 olacak grup için olay açılmaz (yalnızca bekleyen R2 istek, ikinci
+#   işlemde yinelenmez); çözülen uyarılar olayı çözmez (not + bekleyen `incident.resolve` R2 isteği).
+# - Ajan modülü veritabanına doğrudan yazmaz (statik tarama); olay servisi olay durumunu değiştirmez.
+
+EVENT_TOOL_RISK = {
+    "event.list_alerts": "R0",
+    "event.correlate": "R0",
+    "event.acknowledge": "R1",
+    "event.create_incident": "R1",
+    "event.silence": "R2",
+}
+EVENT_READ_TOOLS = {"event.list_alerts": {"status": "firing"}, "event.correlate": {}}
+
+
+def test_gate_events_tools_risk_classes_and_policy():
+    from serviszeka.tools import registry
+
+    for name, risk in EVENT_TOOL_RISK.items():
+        spec = registry.get(name)
+        assert spec.risk_class.value == risk, name
+        assert (spec.domain, spec.verb) in POLICIES, name
+    assert registry.get("event.create_incident").risk_fn is not None
+    assert POLICIES[("event", "silence")].max_auto_risk is None
+    assert POLICIES[("incident", "resolve")].max_auto_risk is None
+
+
+@pytest.mark.parametrize("name", sorted(EVENT_READ_TOOLS))
+async def test_gate_events_ai_read_writes_nothing(session, name):
+    from _events import seed_p1_group
+
+    from serviszeka.models import (
+        ActionRequest,
+        AIDecision,
+        AuditLog,
+        EventGroup,
+        Incident,
+        ToolInvocation,
+    )
+    from serviszeka.tools import ToolStatus, execute_tool
+
+    group_id = await seed_p1_group(session)
+    version = (await session.get(EventGroup, group_id)).version
+    before = await session.scalar(select(func.count()).select_from(AuditLog))
+    r = await execute_tool(
+        session, AI_TOOL_USER, name, EVENT_READ_TOOLS[name], idempotency_key="k-1",
+        confidence=1.0, settings=LOOSE,
+    )  # fmt: skip
+    assert r.status == ToolStatus.EXECUTED, r.error
+    for model in (AIDecision, ActionRequest, ToolInvocation, Incident):
+        assert await session.scalar(select(func.count()).select_from(model)) == 0, model
+    actions = (await session.scalars(select(AuditLog.action).order_by(AuditLog.seq))).all()
+    assert len(actions) == before + 1 and actions[-1] == "tool.read"
+    assert (await session.get(EventGroup, group_id)).version == version
+
+
+async def test_gate_events_p1_group_never_opens_incident_without_approval(session):
+    from _events import seed_p1_group
+
+    from serviszeka.agents import events as event_agent
+    from serviszeka.models import ActionRequest, Incident
+
+    group_id = await seed_p1_group(session)
+    for _ in range(2):  # ikinci işlem yeni istek açmaz
+        [out] = await event_agent.process_groups(session, [group_id], settings=LOOSE)
+    assert await session.scalar(select(func.count()).select_from(Incident)) == 0
+    ars = (await session.scalars(select(ActionRequest))).all()
+    assert len(ars) == 1 and ars[0].risk_class == "R2" and ars[0].state == "pending"
+    assert ars[0].tool == "event.create_incident" and ars[0].requested_by == "ai:events"
+    assert out.action == "skipped" and "bekleyen" in out.reason
+
+
+async def test_gate_events_resolved_alerts_never_resolve_incident(session):
+    from datetime import timedelta
+
+    from _events import EV_SETTINGS, T0, am_alert, am_payload, seed_low_group
+
+    from serviszeka.agents import events as event_agent
+    from serviszeka.models import ActionRequest, AuditLog, EventGroup, Incident
+    from serviszeka.services import events
+
+    loose = EV_SETTINGS.model_copy(update={"ai_shadow_mode": False, "ai_confidence_threshold": 0.0})
+    group_id = await seed_low_group(session, loose)
+    [out] = await event_agent.process_groups(
+        session, [group_id], settings=loose, now=T0 + timedelta(seconds=10)
+    )
+    assert out.action == "create" and out.status == "executed"  # R1 (P4) politika gereği otomatik
+    group = await session.get(EventGroup, group_id)
+    alerts = events.parse_alertmanager(
+        am_payload(am_alert("fp-yazici", status="resolved", severity="error", ci="test-yazici",
+                            ends=T0 + timedelta(minutes=5)), status="resolved")
+    )  # fmt: skip
+    res = await events.ingest(session, alerts, settings=loose, now=T0 + timedelta(minutes=6))
+    later = T0 + timedelta(minutes=7)
+    outs = await event_agent.process_groups(session, res.group_ids, settings=loose, now=later)
+    assert [o.action for o in outs] == ["propose_resolve"]
+    incident = await session.get(Incident, group.incident_id)
+    assert incident.status.value != "resolved" and incident.resolved_at is None
+    ar = await session.scalar(select(ActionRequest).where(ActionRequest.tool == "incident.resolve"))
+    assert ar.state == "pending" and ar.risk_class == "R2" and ar.requested_by == "ai:events"
+    notes = (await session.scalars(select(AuditLog).where(AuditLog.action == "incident.work_note"))).all()
+    assert len(notes) == 1 and "ÇÖZÜLDÜ" in notes[0].details["note"]
+    # Tekrar işlem: ikinci çözüm önerisi yok
+    await event_agent.process_groups(session, res.group_ids, settings=loose, now=later)
+    assert await session.scalar(
+        select(func.count()).select_from(ActionRequest).where(ActionRequest.tool == "incident.resolve")
+    ) == 1
+
+
+def test_gate_events_static_no_direct_writes_or_status_change():
+    agent = AGENTS_DIR / "events.py"
+    scan = scan_agent_source(agent.read_text(encoding="utf-8"), "events")
+    assert scan.problems == [] and scan.writes is False  # yazma yalnızca execute_tool ile
+    banned = re.compile(
+        r"incident\w*\.status\s*=(?!=)|[\"']status[\"']\s*:|IncidentStatus\.(RESOLVED|CLOSED)"
+        r"|incident_service\.(update_incident|apply_changes)\([^)]*status"
+    )
+    for rel in ("services/events.py", "tools/builtin/event.py"):
+        source = (TOOLS_DIR / rel).read_text(encoding="utf-8")
+        assert not banned.search(source), (rel, banned.search(source).group(0))
+
+
+# --- 9) Faz 4: sürekli iyileştirme (csi.*, agents/improvement.py `ai:csi`) ------------------------
+#
+# Kapı: yapay zekâ iyileştirmeyi yalnızca fikir (`idea`) olarak açar ve uygulaması bitmiş kaydı
+# ölçer; asla onaylamaz, başlatmaz, uygulandı işaretlemez, kapatmaz, reddetmez. Bunlar araç
+# değildir (csi alanında yalnızca 4 araç), servis `ai:` aktörü/`ai_agent` rolünü reddeder, API
+# approver/admin ister. En gevşek politikada bile ajan çalışması onaylı/kapalı kayıt üretmez.
+
+CSI_TOOL_RISK = {
+    "csi.list": "R0",
+    "csi.detect_signals": "R0",
+    "csi.create_improvement": "R1",
+    "csi.measure_improvement": "R1",
+}
+CSI_HUMAN_ONLY = ("approve", "reject", "start", "mark_implemented", "close")
+
+
+def test_gate_csi_tools_risk_classes_and_policy():
+    from serviszeka.tools import registry
+
+    csi = {n for n in registry.names() if registry.get(n).domain == "csi"}
+    assert csi == set(CSI_TOOL_RISK)  # onay/kapatma aracı eklenemez (kapı güncellenmeden)
+    for name, risk in CSI_TOOL_RISK.items():
+        spec = registry.get(name)
+        assert spec.risk_class.value == risk, name
+        assert POLICIES[(spec.domain, spec.verb)].max_auto_risk == RiskLevel.LOW, name
+        if risk == "R0":
+            assert spec.risk_fn is None, name
+    fields = set(registry.get("csi.create_improvement").input_model.model_fields)
+    assert not fields & {
+        "state", "approved_by", "approved_at", "closed_by", "closed_at", "started_at",
+        "implemented_at", "measured_value", "target_met", "measurement", "created_by",
+        "detected_by",
+    }  # fmt: skip
+
+
+@pytest.mark.parametrize(
+    "actor",
+    [
+        CurrentUser("ai:csi", frozenset({"ai_agent"})),
+        CurrentUser("ai:csi", frozenset({"ai_agent", "admin", "approver"})),
+        CurrentUser("mcp-istemci", frozenset({"ai_agent", "approver"})),
+    ],
+    ids=["ai", "ai-admin", "ai-agent-rolu"],
+)
+async def test_gate_csi_ai_cannot_approve_start_close_or_reject(session, actor):
+    from serviszeka.models import Improvement
+    from serviszeka.services import improvements as svc
+    from serviszeka.services.improvement_schemas import ImprovementCreate
+
+    human = CurrentUser("ayse", frozenset({"agent"}))
+    imp = await svc.create_improvement(session, ImprovementCreate(title="Fikir"), human)
+    await session.commit()
+    for name in CSI_HUMAN_ONLY:
+        with pytest.raises(svc.ImprovementForbiddenError):
+            kw = {} if name == "mark_implemented" else {"note": "x"}
+            await getattr(svc, name)(session, imp.id, actor, **kw)
+    await session.refresh(imp)
+    assert imp.state == "idea" and imp.version == 1 and imp.approved_by is None
+    assert await session.scalar(select(func.count()).select_from(Improvement)) == 1
+
+
+async def test_gate_csi_api_ai_token_and_agent_cannot_approve_or_close(session):
+    from serviszeka.services import improvements as svc
+    from serviszeka.services.improvement_schemas import ImprovementCreate
+
+    imp = await svc.create_improvement(
+        session, ImprovementCreate(title="Fikir"), CurrentUser("ayse", frozenset({"agent"}))
+    )
+    await session.commit()
+
+    async def _get_session():
+        async with db.get_sessionmaker()() as s:
+            yield s
+
+    app.dependency_overrides[db.get_session] = _get_session
+    try:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test"
+        ) as c:
+            for headers in (dev_headers("bot", "ai_agent"), AGENT,
+                            dev_headers("ali", "requester")):  # fmt: skip
+                for step in ("approve", "reject", "close"):
+                    r = await c.post(f"/improvements/{imp.id}/{step}", json={"note": "x"},
+                                     headers=headers)  # fmt: skip
+                    assert r.status_code == 403, (step, r.status_code)
+            r = await c.post("/improvements/review", headers=dev_headers("bot", "ai_agent"))
+            assert r.status_code == 403
+    finally:
+        app.dependency_overrides.clear()
+    await session.refresh(imp)
+    assert imp.state == "idea" and imp.version == 1
+
+
+async def test_gate_csi_agent_under_loosest_policy_only_proposes_and_measures(
+    session, monkeypatch
+):
+    from _csi import AGENT as CSI_AGENT
+    from _csi import APPROVER as CSI_APPROVER
+    from _csi import NOW, Frozen, mttr_rows, seed_signals
+
+    from serviszeka.agents import improvement as csi_agent
+    from serviszeka.models import ActionRequest, Improvement
+    from serviszeka.services import improvements as svc
+    from serviszeka.services.improvement_schemas import ImprovementCreate
+
+    await seed_signals(session, Frozen(monkeypatch))
+    # Ölçümü gelmiş, insanca onaylanıp uygulanmış bir iyileştirme
+    t0 = NOW - timedelta(days=40)
+    imp = await svc.create_improvement(
+        session, ImprovementCreate(title="MTTR", kpi_key="mttr", measure_days=30), CSI_AGENT,
+        now=t0,
+    )  # fmt: skip
+    await svc.approve(session, imp.id, CSI_APPROVER, now=t0)
+    await svc.start(session, imp.id, CSI_AGENT, now=t0)
+    await svc.mark_implemented(session, imp.id, CSI_AGENT, at=t0, now=t0)
+    await mttr_rows(session, group="network_ops", category="ag", hours=3, start=t0 + timedelta(days=1))
+    await session.commit()
+
+    out = await csi_agent.run_review(session, llm=FakeLLM([{"narrative": "Onayla ve kapat."}]),
+                                     settings=LOOSE, now=NOW)  # fmt: skip
+    await session.commit()
+    assert out["proposed"] >= 8 and out["measured"] == 1
+    rows = (await session.scalars(select(Improvement))).all()
+    for row in rows:
+        if row.id == imp.id:
+            assert row.state == "measured" and row.closed_at is None and row.closed_by is None
+            continue
+        # LLM metni "onayla" dese de yapay zekâ yalnızca fikir açar
+        assert row.state == "idea" and row.approved_by is None and row.closed_at is None
+        assert row.created_by == "ai:csi"
+    assert await session.scalar(select(func.count()).select_from(ActionRequest)) == 0
+
+
+def test_gate_csi_static_agent_writes_only_through_tools():
+    agent = AGENTS_DIR / "improvement.py"
+    source = agent.read_text(encoding="utf-8")
+    scan = scan_agent_source(source, "improvement")
+    assert scan.problems == [] and scan.writes is False  # yazma yalnızca execute_tool ile
+    human_only = re.compile(
+        r"\.(approve|reject|start|mark_implemented|close)\(|ImprovementState\.(APPROVED|CLOSED|"
+        r"REJECTED|IN_PROGRESS)|[\"']state[\"']\s*:"
+    )
+    for rel in ("agents/improvement.py", "tools/builtin/csi.py"):
+        text = (TOOLS_DIR / rel).read_text(encoding="utf-8")
+        assert not human_only.search(text), (rel, human_only.search(text).group(0))

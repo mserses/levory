@@ -95,7 +95,8 @@ class ToolSpec:
     - `input_model`: argüman şeması (pydantic; `extra="forbid"` önerilir). MCP girdi şeması buradan
       üretilir. `RESERVED_ARGS` alan adı olarak kullanılamaz.
     - `roles`: insan çağıranlar için gereken rollerden biri (admin hepsini kapsar). Yapay zekâ
-      çağıranlar `ai_agent` rolüyle ve `ai_allowed` ise çağırır.
+      çağıranlar `ai_agent` rolüyle, `ai_allowed` ise ve rollerde admin dışı bir rol varsa çağırır
+      (admin-yalnız araçlar yapay zekâya kapalıdır: `executor.ai_callable`).
     - `connectors`: gereken bağlayıcı türleri (`tools.connectors`); yapılandırılmamışsa araç
       kullanılamaz (503).
     - `links`: argüman adı -> bağ türü (`incident`/`change`/`request`); eylem isteğine işlenir.

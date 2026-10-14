@@ -3,7 +3,8 @@
 Akış (her çağıran — MCP, iç ajanlar, testler — buradan geçer; işleyiciye başka yoldan ulaşılmaz):
 
 1. Aktör: `ai_agent` rolü -> `ai:<istemci>` (yalnızca `ai_agent` rolü). Araç bulunur, yetki
-   denetlenir (insan: araç rollerinden biri; yapay zekâ: `ai_agent` + `ai_allowed`), gereken
+   denetlenir (insan: araç rollerinden biri; yapay zekâ: `ai_agent` + `ai_allowed` + admin dışı
+   bir insan rolü de çağırabiliyor olmalı — `ai_callable`), gereken
    bağlayıcılar yapılandırılmış mı bakılır.
 2. Argümanlar doğrulanır (pydantic) ve kanonik hale getirilir; bağlı kayıtlar (olay/değişiklik)
    var mı denetlenir. Hata -> hiçbir şey yazılmadan `ToolValidationError`.
@@ -40,7 +41,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from serviszeka import audit, knowledge, notifications, policy
-from serviszeka.auth import ROLE_AI_AGENT, CurrentUser, principal
+from serviszeka.auth import ROLE_ADMIN, ROLE_AI_AGENT, CurrentUser, principal
 from serviszeka.config import Settings, get_settings
 from serviszeka.connectors.base import (
     ConnectorAuthError,
@@ -173,10 +174,19 @@ def as_tool_actor(user: CurrentUser) -> CurrentUser:
     return user
 
 
+def ai_callable(spec: ToolSpec) -> bool:
+    """Yapay zekâ yalnızca admin olmayan bir insan rolünün de çağırabildiği aracı çağırır.
+
+    Ürün sahibi kararı: admin-yalnız araçlar (ör. `audit.search`, `audit.verify_chain`) yapay
+    zekâya kapalıdır; `ai_allowed` bayrağı unutulsa da bu yapısal kural geçerlidir.
+    """
+    return spec.ai_allowed and bool(set(spec.roles) - {ROLE_ADMIN})
+
+
 def can_call(spec: ToolSpec, user: CurrentUser) -> bool:
     user = as_tool_actor(user)
     if user.is_ai:
-        return spec.ai_allowed and ROLE_AI_AGENT in user.roles
+        return ai_callable(spec) and ROLE_AI_AGENT in user.roles
     return user.has_any(*spec.roles)
 
 
@@ -185,7 +195,8 @@ def _authorize(spec: ToolSpec, user: CurrentUser) -> None:
         return
     if user.is_ai:
         raise ToolForbiddenError(
-            f"{spec.name}: yapay zekâ aktörü bu aracı çağıramaz (ai_agent rolü gerekir)."
+            f"{spec.name}: yapay zekâ aktörü bu aracı çağıramaz (ai_agent rolü gerekir; "
+            "admin-yalnız araçlar yapay zekâya kapalıdır)."
         )
     raise ToolForbiddenError(
         f"{spec.name} için yetkiniz yok (gereken rollerden biri: {', '.join(sorted(spec.roles))})."

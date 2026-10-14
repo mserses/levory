@@ -349,3 +349,38 @@ def test_faz3_upgrade_from_0006_keeps_data_and_downgrades(alembic_cfg):
         _assert_matches_metadata(sync_url)
     finally:
         engine.dispose()
+
+
+_KPI_INDEXES = {
+    ("incidents", "ix_incidents_resolved_at"),
+    ("incidents", "ix_incidents_responded_at"),
+    ("audit_log", "ix_audit_log_occurred_at"),
+}
+
+
+def _index_names(sync_url: str) -> set[tuple[str, str]]:
+    engine = create_engine(sync_url)
+    try:
+        insp = inspect(engine)
+        return {
+            (table, ix["name"])
+            for table in ("incidents", "audit_log")
+            for ix in insp.get_indexes(table)
+        }
+    finally:
+        engine.dispose()
+
+
+def test_faz4_upgrade_from_0009_adds_kpi_indexes_and_downgrades(alembic_cfg):
+    # Faz 3 şemasındaki (0009) veritabanı Faz 4 head'ine yükselir: KPI pencere sorguları
+    # (resolved_at / responded_at / audit_log.occurred_at) indeksli; 0010'a geri alınabilir
+    cfg, sync_url = alembic_cfg
+    command.upgrade(cfg, "0009")
+    assert not (_KPI_INDEXES & _index_names(sync_url))
+    command.upgrade(cfg, "head")
+    assert _KPI_INDEXES <= _index_names(sync_url)
+    _assert_matches_metadata(sync_url)
+    command.downgrade(cfg, "0010")
+    assert not (_KPI_INDEXES & _index_names(sync_url))
+    command.upgrade(cfg, "head")
+    _assert_matches_metadata(sync_url)

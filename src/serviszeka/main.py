@@ -11,9 +11,12 @@ from serviszeka.api import (
     catalog,
     changes,
     cmdb,
+    events,
+    improvements,
     incidents,
     integrations,
     knowledge,
+    kpi,
     me,
     problems,
     requests,
@@ -50,9 +53,21 @@ async def lifespan(app: FastAPI):
             async with get_sessionmaker()() as session:
                 await seed_default_items(session)
                 await session.commit()
-    # Faz 3: MCP oturum yöneticisi (durumsuz streamable HTTP) uygulama boyunca çalışır
-    async with gateway.run():
-        yield
+    # Faz 4: arka plan zamanlayıcısı (bildirim kuyruğu, süre aşımları, SLA uyarıları); birden
+    # fazla kopyada her işi tek kopya çalıştırır (scheduler_leases). SZ_SCHEDULER_ENABLED=false kapatır
+    from serviszeka.scheduler import Scheduler
+
+    scheduler = Scheduler(settings) if settings.scheduler_enabled else None
+    app.state.scheduler = scheduler
+    if scheduler is not None:
+        scheduler.start()
+    try:
+        # Faz 3: MCP oturum yöneticisi (durumsuz streamable HTTP) uygulama boyunca çalışır
+        async with gateway.run():
+            yield
+    finally:
+        if scheduler is not None:
+            await scheduler.stop()
 
 
 app = FastAPI(title="ServisZeka", version=__version__, lifespan=lifespan)
@@ -69,6 +84,14 @@ app.include_router(actions.router)
 app.include_router(problems.router)
 app.include_router(catalog.router)
 app.include_router(requests.router)
+# Faz 4: KPI raporu, SLA raporu ve ihlal tahmini
+app.include_router(kpi.router)
+app.include_router(kpi.sla_router)
+# Faz 4: izleme ve olay yönetimi (webhook'lar paylaşılan gizli / HMAC ile; okuma agent/admin)
+app.include_router(events.webhook_router)
+app.include_router(events.router)
+# Faz 4: sürekli iyileştirme (CSI kaydı; onay/kapatma approver/admin, ajan ai:csi)
+app.include_router(improvements.router)
 # MCP (Faz 3): araç kayıt defteri; kimlik doğrulaması gateway içinde (bearer OIDC, 401)
 app.add_route(MCP_PATH, gateway, methods=["GET", "POST", "DELETE"], include_in_schema=False)
 

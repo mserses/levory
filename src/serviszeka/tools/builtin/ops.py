@@ -219,8 +219,8 @@ def register_all() -> None:
                  "olduktan sonra).", R1, PageArgs, oncall_page, WRITERS,
                  links={"incident_id": "incident"}),
         ToolSpec("audit.verify_chain", "Hash zincirli denetim günlüğünün bütünlüğünü doğrular.", R0,
-                 NoArgs, verify_chain, ADMINS),
+                 NoArgs, verify_chain, ADMINS, ai_allowed=False),
         ToolSpec("audit.search", "Denetim günlüğünde aktör/eylem/varlığa göre arar (en yeni önce).",
-                 R0, AuditSearchArgs, audit_search, ADMINS),
+                 R0, AuditSearchArgs, audit_search, ADMINS, ai_allowed=False),
     ):  # fmt: skip
         registry.register(spec)

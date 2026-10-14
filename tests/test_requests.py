@@ -236,7 +236,10 @@ async def test_catalog_and_request_tools(session, directory):
                            {"item": "vpn_access", "requester": "mehmet",
                             "form_values": {"justification": "Saha çalışması"}},
                            confidence=0.95, settings=LIVE_REQ)
-    assert r.status == ToolStatus.EXECUTED and r.result["state"] == "fulfilled"
+    # Yapay zekânın başkası adına açtığı talepte standart gruba ekleme de doğrulanmaz: R2
+    assert r.status == ToolStatus.EXECUTED and r.result["state"] == "fulfilling"
+    assert r.result["actions"][0]["risk_class"] == "R2"
+    assert writes(directory, "add_to_group") == []
     rid, number = r.result["id"], r.result["number"]
     # Yapay zekânın başkası adına açtığı kilit açma doğrulanmaz: kilit adımı R2'ye çıkar
     r = await execute_tool(session, AI, "request.create",
@@ -277,16 +280,29 @@ async def test_r1_identity_tools_and_dry_run(session, directory):
                            confidence=0.9, settings=LIVE_REQ)
     assert r.status == ToolStatus.EXECUTED
     assert "ali@ornek.com" not in directory.messages[-1].text
+    # Talepsiz lisans atama / standart gruba ekleme doğrulanmış self-servis değildir: R2
     r = await execute_tool(session, AI, "license.assign", {"user": "mehmet", "sku": "SPE_E3"},
                            confidence=0.9, settings=LIVE_REQ, idempotency_key="lic-1")
-    assert r.status == ToolStatus.EXECUTED
+    assert r.status == ToolStatus.PENDING_APPROVAL and r.risk_class.value == "R2"
     again = await execute_tool(session, AI, "license.assign", {"user": "mehmet", "sku": "SPE_E3"},
                                confidence=0.9, settings=LIVE_REQ, idempotency_key="lic-1")
-    assert again.status == ToolStatus.EXECUTED and len(writes(directory, "assign_license")) == 1
+    assert again.action_request_id == r.action_request_id
+    assert writes(directory, "assign_license") == []
     r = await execute_tool(session, AI, "identity.add_to_group",
                            {"user": "mehmet", "group": "sg-vpn-kullanicilari"},
                            confidence=0.9, settings=LIVE_REQ)
-    assert r.status == ToolStatus.EXECUTED and r.risk_class.value == "R1"
+    assert r.status == ToolStatus.PENDING_APPROVAL and r.risk_class.value == "R2"
+    assert writes(directory, "add_to_group") == []
+    # Doğrulanmış self-servis talepte (mehmet kendi oturumuyla açtı) ikisi de R1, insansız
+    mehmet = CurrentUser("mehmet", frozenset({"requester"}))
+    req = await _create(session, "m365_license", "mehmet", mehmet, {"sku": "SPE_E3"},
+                        settings=LIVE_REQ)
+    assert req.state == "fulfilled" and req.touchless, (req.state, req.error)
+    req = await _create(session, "vpn_access", "mehmet", mehmet, {"justification": "Saha"},
+                        settings=LIVE_REQ)
+    assert req.state == "fulfilled" and req.touchless, (req.state, req.error)
+    assert len(writes(directory, "assign_license")) == 1
+    assert len(writes(directory, "add_to_group")) == 1
 
 
 @pytest.mark.parametrize(

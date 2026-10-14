@@ -100,6 +100,27 @@ POLICIES: dict[tuple[str, str], ActionPolicy] = {
     ("known_error", "publish_workaround"): ActionPolicy(
         None, "Geçici çözümü KEDB'de yayımlama (asla otomatik)"
     ),
+    # Faz 4 raporlama (R0 okuma araçları; tools/builtin/kpi.py): yazma yok, kayıt için girdi
+    ("kpi", "report"): ActionPolicy(RiskLevel.LOW, "KPI raporu (yalnızca okuma)"),
+    ("sla", "report"): ActionPolicy(RiskLevel.LOW, "SLA uyum raporu (yalnızca okuma)"),
+    ("sla", "forecast"): ActionPolicy(RiskLevel.LOW, "SLA ihlal tahmini (yalnızca okuma)"),
+    # Faz 4 izleme / olay yönetimi (tools/builtin/event.py, agents/events.py `ai:events`): okuma ve
+    # üstlenme serbest; olay açma R1 (P1/P2 olay R2 -> onay); susturma asla otomatik değil
+    ("event", "list_alerts"): ActionPolicy(RiskLevel.LOW, "İzleme uyarıları (yalnızca okuma)"),
+    ("event", "correlate"): ActionPolicy(RiskLevel.LOW, "Uyarı bağıntısı (yalnızca okuma)"),
+    ("event", "acknowledge"): ActionPolicy(RiskLevel.LOW, "Uyarı grubunu üstlenme"),
+    ("event", "create_incident"): ActionPolicy(
+        RiskLevel.LOW, "Uyarı grubundan olay açma/not ekleme (P1/P2 olay R2; çözme yok)"
+    ),
+    ("event", "silence"): ActionPolicy(None, "Uyarı grubunu susturma (asla otomatik)"),
+    # Faz 4 sürekli iyileştirme (tools/builtin/csi.py, agents/improvement.py `ai:csi`): yapay zekâ
+    # yalnızca fikir açar ve ölçer; onay / başlatma / kapatma / red araç değildir (yalnızca insan)
+    ("csi", "list"): ActionPolicy(RiskLevel.LOW, "İyileştirme kaydı (yalnızca okuma)"),
+    ("csi", "detect_signals"): ActionPolicy(RiskLevel.LOW, "İyileştirme sinyalleri (okuma)"),
+    ("csi", "create_improvement"): ActionPolicy(RiskLevel.LOW, "İyileştirme fikri açma (idea)"),
+    ("csi", "measure_improvement"): ActionPolicy(
+        RiskLevel.LOW, "Uygulanan iyileştirmenin KPI ölçümü (onay/kapatma yok)"
+    ),
 }
 
 

@@ -23,6 +23,11 @@ export const ROUTE_ROLES = {
   changes: ['agent', 'change_manager', 'cab'], // GET /changes, /changes/{id} (ChangeViewerUser)
   newChange: ['agent', 'change_manager'], // POST /changes (ChangeCreatorUser)
   cmdb: ['agent', 'change_manager', 'cab'], // GET /cmdb/* (CMDBReaderUser)
+  // Faz 4
+  dashboards: ['agent', 'approver'], // GET /kpi (ReaderUser)
+  slaForecast: ['agent', 'approver'], // GET /sla/forecast (ReaderUser)
+  events: ['agent'], // GET /events/groups (AgentUser); üstlen/sustur = event.* araçları
+  improvements: ['agent', 'approver'], // /improvements (ReaderUser; onay/red/kapatma ApproverUser)
   audit: ['admin'], // GET /audit
   integrations: ['admin'], // /integrations/*
 } as const satisfies Record<string, readonly Role[]>;
@@ -37,6 +42,10 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { path: '/bilgi-bankasi', label: 'Bilgi bankası', roles: ROUTE_ROLES.knowledge },
   { path: '/degisiklikler', label: 'Değişiklikler', roles: ROUTE_ROLES.changes },
   { path: '/cmdb', label: 'CMDB', roles: ROUTE_ROLES.cmdb },
+  { path: '/panolar', label: 'Panolar', roles: ROUTE_ROLES.dashboards },
+  { path: '/sla-tahmin', label: 'SLA tahmini', roles: ROUTE_ROLES.slaForecast },
+  { path: '/olaylar', label: 'Olaylar', roles: ROUTE_ROLES.events },
+  { path: '/iyilestirmeler', label: 'İyileştirmeler', roles: ROUTE_ROLES.improvements },
   { path: '/yonetim/denetim', label: 'Denetim', roles: ROUTE_ROLES.audit },
   { path: '/yonetim/entegrasyonlar', label: 'Entegrasyonlar', roles: ROUTE_ROLES.integrations },
 ];

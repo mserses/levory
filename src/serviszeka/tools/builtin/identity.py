@@ -4,11 +4,12 @@ Araçlar somut sağlayıcıyı değil `serviszeka.connectors` arayüzlerini kull
 `tools.connectors`; yoksa 503). Risk sınıfları (ürün sahibiyle tasarlanan katalog):
 
 - R0: `identity.get_user`, `identity.verify_requester`, `license.check_available`
-- R1: `license.assign`, `notify.send_to_user`, `notify.post_to_channel`
-- R1 koşullu: `identity.reset_password` ve `identity.unlock_account` (yalnızca doğrulanmış
-  self-servis talepte R1, aksi R2),
-  `identity.add_to_group` (`SZ_IDENTITY_STANDARD_GROUPS` izin listesinde ve ayrıcalıklı değilse R1,
-  aksi R3)
+- R1: `notify.send_to_user`, `notify.post_to_channel`
+- R1 koşullu: `identity.reset_password`, `identity.unlock_account` ve `license.assign` (yalnızca
+  doğrulanmış self-servis talepte R1, aksi R2 — başkası adına / talepsiz / devre dışı hesap),
+  `identity.add_to_group` (`SZ_IDENTITY_STANDARD_GROUPS` izin listesinde ve ayrıcalıklı değilse
+  doğrulanmış self-servis talepte R1, başkası adına / talepsiz / devre dışı hesapta R2; listede
+  olmayan ya da ayrıcalıklı grup her zaman R3)
 - R2: `identity.reset_mfa`, `identity.remove_from_group`, `identity.revoke_sessions`,
   `mailbox.grant_shared_access`
 - R3: `identity.disable_user`
@@ -142,7 +143,7 @@ class UserTargetArgs(Args):
     request_id: RequestLink
 
 
-async def _self_service_risk(ctx: ToolContext, args: UserTargetArgs, tool: str) -> RiskClass:
+async def _self_service_risk(ctx: ToolContext, args: Any, tool: str) -> RiskClass:
     # Yalnızca talebi kendi oturumuyla açan kullanıcının kendi hesabı R1; diğer her durum R2
     result = await request_service.verify_self_service(
         ctx.session, args.request_id, args.user, _identity(), tool=tool
@@ -208,7 +209,13 @@ async def _add_to_group_risk(ctx: ToolContext, args: GroupArgs) -> RiskClass:
         return RiskClass.R3
     if await _identity().is_privileged_group(args.group):
         return RiskClass.R3
-    return RiskClass.R1
+    # Standart grup da erişim verir: başkası adına / talepsiz / devre dışı hesapta R2
+    return await _self_service_risk(ctx, args, "identity.add_to_group")
+
+
+async def _assign_license_risk(ctx: ToolContext, args: AssignLicenseArgs) -> RiskClass:
+    # Lisans atama hesaba hizmet erişimi açar: doğrulanmış self-servis talep dışında R2
+    return await _self_service_risk(ctx, args, "license.assign")
 
 
 async def add_to_group(ctx: ToolContext, args: GroupArgs) -> dict[str, Any]:
@@ -325,7 +332,8 @@ def register_all() -> None:
                  "(yeniden kayıt gerekir).", R2, UserTargetArgs, reset_mfa, WRITERS,
                  connectors=ident, links=LINK),
         ToolSpec("identity.add_to_group", "Kullanıcıyı gruba ekler (standart izin listesindeki "
-                 "grup R1; listede olmayan ya da ayrıcalıklı grup R3).", R1, GroupArgs,
+                 "grup doğrulanmış self-servis talepte R1, başkası adına / talepsiz / devre dışı "
+                 "hesapta R2; listede olmayan ya da ayrıcalıklı grup R3).", R1, GroupArgs,
                  add_to_group, WRITERS, risk_fn=_add_to_group_risk, connectors=ident, links=LINK),
         ToolSpec("identity.remove_from_group", "Kullanıcıyı gruptan çıkarır.", R2, GroupArgs,
                  remove_from_group, WRITERS, connectors=ident, links=LINK),
@@ -340,9 +348,10 @@ def register_all() -> None:
         ToolSpec("license.check_available", "Microsoft 365 lisansının (SKU) toplam, kullanılan "
                  "ve boş adedini getirir.", R0, SkuArgs, check_available, WRITERS,
                  connectors=(LICENSE,)),
-        ToolSpec("license.assign", "Boş lisans varsa kullanıcıya Microsoft 365 lisansı atar.", R1,
-                 AssignLicenseArgs, assign_license, WRITERS, connectors=(IDENTITY, LICENSE),
-                 links=LINK),
+        ToolSpec("license.assign", "Boş lisans varsa kullanıcıya Microsoft 365 lisansı atar "
+                 "(doğrulanmış self-servis talepte R1, diğer her durumda R2).", R1,
+                 AssignLicenseArgs, assign_license, WRITERS, risk_fn=_assign_license_risk,
+                 connectors=(IDENTITY, LICENSE), links=LINK),
         ToolSpec("notify.send_to_user", "Kullanıcıya e-posta bildirimi gönderir.", R1,
                  SendToUserArgs, send_to_user, WRITERS, connectors=msg, links=LINK),
         ToolSpec("notify.post_to_channel", "Yapılandırılmış Teams kanalına mesaj gönderir (kişisel "

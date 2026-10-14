@@ -42,6 +42,8 @@ class Fixtures:
     ci_id: str
     # Sorun yönetimi kapı örnekleri için (seed açmaz; kapı testi ayrıca kurar)
     problem_id: str = ""
+    # Faz 4 izleme kapı örnekleri için (seed açmaz; kapı testi tests/_events ile kurar)
+    event_group_id: str = ""
 
 
 async def seed(session) -> Fixtures:

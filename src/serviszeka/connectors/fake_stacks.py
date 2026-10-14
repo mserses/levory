@@ -8,12 +8,14 @@ aynı dizin verisi, gerçek bağlayıcının **belgelenmiş** semantiğiyle sar�
 - `entra`: Entra ID + Microsoft 365 (Graph) + Teams. `connectors.graph` ile aynı: bulutta hesap
   kilidi açma (`unlock_account`) ve paylaşılan posta kutusu izni (`grant_shared_access`)
   `ConnectorNotSupportedError` (dry_run dahil). Diğer her şey sahte dizinle aynı.
-- `keycloak`: Keycloak (kimlik) + Slack (bildirim). `connectors.keycloak` ile aynı: kilit açma
-  desteklenir (brute-force kaydı silinir), kullanıcıların ikincil e-postası (`other_mails`) yoktur,
-  posta/lisans sağlayıcısı yoktur (bu araçlar 503 `unavailable`). Bildirim **gerçek**
-  `SlackNotifier`'dır; Slack Web API'si `FakeSlackWorkspace` ile `httpx.MockTransport` üzerinden
-  taklit edilir. Hassas bildirim (geçici parola) Slack'e gitmez ve devredilecek ikincil adres
-  gönderici olmadığından `ConnectorError` olur — gerçek Keycloak + Slack kurulumundaki davranış.
+- `keycloak`: Keycloak (kimlik) + Slack (bildirim) + SMTP (hassas teslimat). `connectors.keycloak`
+  ile aynı: kilit açma desteklenir (brute-force kaydı silinir), ikincil e-posta (`other_mails`)
+  `SZ_KEYCLOAK_SECONDARY_EMAIL_ATTRIBUTE` özniteliğinden gelir (sahte dizindeki ikincil adres bu
+  özniteliğin değeri sayılır), posta/lisans sağlayıcısı yoktur (bu araçlar 503 `unavailable`).
+  Bildirim **gerçek** `SlackNotifier`'dır; Slack Web API'si `FakeSlackWorkspace` ile
+  `httpx.MockTransport` üzerinden taklit edilir. Hassas bildirim (geçici parola) Slack'e gitmez,
+  SMTP bildiricisine (`connectors.smtp`; burada dizinin ikincil adrese gönderimi) devredilir —
+  ikincil adresi olmayan kullanıcıda `ConnectorError`.
 
 Bilinçli sadeleştirmeler (gerçek Keycloak'tan farkları; docs/faz3.md "doğrulanmalı" K3/K10):
 grup yalnızca kimliğiyle bulunur (gerçek bağlayıcı tam yol/ad da kabul eder), grup ayrıcalığı
@@ -37,7 +39,6 @@ from serviszeka.connectors.base import (
     MAIL,
     MESSAGING,
     ConnectorNotSupportedError,
-    DirectoryUser,
 )
 from serviszeka.connectors.memory import InMemoryDirectory
 from serviszeka.connectors.slack import SlackClient, SlackNotifier
@@ -75,20 +76,11 @@ class EntraShapedDirectory(InMemoryDirectory):
 
 
 class KeycloakShapedDirectory(InMemoryDirectory):
-    """Keycloak kimlik semantiği: ikincil e-posta yok, kilit açma desteklenir.
+    """Keycloak kimlik semantiği: ikincil e-posta öznitelikten, kilit açma desteklenir.
 
-    Yalnızca `IdentityProvider` olarak kaydedilir (posta/lisans/bildirim Keycloak'ta yok).
+    Kimlik olarak kaydedilir; hassas bildirimde Slack'in temsilcisi (SMTP bildiricisi yerine) olarak
+    yalnızca ikincil adrese gönderir. Posta kutusu/lisans/kanal Keycloak'ta yok.
     """
-
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)
-        for user in self.users.values():
-            user.other_mails = []
-
-    def add_user(self, username: str, display_name: str = "", **kw: Any) -> DirectoryUser:
-        # Keycloak kullanıcı gösteriminde ikincil e-posta alanı yoktur
-        kw["other_mails"] = ()
-        return super().add_user(username, display_name, **kw)
 
 
 class FakeSlackWorkspace:
@@ -162,7 +154,8 @@ def build_stack(
             channels={"default": FAKE_SLACK_DEFAULT_CHANNEL},
             default_channel=FAKE_SLACK_DEFAULT_CHANNEL,
             identity=kc,
-            sensitive_delegate=None,
+            # SZ_SMTP_* ile kurulan SMTP bildiricisinin karşılığı: geçici parola ikincil adrese
+            sensitive_delegate=kc,
         )
         return {IDENTITY: kc, MESSAGING: slack}
     raise ValueError(f"Bilinmeyen yığın: {stack} (seçenekler: {', '.join(STACKS)})")

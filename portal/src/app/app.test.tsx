@@ -27,8 +27,24 @@ describe('navigasyon haritası', () => {
       '/problemler',
       '/onaylar',
       '/bilgi-bankasi',
+      '/panolar',
+      '/sla-tahmin',
+      '/iyilestirmeler',
     ]);
-    expect(navItemsFor(['admin'])).toHaveLength(11);
+    expect(navItemsFor(['admin'])).toHaveLength(15);
+  });
+
+  it('faz 4: panolar, SLA tahmini, olaylar (yalnızca agent), iyileştirmeler', () => {
+    expect(navItemsFor(['agent']).map((i) => i.path)).toEqual(
+      expect.arrayContaining(['/panolar', '/sla-tahmin', '/olaylar', '/iyilestirmeler']),
+    );
+    expect(navItemsFor(['approver']).map((i) => i.path)).not.toContain('/olaylar');
+    for (const role of ['requester', 'cab', 'change_manager'] as const) {
+      const paths = navItemsFor([role]).map((i) => i.path);
+      expect(paths).not.toContain('/panolar');
+      expect(paths).not.toContain('/olaylar');
+      expect(paths).not.toContain('/iyilestirmeler');
+    }
   });
 
   it('faz 3: katalog, sorunlar ve eylem onayları menüsü', () => {
@@ -91,6 +107,10 @@ describe('uygulama kabuğu', () => {
       'Bilgi bankası',
       'Değişiklikler',
       'CMDB',
+      'Panolar',
+      'SLA tahmini',
+      'Olaylar',
+      'İyileştirmeler',
     ]);
   });
 

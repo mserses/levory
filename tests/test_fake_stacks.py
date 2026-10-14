@@ -80,16 +80,18 @@ async def test_keycloak_stack_semantics():
     assert isinstance(ident, KeycloakShapedDirectory) and isinstance(ident, IdentityProvider)
     assert isinstance(slack, SlackNotifier) and isinstance(slack, Notifier)
     assert ident.name == "keycloak-fake"
-    assert slack.identity is ident and slack.sensitive_delegate is None
-    # Kaynak dizine dokunulmaz (kopya)
-    assert d.users["u-ayse"].other_mails and not ident.users["u-ayse"].other_mails
+    # Hassas bildirim SMTP karşılığına (yalnızca ikincil adres) devredilir
+    assert slack.identity is ident and slack.sensitive_delegate is ident
+    # Kaynak dizine dokunulmaz (kopya); ikincil adres öznitelikten gelir
+    assert ident.users["u-ayse"] is not d.users["u-ayse"]
+    assert ident.users["u-ayse"].other_mails == d.users["u-ayse"].other_mails
     # Keycloak'ta kilit açma desteklenir (brute-force kaydı silinir)
     assert (await ident.unlock_account("ayse", dry_run=True))["was_locked"] is True
     assert "u-ayse" in ident.locked
     assert (await ident.unlock_account("ayse"))["was_locked"] is True
     assert "u-ayse" not in ident.locked
-    # Sonradan eklenen kullanıcı da ikincil e-postasız
-    user = ident.add_user("yeni", "Yeni", other_mails=["yeni@kisisel.ornek"])
+    # İkincil e-posta özniteliği olmayan kullanıcı
+    user = ident.add_user("yeni", "Yeni")
     assert user.other_mails == []
 
 
@@ -105,9 +107,16 @@ async def test_keycloak_stack_slack_dm_and_sensitive_refusal():
     # dry_run DM açmaz
     await slack.send_to_user("u-ali", "x", "y", dry_run=True)
     assert len(workspace.posts) == 1
-    # Geçici parola Slack'e gitmez; Keycloak'ta ikincil adres yok -> hata
-    with pytest.raises(ConnectorError, match="Hassas"):
-        await slack.send_to_user("u-ali", "Geçici parola", "gizli", sensitive=True)
+    # Geçici parola Slack'e gitmez: ikincil e-posta özniteliğindeki adrese (SMTP) gider
+    sent = await slack.send_to_user("u-ali", "Geçici parola", "gizli", sensitive=True)
+    assert sent["channel"] == "secondary_mail" and len(workspace.posts) == 1
+    ident = items[IDENTITY]
+    assert [(m.target, m.sensitive) for m in ident.messages] == [("ali@kisisel.ornek", True)]
+    # İkincil adresi olmayan kullanıcı -> hata (asla Slack/birincil posta değil)
+    ident.add_user("adsiz", "Adsız")
+    with pytest.raises(ConnectorError, match="ikincil"):
+        await slack.send_to_user("adsiz", "Geçici parola", "gizli", sensitive=True)
+    assert len(workspace.posts) == 1
     # Slack'te olmayan kullanıcı (dizinde yok)
     with pytest.raises(ConnectorNotFoundError):
         await slack.send_to_user("kimse@ornek.com.tr", "x", "y")
@@ -163,10 +172,12 @@ async def test_automation_eval_runs_on_keycloak_stack(records):
     by_id = {o["id"]: o for o in report.outcomes}
     for rec in sample:
         o = by_id[rec.id]
-        if rec.item in ("account_unlock", "vpn_access"):
-            assert o["touchless"], o  # kilit açma Keycloak'ta çalışır, DM Slack'ten
+        if rec.item in ("account_unlock", "vpn_access", "password_reset"):
+            # kilit açma Keycloak'ta çalışır, DM Slack'ten; geçici parola ikincil e-posta
+            # özniteliğindeki adrese SMTP ile gider
+            assert o["touchless"], o
         else:
-            # Geçici parola teslim edilemez (ikincil adres yok); lisans sağlayıcısı yok
+            # Lisans sağlayıcısı yok
             assert o["state"] == "failed" and not o["touchless"], o
     assert not report.false_touchless and not report.violations and report.llm_calls == 0
 

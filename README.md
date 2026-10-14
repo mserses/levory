@@ -48,6 +48,9 @@
 | `src/serviszeka/api/` | REST uçları: `incidents`, `knowledge`, `integrations`, `audit`, `me`, `cmdb`, `changes`; Faz 3: `actions` (eylem isteği onay kutusu) |
 | `src/serviszeka/tools/` | Faz 3 araç katmanı: `ToolSpec` kaydı (33 araç, R0-R3 risk sınıfı), tek yürütme boru hattı `execute_tool` (politika + `AIDecision` + denetim, idempotency, dry-run), eylem istekleri (`actions`: onay, red, süre aşımı, onay anında yürütme), bağlayıcı arayüzleri (Entra ID / Graph / Teams) — bkz. [`docs/faz3.md`](docs/faz3.md) |
 | Sorun yönetimi | `models.Problem`, `services/problems.py`, `agents/problem.py` (eğilim tespiti, LLM 5 Neden taslağı, taslak RFC; yalnızca araç boru hattından), `tools/builtin/problem.py` (8 araç), `api/problems.py` (`/problems`) — bkz. [`docs/faz3.md`](docs/faz3.md#sorun-yönetimi-itil-4-problem-management) |
+| Faz 4 KPI / tahmine dayalı SLA | `services/kpi.py` (12 KPI, pencere + önceki pencereye göre eğilim; MTTR düşüşü veriden), `services/sla_forecast.py` (Kaplan–Meier + grup yükü, açıklamalı ihlal olasılığı, Brier backtest), `api/kpi.py` (`/kpi`, `/sla/report`, `/sla/forecast`), R0 araçlar `kpi.report` / `sla.report` / `sla.forecast` — bkz. [`docs/faz4.md`](docs/faz4.md) |
+| Faz 4 izleme ve olay yönetimi | `POST /events/alertmanager` / `/events/generic` (paylaşılan gizli ya da HMAC + yeniden oynatma koruması), `services/events.py` (CI eşleme, CMDB etki grafiğiyle bağıntı, tekilleştirme, çırpınma bastırma), `agents/events.py` (`ai:events`: grup başına tek olay, P1/P2 onaylı, asla otomatik çözüm), araçlar `event.*`, `GET /events` — bkz. [`docs/faz4.md`](docs/faz4.md) |
+| Faz 4 sürekli iyileştirme (CSI) | `services/improvements.py` (CSI0000001 kaydı: idea → approved → in_progress → measured → closed / rejected; KPI tabanı + hedef, uygulama sonrası önce/sonra ölçümü ve hedefe ulaşıldı mı — MTTR düşüşünün kanıtı), `agents/improvement.py` (`ai:csi`: KPI eğilimi, SLA ihlali/tahmini, triage kabulü, yeniden açılma, işe yaramayan KB, düzeltmesiz bilinen hata, başarısız değişiklik PIR'i sinyalleri; LLM yalnızca gerekçe metni; asla onaylamaz), `/improvements` (onay/kapatma approver/admin), araçlar `csi.*`, zamanlayıcı işi `csi_review` — bkz. [`docs/faz4.md`](docs/faz4.md) |
 | `src/serviszeka/mcp_server.py` | MCP sunucusu (resmi Python MCP SDK, streamable HTTP, `/mcp`): araç kaydını JSON şeması ve risk sınıfıyla sunar; bearer OIDC, yapay zekâ ajanları `ai_agent` rolüyle `ai:<istemci>` |
 | `src/serviszeka/cors.py` | `SZ_CORS_ORIGINS` ayarından beslenen CORS ara katmanı |
 | `src/serviszeka/openapi_export.py` | OpenAPI şemasını portal tip üretimi için dışa aktarır |
@@ -107,7 +110,7 @@ npm run e2e        # Playwright: gerçek API (geçici SQLite, dev kimlik, sahte 
 npm run sync:api   # API değişince: openapi.json, src/api/schema.d.ts ve taksonomi kopyası
 ```
 
-Uçtan uca senaryolar (`portal/e2e/`): son kullanıcı talep açar ve Taleplerim'de görür; uzman yapay zekâ ile sınıflandırır (P1 önerisi → onay gerekli), onaylayıcı onaylar, uzman güncel önceliği görür; bayat öneri onayı 409 "yeniden triage gerekli" gösterir; bilgi bankası makalesi oluşturulur, yayınlanır ve aranır; yönetici denetim zincirini doğrular. Faz 2: change_manager bağımlısı olan bir CMDB CI'ı için normal RFC açar (canlı etki önizlemesi) → yapay zekâ riski değerlendirir → gönderir → CAB'a yollar; talep eden oy veremez (arayüz + API 403), iki CAB üyesi onaylar → zamanlanır; aynı CI'da çakışan ikinci değişiklik zamanlanamaz → uygulanır → PIR ile kapatılır (`change-flow`); şablondan standart değişiklik düşük riskte CAB'ı atlar, aynı şablon kritiklik-1 prod CI'da normal'e çevrilir ve CAB'sız zamanlanamaz (`standard-change`); son kullanıcı `/degisiklikler` ve `/cmdb`'ye ulaşamaz, API 403 (`requester-change-access`). `npm run e2e` API'yi (`127.0.0.1:8765`) ve Vite'ı (`127.0.0.1:5180`) kendisi başlatır; her çalıştırma boş bir geçici veritabanıyla başlar. Tarayıcı olarak Playwright'ın Chromium'u kullanılır (`npx playwright install chromium`; kurulu bir tarayıcı varsa `PLAYWRIGHT_BROWSERS_PATH`). Derlenmiş imaja karşı koşmak için: `E2E_WEB_URL=http://127.0.0.1:8080 npm run e2e`.
+Uçtan uca senaryolar (`portal/e2e/`): son kullanıcı talep açar ve Taleplerim'de görür; uzman yapay zekâ ile sınıflandırır (P1 önerisi → onay gerekli), onaylayıcı onaylar, uzman güncel önceliği görür; bayat öneri onayı 409 "yeniden triage gerekli" gösterir; bilgi bankası makalesi oluşturulur, yayınlanır ve aranır; yönetici denetim zincirini doğrular. Faz 2: change_manager bağımlısı olan bir CMDB CI'ı için normal RFC açar (canlı etki önizlemesi) → yapay zekâ riski değerlendirir → gönderir → CAB'a yollar; talep eden oy veremez (arayüz + API 403), iki CAB üyesi onaylar → zamanlanır; aynı CI'da çakışan ikinci değişiklik zamanlanamaz → uygulanır → PIR ile kapatılır (`change-flow`); şablondan standart değişiklik düşük riskte CAB'ı atlar, aynı şablon kritiklik-1 prod CI'da normal'e çevrilir ve CAB'sız zamanlanamaz (`standard-change`); son kullanıcı `/degisiklikler` ve `/cmdb`'ye ulaşamaz, API 403 (`requester-change-access`). `npm run e2e` API'yi (`127.0.0.1:8765`) ve Vite'ı (`127.0.0.1:5180`) kendisi başlatır; her çalıştırma boş bir geçici veritabanıyla başlar. Tarayıcı olarak Playwright'ın Chromium'u kullanılır (`npx playwright install chromium`; kurulu bir tarayıcı varsa `PLAYWRIGHT_BROWSERS_PATH`). Derlenmiş imaja karşı koşmak için: `E2E_WEB_URL=http://127.0.0.1:8080 npm run e2e`. Faz 3 (`faz3-*.spec.ts`) ve Faz 4 (`faz4-*.spec.ts`) senaryoları kendi backend + portal çiftlerinde koşar (8766/5181 ve 8767/5182); Faz 4 backend'i açılmadan önce `e2e/faz4_data.py seed` SENTETİK geçmiş olayları tohumlar, CSI senaryosu ölçüm penceresini `faz4_data.py time-travel` ile ileri sarar.
 
 **Üretim imajı.** `portal/Dockerfile` çok aşamalıdır: Node 22 ile derler, nginx ile (root olmayan kullanıcı, 8080) statik SPA olarak sunar. Bilinmeyen yollar `index.html`'e düşer (istemci tarafı yönlendirme); `/assets/` uzun süre önbelleklenir, `index.html` her seferinde doğrulanır, kaynak haritaları imaja girmez. Her yanıtta güvenlik başlıkları (`Content-Security-Policy`, `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy`, `Cross-Origin-Opener-Policy`, HSTS) bulunur. CSP sıkıdır: betik ve stil yalnızca kendi kökeninden (`'unsafe-inline'` yok); `connect-src` / `frame-src` / `form-action` için yalnızca çalışma zamanında verilen `PORTAL_API_ORIGIN` ve `PORTAL_OIDC_ORIGIN` kökenleri eklenir. `VITE_*` derleme argümanları pakete gömülür (gizli bilgi değildir).
 
@@ -298,7 +301,7 @@ Son ölçüm:
 | Yanlış insansız (otomatikleşmemesi gerekirken insansız biten) | **0** (sert kalma koşulu) |
 | Güvenlik değişmezi ihlali (insansız talepte insan dokunuşu; R2/R3'ün gerekli onaydan az onayla yürümesi) | 0 |
 | Etiket uyumu (beklenen insansız == gerçekleşen) | %100 |
-| Açılan eylem istekleri | R2: 40 (36 yürütüldü, 4 reddedildi) · R3: 17 (11 yürütüldü, 6 reddedildi) |
+| Açılan eylem istekleri | R2: 64 (60 yürütüldü, 4 reddedildi) · R3: 17 (11 yürütüldü, 6 reddedildi) — yeni çalışan lisansı ve standart grup adımı doğrulanmış self-servis değilse R2 |
 
 Öğe bazında: `vpn_access` 20/20, `teams_channel_access` 18/20, `password_reset` 34/40, `m365_license` 17/20, `account_unlock` 21/25, `standard_software_group` 24/30; standart olmayan dört öğe 0 (her biri iş ve/veya BT onayı ister). Otomatikleşmeyen standart talepler: ayrıcalıklı / bilinmeyen / izin listesi dışı grup (R3), servis masasının başkası adına açtığı ya da devre dışı/dizinde olmayan hesaba ait parola sıfırlama ve kilit açma (R2), ikincil e-postası olmayan parola sıfırlama ve boş lisansı olmayan SKU (başarısız). Ölçüm, başkası adına açılan kilit açma talebinin onaysız (R1) yürüdüğü bir açığı yakaladı; `identity.unlock_account` artık parola sıfırlama gibi koşullu R1/R2'dir.
 
@@ -308,11 +311,48 @@ Aynı veri seti ve etiketler, sahte dizin hedef yığının belgelenmiş kısıt
 |---|---|---|
 | `memory` (varsayılan) | 134 / 155 (%86,5) | Sahte dizin her işlemi destekler |
 | `entra` | 113 / 155 (%72,9) | Bulutta kilit açma yok: `account_unlock` 0/25 (`failed`); paylaşılan posta kutusu adımı `failed` |
-| `keycloak` (+ Slack) | 83 / 155 (%53,5) | Kilit açma çalışır (21/25), ama ikincil e-posta olmadığı için geçici parola teslim edilemez (`password_reset` 0/40) ve lisans sağlayıcısı yok (`m365_license` 0/20) |
+| `keycloak` (+ Slack) | 117 / 155 (%75,5) | Kilit açma çalışır (21/25); geçici parola yapılandırılabilir ikincil e-posta özniteliğine SMTP ile gider (`SZ_KEYCLOAK_SECONDARY_EMAIL_ATTRIBUTE`, `password_reset` 34/40); lisans sağlayıcısı yok (`m365_license` 0/20) |
 
-Üç yığında da yanlış insansız 0, ihlal 0. Keycloak'ta kapı ancak %3,5 farkla geçiyor; parola sıfırlama için ikincil teslim kanalı (ör. SMS ya da doğrulanmış ikincil e-posta özniteliği) eklenmeden bu yığında parola talepleri insansız çözülemez.
+Üç yığında da yanlış insansız 0, ihlal 0. Keycloak'ta ikincil e-posta özniteliği yalnızca yöneticilerce düzenlenebilir olmalıdır (`docs/faz3.md` K11); aksi halde hesabı ele geçiren geçici parolayı kendi adresine yönlendirebilir.
 
 Uçtan uca (`portal/e2e/faz3-*.spec.ts`, gölge modu kapalı ayrı backend + portal çifti): katalogdan "Standart yazılım grubu erişimi" insansız karşılanır ve rozet görünür; "Yetkili grup erişimi" yönetici onayından sonra R3 eylem isteği açar, ilk BT onayında `1/2` bekler, ikinci farklı onaylayanla yürür ve talep insan katkısıyla karşılanır; benzer üç olaydan eğilim taraması sorun önerir ve RCA taslağı (E2E'de FakeLLM) görünür.
+
+## Faz 4 — Olgunluk
+
+Kapı: **MTTR düşüşü veriden hesaplanabilir.** Sözleşmenin tamamı (formüller, uçlar, araçlar, zamanlayıcı) [`docs/faz4.md`](docs/faz4.md).
+
+| Yetenek | Nerede | Not |
+|---|---|---|
+| KPI'lar ve raporlama | `services/kpi.py`, `GET /kpi`, `/kpi/definitions`, `/sla/report`; portal `/panolar` | 12 KPI (MTTR, MTTA, FCR, SLA uyumu, birikim, yeniden açılma, insansız oran, triage kabulü, değişiklik başarısı …), her biri önceki eşit pencereyle (`delta_pct`, `trend`); MTTR = `ort(resolved_at − created_at − sla_paused_seconds)` |
+| Tahmine dayalı SLA | `services/sla_forecast.py`, `GET /sla/forecast`, `/sla/forecast/backtest`; portal `/sla-tahmin` | Kaplan–Meier + grup yükü, açıklanabilir Türkçe gerekçeler, zaman tabanlı geriye dönük sınama (Brier) |
+| İzleme ve olay yönetimi | `POST /events/alertmanager` / `/events/generic`, `services/events.py`, `agents/events.py`; portal `/olaylar` | Paylaşılan gizli / HMAC + yeniden oynatma koruması, CMDB grafiğiyle bağıntı (kök CI), grup başına tek olay; P1/P2 olay açmak R2 (insan onayı); çözülen uyarı not + çözüm **önerisi**; üstlen (R1) / sustur (R2) `POST /events/groups/{id}/acknowledge|silence` |
+| Sürekli iyileştirme (CSI) | `services/improvements.py`, `agents/improvement.py` (`ai:csi`), `/improvements`; portal `/iyilestirmeler` | 8 deterministik sinyal (MTTR artışı, SLA ihlali, triage kabulü …) → fikir (R1); onay / başlatma / uygulandı / kapatma yalnızca insan; KPI tabanı → uygulama sonrası önce/sonra ölçümü (`measurement.delta_pct`, `target_met`) |
+| Kalıcı bildirim kuyruğu + zamanlayıcı | `notifications.py` (`notification_outbox`), `scheduler.py` | En az bir kez teslim, idempotency anahtarı, kira ile tek kopya; işler: kuyruk, eylem süre aşımı, SLA uyarısı, bekleyen talepler, `csi_review` |
+
+Yeni araçlar (hepsi `policy.POLICIES`'te, kapı `tests/test_gate_no_unapproved_risk.py` bölüm 7-9): `kpi.report`, `sla.report`, `sla.forecast` (R0); `event.list_alerts`, `event.correlate` (R0), `event.acknowledge` (R1), `event.create_incident` (R1, P1/P2 olacaksa R2), `event.silence` (R2); `csi.list`, `csi.detect_signals` (R0), `csi.create_improvement`, `csi.measure_improvement` (R1). Yapay zekâ yalnızca yönetici olmayan bir insan rolünün de çağırabildiği araçları çağırabilir (`tools/executor.ai_callable`).
+
+Göçler: `0010` bildirim kuyruğu + zamanlayıcı kiraları, `0011` KPI indeksleri (`incidents.resolved_at` / `responded_at`, `audit_log.occurred_at`), `0012` izleme/olay, `0013` sürekli iyileştirme (tek doğrusal zincir).
+
+### Kapı ölçümü — MTTR kanıtı (SENTETİK)
+
+```bash
+uv run python evals/run_mttr_evidence.py          # özet + kapı; geçilmezse çıkış kodu 1
+uv run python evals/run_mttr_evidence.py --json   # ayrıntı (--save -> evals/results/mttr_evidence.json)
+uv run pytest tests/test_mttr_evidence.py tests/test_kpi.py tests/test_improvements.py -q
+```
+
+Gerçek veri **değildir**: bellek içi SQLite'ta deterministik bir önce/sonra senaryosu (`src/serviszeka/mttr_evidence.py`) kurulur ve MTTR Faz 4 KPI formülleriyle hesaplanır; sonuç bağımsız aritmetikle ve sürekli iyileştirme kaydının gerçek ölçüm akışıyla çapraz denetlenir.
+
+| Ölçüt | Önce (30 gün) | Sonra (30 gün) | Δ |
+|---|---|---|---|
+| MTTR `network_ops` (hedef grup), `kpi.report` | 9,50 sa | 4,25 sa | **−%55,3** |
+| Aynı, bağımsız aritmetik (duvar saati − SLA duraklatması) | 9,50 sa | 4,25 sa | −%55,3 |
+| MTTR `dba` (kontrol grubu) | 6,00 sa | 6,00 sa | %0 |
+| CSI kaydı (taban → ölçülen, hedef taban × 0,7) | 9,50 sa | 4,25 sa | −%55,3, hedef tuttu |
+
+Gerçek bir kurulumda aynı kanıt `GET /kpi?kpi=mttr&days=30` (önceki pencereye göre `delta_pct`) ve kapanan iyileştirmenin `measurement` alanıdır.
+
+Uçtan uca (`portal/e2e/faz4-*.spec.ts`; gölge mod kapalı, SENTETİK geçmişle tohumlanmış ayrı backend + portal çifti, `E2E_PROFILE=faz4`): Alertmanager webhook'u veritabanı CI'sı ve bağımlı uygulamada ateşleyen uyarılarla **tek** bağıntılı grup ve **tek** olay (P2 → onay bekler, onaylanınca açılır) üretir, çözülen uyarı aynı olaya not ekler; KPI panosu tohumlanmış veriyle API ile aynı değerleri gösterir; tohumdaki MTTR gerilemesinden CSI ajanı iyileştirme önerir → onay → uygulama → ölçüm → kapanış ve ölçülen değer görünür.
 
 ## Yol haritası
 
@@ -322,4 +362,4 @@ Uçtan uca (`portal/e2e/faz3-*.spec.ts`, gölge modu kapalı ayrı backend + por
 | **Faz 1 — MVP** | 6 hafta | Hizmet Masası + Olay ajanı, RAG bilgi tabanı, SLA takibi, self-servis portal, ITSM köprüsü (ServiceNow / Jira SM) | Olayların **%70'i** doğru sınıflandırılıyor |
 | **Faz 2 — Kontrol** | 6 hafta | Değişiklik yönetimi ve CAB, CMDB, gelişmiş politika kuralları | Riskli hiçbir eylem onaysız çalışmıyor |
 | **Faz 3 — Otomasyon** | 8 hafta | Talep karşılama otomasyonu, problem ajanı, MCP entegrasyonu | Standart taleplerin **%50'si** insansız karşılanıyor |
-| **Faz 4 — Olgunluk** | Sürekli | Sürekli iyileştirme döngüsü, tahmine dayalı SLA | — |
+| **Faz 4 — Olgunluk** | Sürekli | Sürekli iyileştirme döngüsü, tahmine dayalı SLA, KPI/raporlama, izleme ve olay yönetimi | MTTR düşüşü veriden hesaplanabiliyor (`evals/run_mttr_evidence.py`) |

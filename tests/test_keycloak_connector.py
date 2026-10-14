@@ -673,3 +673,49 @@ async def test_build_keycloak_wires_identity(kc):
     assert isinstance(idp, KeycloakIdentityProvider)
     assert idp.manager_attribute == "yonetici"
     assert await idp.get_user(ALI_ID) is not None
+
+
+# --- ikincil e-posta özniteliği (geçici parola teslimi) ---------------------------------------------
+
+
+async def test_secondary_email_from_default_attribute(kc):
+    kc.route("GET", f"/users/{ALI_ID}", {**ALI, "attributes": {
+        "manager": ["zeynep"], "secondary_email": ["ali.kisisel@posta.ornek"]}})
+    user = await make(kc).get_user(ALI_ID)
+    assert user.other_mails == ["ali.kisisel@posta.ornek"]
+    assert Settings().keycloak_secondary_email_attribute == "secondary_email"
+
+
+async def test_secondary_email_custom_attribute_and_filtering(kc):
+    attrs = {
+        # Birincil e-postayla aynı (harf farkı), e-posta olmayan ve yinelenen değerler yok sayılır
+        "yedek_posta": ["ALI@ornek.com", "telefon-numarasi", " ali.yedek@posta.ornek ",
+                        "Ali.Yedek@posta.ornek"],
+        "secondary_email": ["baska@posta.ornek"],
+    }
+    kc.route("GET", f"/users/{ALI_ID}", {**ALI, "attributes": attrs})
+    user = await make(kc, secondary_email_attribute="yedek_posta").get_user(ALI_ID)
+    assert user.other_mails == ["ali.yedek@posta.ornek"]
+    # Öznitelik kapatılabilir (boş) -> ikincil adres yok
+    assert (await make(kc, secondary_email_attribute="").get_user(ALI_ID)).other_mails == []
+
+
+async def test_secondary_email_missing_attribute_is_empty(kc):
+    assert (await make(kc).get_user(ALI_ID)).other_mails == []
+    assert (await make(kc).get_user(ZEYNEP_ID)).other_mails == []
+
+
+async def test_secondary_email_read_from_full_representation_when_search_is_brief(kc):
+    brief = {k: v for k, v in ALI.items() if k != "attributes"}
+    kc.route("GET", "/users", [brief], query="username=ali&exact=true")
+    kc.route("GET", f"/users/{ALI_ID}", {**ALI, "attributes": {"secondary_email": ["a@b.ornek"]}})
+    user = await make(kc).get_user("ali")
+    assert user.id == ALI_ID and user.other_mails == ["a@b.ornek"]
+
+
+async def test_build_keycloak_secondary_attribute_setting(kc):
+    items = build(
+        _kc_settings(keycloak_secondary_email_attribute="kisisel_eposta"),
+        transport=httpx.MockTransport(kc.handler),
+    )
+    assert items[IDENTITY].secondary_email_attribute == "kisisel_eposta"

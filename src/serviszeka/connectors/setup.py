@@ -6,6 +6,8 @@
 - `graph`: `SZ_GRAPH_TENANT_ID`, `SZ_GRAPH_CLIENT_ID`, `SZ_GRAPH_CLIENT_SECRET` zorunlu.
 - `keycloak`: `SZ_KEYCLOAK_SERVER_URL`, `SZ_KEYCLOAK_REALM`, `SZ_KEYCLOAK_CLIENT_ID`,
   `SZ_KEYCLOAK_CLIENT_SECRET` zorunlu; yalnızca `identity` kurulur (`connectors.keycloak`).
+  `SZ_SMTP_HOST` + `SZ_SMTP_SENDER` doluysa `messaging` SMTP bildiricisidir (`connectors.smtp`;
+  geçici parola ikincil e-posta özniteliğine gider).
 - Her kipte `SZ_SLACK_BOT_TOKEN` / `SZ_SLACK_WEBHOOK_URL` varsa `messaging` Slack olur
   (`connectors.slack`).
 
@@ -15,7 +17,7 @@ Ayrı seçim (`resolve_providers`; boşsa yukarıdaki eski davranış aynen geç
   sağlayıcısı seçiyorsa açılış reddedilir.
 - `SZ_NOTIFIER_PROVIDER` = `teams` (kimlik `graph` + `SZ_GRAPH_SENDER_MAILBOX` zorunlu; Slack
   ayarlı olsa da Teams) | `slack` (`SZ_SLACK_BOT_TOKEN` ya da `SZ_SLACK_WEBHOOK_URL` zorunlu; hassas
-  bildirim kimlik yığınının bildiricisine devredilir — Keycloak'ta yok) | `log` (`messaging`
+  bildirim kimlik yığınının bildiricisine devredilir — Keycloak'ta SMTP ayarlıysa SMTP) | `log` (`messaging`
   kaydedilmez; nöbetçi uyarısı log ya da `SZ_ONCALL_WEBHOOK_URL`).
 """
 
@@ -131,13 +133,14 @@ def resolve_providers(settings: Settings) -> ProviderSelection:
 def check_startup(settings: Settings) -> None:
     sel = resolve_providers(settings)
     # Hassas bildirim (geçici parola) yalnızca ikincil adrese gider; teslim edilemeyecekse uyar
-    if sel.identity == "keycloak" or (
+    smtp_ready = _present(settings.smtp_host) and _present(settings.smtp_sender)
+    if (sel.identity == "keycloak" and (not smtp_ready or sel.notifier == "log")) or (
         sel.identity == "graph" and not _present(settings.graph_sender_mailbox)
         and sel.notifier != "log"
     ):
         logger.warning(
             "Bağlayıcılar (%s, bildirim %s): hassas bildirim (geçici parola) teslim edilemez "
-            "(Keycloak'ta ikincil e-posta yok / SZ_GRAPH_SENDER_MAILBOX boş); "
+            "(Keycloak'ta SZ_SMTP_HOST/SZ_SMTP_SENDER boş / SZ_GRAPH_SENDER_MAILBOX boş); "
             "identity.reset_password adımları başarısız olur.",
             sel.identity_source,
             sel.notifier,
@@ -192,6 +195,13 @@ def build(
         from serviszeka.connectors.keycloak import build_keycloak
 
         items = build_keycloak(settings, transport=transport)
+        # Keycloak'ta posta yok: SZ_SMTP_* ayarlıysa e-posta bildiricisi (hassas bildirim ikincil
+        # e-posta özniteliğine gider; Slack ayarlıysa Slack'in hassas bildirim temsilcisi olur)
+        from serviszeka.connectors.smtp import build_smtp
+
+        smtp = build_smtp(settings, items.get(IDENTITY))
+        if smtp is not None:
+            items[MESSAGING] = smtp
     else:
         items = {}
     if sel.notifier == "auto":

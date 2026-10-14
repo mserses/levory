@@ -558,6 +558,138 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/events': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Events */
+    get: operations['list_events_events_get'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/events/alertmanager': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Alertmanager Webhook
+     * @description Prometheus Alertmanager webhook (v4). Kimlik: paylaşılan gizli ya da HMAC imza.
+     */
+    post: operations['alertmanager_webhook_events_alertmanager_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/events/generic': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Generic Webhook
+     * @description Genel JSON olay gövdesi (`{"events": [...]}`, bkz. docs/faz4.md).
+     */
+    post: operations['generic_webhook_events_generic_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/events/groups': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Groups */
+    get: operations['list_groups_events_groups_get'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/events/groups/{group_id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Group */
+    get: operations['get_group_events_groups__group_id__get'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/events/groups/{group_id}/acknowledge': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Acknowledge Group
+     * @description Grubu üstlenir (`event.acknowledge`, R1; kullanıcının kimliğiyle hemen çalışır).
+     */
+    post: operations['acknowledge_group_events_groups__group_id__acknowledge_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/events/groups/{group_id}/silence': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Silence Group
+     * @description Susturma isteği (`event.silence`, R2): bekleyen eylem isteği açılır, başka bir onaylayan
+     *     `/actions/{id}/approve` ile onaylayınca grup susturulur.
+     */
+    post: operations['silence_group_events_groups__group_id__silence_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/health': {
     parameters: {
       query?: never;
@@ -569,6 +701,202 @@ export interface paths {
     get: operations['health_health_get'];
     put?: never;
     post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/improvements': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Improvements */
+    get: operations['list_improvements_improvements_get'];
+    put?: never;
+    /** Create Improvement */
+    post: operations['create_improvement_improvements_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/improvements/review': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Review
+     * @description CSI ajanını şimdi çalıştırır (`ai:csi`; zamanlayıcı işi `csi_review` ile aynı).
+     */
+    post: operations['review_improvements_review_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/improvements/signals': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Detect Signals
+     * @description Deterministik iyileştirme sinyalleri (salt okuma, hiçbir şey yazmaz).
+     */
+    post: operations['detect_signals_improvements_signals_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/improvements/{improvement_id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Improvement */
+    get: operations['get_improvement_improvements__improvement_id__get'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /** Update Improvement */
+    patch: operations['update_improvement_improvements__improvement_id__patch'];
+    trace?: never;
+  };
+  '/improvements/{improvement_id}/approve': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Approve
+     * @description Fikri onaylar (approver / admin).
+     */
+    post: operations['approve_improvements__improvement_id__approve_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/improvements/{improvement_id}/close': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Close
+     * @description Ölçülen iyileştirmeyi kapatır (approver / admin).
+     */
+    post: operations['close_improvements__improvement_id__close_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/improvements/{improvement_id}/implemented': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Implemented
+     * @description Uygulamanın bittiği anı kaydeder (ölçüm penceresi buradan başlar).
+     */
+    post: operations['implemented_improvements__improvement_id__implemented_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/improvements/{improvement_id}/measure': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Measure
+     * @description Önce/sonra KPI ölçümü (pencere dolmadıysa 409).
+     */
+    post: operations['measure_improvements__improvement_id__measure_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/improvements/{improvement_id}/reject': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Reject
+     * @description Reddeder / iptal eder; gerekçe zorunlu (approver / admin).
+     */
+    post: operations['reject_improvements__improvement_id__reject_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/improvements/{improvement_id}/start': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Start
+     * @description Onaylı iyileştirmenin uygulamasını başlatır.
+     */
+    post: operations['start_improvements__improvement_id__start_post'];
     delete?: never;
     options?: never;
     head?: never;
@@ -907,6 +1235,43 @@ export interface paths {
     };
     /** Search Articles */
     get: operations['search_articles_knowledge_search_get'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/kpi': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Kpi Report
+     * @description KPI'lar: geçerli pencere ve önceki eşit pencereye göre eğilim.
+     */
+    get: operations['kpi_report_kpi_get'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/kpi/definitions': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Kpi Definitions */
+    get: operations['kpi_definitions_kpi_definitions_get'];
     put?: never;
     post?: never;
     delete?: never;
@@ -1352,6 +1717,66 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/sla/forecast': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Sla Forecast List
+     * @description Açık olayların çözüm SLA'sı ihlal olasılığı, beklenen çözüm zamanı ve gerekçeleri.
+     */
+    get: operations['sla_forecast_list_sla_forecast_get'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/sla/forecast/backtest': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Sla Forecast Backtest
+     * @description Tahmin kalibrasyonu: zaman tabanlı bölmeyle Brier skoru ve kalibrasyon tablosu.
+     */
+    get: operations['sla_forecast_backtest_sla_forecast_backtest_get'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/sla/report': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Sla Report
+     * @description Yanıt ve çözüm SLA uyumu (öncelik / grup kırılımı, önceki pencereye göre eğilim).
+     */
+    get: operations['sla_report_sla_report_get'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1394,6 +1819,14 @@ export interface components {
       rationale: string;
       /** Sources */
       sources: string[];
+    };
+    /** AcknowledgeRequest */
+    AcknowledgeRequest: {
+      /**
+       * Note
+       * @default
+       */
+      note: string;
     };
     /** ActionApprovalRead */
     ActionApprovalRead: {
@@ -1711,6 +2144,109 @@ export interface components {
       /** Total */
       total: number;
     };
+    /** BacktestRead */
+    BacktestRead: {
+      /**
+       * Baseline Brier
+       * @description Sabit oran (eğitim ihlal oranı) tahmini
+       */
+      baseline_brier: number | null;
+      /** Baseline Rate */
+      baseline_rate: number | null;
+      /** Brier */
+      brier: number | null;
+      /** Calibration */
+      calibration: components['schemas']['CalibrationBin'][];
+      /**
+       * End
+       * Format: date-time
+       */
+      end: string;
+      /** Lookback Days */
+      lookback_days: number;
+      /**
+       * Skill
+       * @description 1 - brier / baseline_brier (pozitif: daha iyi)
+       */
+      skill: number | null;
+      /**
+       * Skipped
+       * @description Örneklem yetersiz olduğu için tahmin yapılamayan test olayı
+       */
+      skipped: number;
+      /**
+       * Split At
+       * Format: date-time
+       */
+      split_at: string;
+      /**
+       * Test Size
+       * @description Tahmin yapılabilen (yeterli örneklemli) test olayı sayısı
+       */
+      test_size: number;
+      /** Train Size */
+      train_size: number;
+    };
+    /** BreachForecastRead */
+    BreachForecastRead: {
+      /** Assignment Group */
+      assignment_group: string | null;
+      /**
+       * Basis
+       * @enum {string}
+       */
+      basis: 'priority_group' | 'priority' | 'none' | 'breached';
+      /**
+       * Elapsed Hours
+       * @description Duraklatma hariç geçen süre
+       */
+      elapsed_hours: number;
+      /** Expected Resolve At */
+      expected_resolve_at: string | null;
+      /** Incident Id */
+      incident_id: string;
+      /**
+       * Load Ratio
+       * @description Grubun şu anki açık kaydı / olağan ortalaması
+       */
+      load_ratio: number | null;
+      /** Number */
+      number: string;
+      /** Paused */
+      paused: boolean;
+      /** Priority */
+      priority: string;
+      /**
+       * Probability
+       * @description Çözüm SLA'sının ihlal olasılığı (0-1)
+       */
+      probability: number | null;
+      /** Reasons */
+      reasons: components['schemas']['ForecastReason'][];
+      /**
+       * Remaining Hours
+       * @description Duraklatma hariç kalan hedef süre (negatif: geçti)
+       */
+      remaining_hours: number;
+      /** Resolve Due At */
+      resolve_due_at: string | null;
+      /**
+       * Sample Censored
+       * @description Hâlâ açık (sansürlü, Kaplan–Meier) olay sayısı
+       */
+      sample_censored: number;
+      /** Sample Resolved */
+      sample_resolved: number;
+      /**
+       * Sample Size
+       * @description Karşılaştırılan olay sayısı (çözülen + açık)
+       */
+      sample_size: number;
+      /** Status */
+      status: string;
+      /** Target Hours */
+      target_hours: number;
+    };
     /**
      * BusinessApprovalState
      * @enum {string}
@@ -1910,6 +2446,19 @@ export interface components {
       changes: components['schemas']['ChangeRead'][];
       /** Freeze Windows */
       freeze_windows: components['schemas']['FreezeWindowRead'][];
+    };
+    /** CalibrationBin */
+    CalibrationBin: {
+      /** Count */
+      count: number;
+      /** Lower */
+      lower: number;
+      /** Mean Predicted */
+      mean_predicted: number | null;
+      /** Observed Rate */
+      observed_rate: number | null;
+      /** Upper */
+      upper: number;
     };
     /**
      * CatalogApprovalPolicy
@@ -2179,6 +2728,23 @@ export interface components {
      * @enum {string}
      */
     ChangeType: 'standard' | 'normal' | 'emergency';
+    /** CorrelatedMember */
+    CorrelatedMember: {
+      /** Ci Id */
+      ci_id: string | null;
+      /** Ci Name */
+      ci_name: string | null;
+      /** Event Id */
+      event_id: string;
+      /** Path */
+      path: string[];
+      severity: components['schemas']['EventSeverity'];
+      status: components['schemas']['EventStatus'];
+      /** Suppressed */
+      suppressed: string | null;
+      /** Title */
+      title: string;
+    };
     /**
      * DecisionInboxItem
      * @description Onay kutusu satırı: karar + bağlı olayın numarası/başlığı.
@@ -2235,11 +2801,182 @@ export interface components {
      * @enum {string}
      */
     DecisionOutcome: 'auto_applied' | 'suggested' | 'needs_approval' | 'escalated' | 'rejected';
+    /** EventGroupDetailRead */
+    EventGroupDetailRead: {
+      /** Actionable */
+      actionable: boolean;
+      /** Events */
+      events: components['schemas']['EventRead'][];
+      group: components['schemas']['EventGroupRead'];
+      /** Members */
+      members: components['schemas']['CorrelatedMember'][];
+      /** Pending Action Request Id */
+      pending_action_request_id: string | null;
+      /** Proposed Priority */
+      proposed_priority: string | null;
+      /** Root Ci Name */
+      root_ci_name: string | null;
+    };
+    /** EventGroupListRead */
+    EventGroupListRead: {
+      /** Items */
+      items: components['schemas']['EventGroupRead'][];
+    };
+    /** EventGroupRead */
+    EventGroupRead: {
+      /** Acknowledged At */
+      acknowledged_at: string | null;
+      /** Acknowledged By */
+      acknowledged_by: string | null;
+      /** Event Count */
+      event_count: number;
+      /** Fingerprint */
+      fingerprint: string | null;
+      /**
+       * First Event At
+       * Format: date-time
+       */
+      first_event_at: string;
+      /** Flapping */
+      flapping: boolean;
+      /** Id */
+      id: string;
+      /** Incident Id */
+      incident_id: string | null;
+      /**
+       * Last Change At
+       * Format: date-time
+       */
+      last_change_at: string;
+      /**
+       * Last Event At
+       * Format: date-time
+       */
+      last_event_at: string;
+      /** Merged Into Id */
+      merged_into_id: string | null;
+      /** Noted At */
+      noted_at: string | null;
+      /** Number */
+      number: string;
+      /** Resolved At */
+      resolved_at: string | null;
+      /** Root Ci Id */
+      root_ci_id: string | null;
+      severity: components['schemas']['EventSeverity'];
+      /** Silenced By */
+      silenced_by: string | null;
+      /** Silenced Until */
+      silenced_until: string | null;
+      state: components['schemas']['EventGroupState'];
+      /** Title */
+      title: string;
+      /** Version */
+      version: number;
+    };
+    /**
+     * EventGroupState
+     * @enum {string}
+     */
+    EventGroupState: 'open' | 'resolved' | 'merged';
+    /** EventListRead */
+    EventListRead: {
+      /** Items */
+      items: components['schemas']['EventRead'][];
+    };
+    /** EventRead */
+    EventRead: {
+      /** Annotations */
+      annotations: {
+        [key: string]: unknown;
+      };
+      /**
+       * Changed At
+       * Format: date-time
+       */
+      changed_at: string;
+      /** Ci Id */
+      ci_id: string | null;
+      /** Ci Rule */
+      ci_rule: string | null;
+      /** Ends At */
+      ends_at: string | null;
+      /** Fingerprint */
+      fingerprint: string;
+      /** Group Id */
+      group_id: string | null;
+      /** Id */
+      id: string;
+      /** Labels */
+      labels: {
+        [key: string]: unknown;
+      };
+      /**
+       * Last Received At
+       * Format: date-time
+       */
+      last_received_at: string;
+      /** Received Count */
+      received_count: number;
+      severity: components['schemas']['EventSeverity'];
+      /** Source */
+      source: string;
+      /**
+       * Starts At
+       * Format: date-time
+       */
+      starts_at: string;
+      status: components['schemas']['EventStatus'];
+      /** Suppressed */
+      suppressed: string | null;
+      /** Title */
+      title: string;
+    };
+    /**
+     * EventSeverity
+     * @description Normalleştirilmiş önem derecesi (kaynak etiketleri `normalize_severity` ile eşlenir).
+     * @enum {string}
+     */
+    EventSeverity: 'critical' | 'high' | 'warning' | 'info';
+    /**
+     * EventStatus
+     * @description İzleme uyarısının durumu (Alertmanager `status`).
+     * @enum {string}
+     */
+    EventStatus: 'firing' | 'resolved';
     /**
      * ExternalSystem
      * @enum {string}
      */
     ExternalSystem: 'servicenow' | 'jira_sm';
+    /** ForecastReason */
+    ForecastReason: {
+      /** Code */
+      code: string;
+      /** Message */
+      message: string;
+      /**
+       * Weight
+       * @description Log-olasılık oranına katkının mutlak değeri (sıralama için)
+       */
+      weight: number;
+    };
+    /** ForecastReportRead */
+    ForecastReportRead: {
+      /** Count */
+      count: number;
+      /**
+       * Generated At
+       * Format: date-time
+       */
+      generated_at: string;
+      /** Items */
+      items: components['schemas']['BreachForecastRead'][];
+      /** Lookback Days */
+      lookback_days: number;
+      /** Min Sample */
+      min_sample: number;
+    };
     /** FreezeWindowCreate */
     FreezeWindowCreate: {
       /**
@@ -2344,6 +3081,242 @@ export interface components {
       path: string[];
       /** @description Bu CI'a ulaştıran son ilişki türü */
       relationship: components['schemas']['CIRelationshipType'];
+    };
+    /** ImplementedRequest */
+    ImplementedRequest: {
+      /**
+       * At
+       * @description Uygulama bitişi; boşsa şimdi
+       */
+      at?: string | null;
+      /** Expected Version */
+      expected_version?: number | null;
+    };
+    /** ImprovementCreate */
+    ImprovementCreate: {
+      /**
+       * Baseline Value
+       * @description Boşsa KPI'dan son pencere üzerinden hesaplanır
+       */
+      baseline_value?: number | null;
+      /**
+       * Benefit Estimate
+       * @description Fayda tahmini 1-5
+       * @default 3
+       */
+      benefit_estimate: number;
+      /** Change Id */
+      change_id?: string | null;
+      /**
+       * Description
+       * @default
+       */
+      description: string;
+      /**
+       * Effort
+       * @description Efor 1-5
+       * @default 3
+       */
+      effort: number;
+      /** Evidence */
+      evidence?: {
+        [key: string]: unknown;
+      } | null;
+      /** Kpi Dimension */
+      kpi_dimension?: string | null;
+      /** Kpi Dimension Value */
+      kpi_dimension_value?: string | null;
+      /**
+       * Kpi Key
+       * @description Bağlı KPI (services/kpi.py)
+       */
+      kpi_key?:
+        | (
+            | 'mttr'
+            | 'mtta'
+            | 'fcr_rate'
+            | 'sla_response_compliance'
+            | 'sla_resolve_compliance'
+            | 'backlog'
+            | 'reopen_rate'
+            | 'automation_rate'
+            | 'ai_triage_acceptance'
+            | 'change_success_rate'
+            | 'emergency_change_share'
+            | 'problem_known_error_lead_time'
+          )
+        | null;
+      /**
+       * Measure Days
+       * @description Ölçüm penceresi
+       */
+      measure_days?: number | null;
+      /** Owner */
+      owner?: string | null;
+      /** Problem Id */
+      problem_id?: string | null;
+      /** Signal Key */
+      signal_key?: string | null;
+      /** @default manual */
+      source: components['schemas']['ImprovementSource'];
+      /** Target Value */
+      target_value?: number | null;
+      /** Title */
+      title: string;
+    };
+    /**
+     * ImprovementNote
+     * @description Durum adımı gövdesi (onay / red / başlatma / kapatma); red için not zorunlu.
+     */
+    ImprovementNote: {
+      /** Expected Version */
+      expected_version?: number | null;
+      /** Note */
+      note?: string | null;
+    };
+    /** ImprovementRead */
+    ImprovementRead: {
+      /** Approved At */
+      approved_at: string | null;
+      /** Approved By */
+      approved_by: string | null;
+      /** Baseline End */
+      baseline_end: string | null;
+      /** Baseline Start */
+      baseline_start: string | null;
+      /** Baseline Value */
+      baseline_value: number | null;
+      /** Benefit Estimate */
+      benefit_estimate: number;
+      /** Change Id */
+      change_id: string | null;
+      /** Closed At */
+      closed_at: string | null;
+      /** Closed By */
+      closed_by: string | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Created By */
+      created_by: string;
+      /** Description */
+      description: string;
+      /** Detected By */
+      detected_by: string;
+      /** Effort */
+      effort: number;
+      /** Evidence */
+      evidence: {
+        [key: string]: unknown;
+      } | null;
+      /** Id */
+      id: string;
+      /** Implemented At */
+      implemented_at: string | null;
+      /** Kpi Dimension */
+      kpi_dimension: string | null;
+      /** Kpi Dimension Value */
+      kpi_dimension_value: string | null;
+      /** Kpi Key */
+      kpi_key: string | null;
+      /** Measure Days */
+      measure_days: number;
+      /** Measured At */
+      measured_at: string | null;
+      /** Measured Value */
+      measured_value: number | null;
+      /** Measurement */
+      measurement: {
+        [key: string]: unknown;
+      } | null;
+      /** Number */
+      number: string;
+      /** Owner */
+      owner: string | null;
+      /** Priority Score */
+      priority_score: number;
+      /** Problem Id */
+      problem_id: string | null;
+      /** Resolution */
+      resolution: string | null;
+      /** Signal Key */
+      signal_key: string | null;
+      source: components['schemas']['ImprovementSource'];
+      /** Started At */
+      started_at: string | null;
+      state: components['schemas']['ImprovementState'];
+      /** Target Met */
+      target_met: boolean | null;
+      /** Target Value */
+      target_value: number | null;
+      /** Title */
+      title: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+      /** Version */
+      version: number;
+    };
+    /**
+     * ImprovementSource
+     * @description İyileştirme fikrinin kaynağı.
+     * @enum {string}
+     */
+    ImprovementSource: 'kpi' | 'problem' | 'pir' | 'manual' | 'ai';
+    /**
+     * ImprovementState
+     * @description idea -> approved -> in_progress -> measured -> closed; her açık durumdan rejected.
+     * @enum {string}
+     */
+    ImprovementState: 'idea' | 'approved' | 'in_progress' | 'measured' | 'closed' | 'rejected';
+    /**
+     * ImprovementUpdate
+     * @description Kısmi güncelleme. KPI tanımı, taban ve hedef yalnızca onaydan önce (idea) değişir.
+     */
+    ImprovementUpdate: {
+      /** Baseline Value */
+      baseline_value?: number | null;
+      /** Benefit Estimate */
+      benefit_estimate?: number | null;
+      /** Description */
+      description?: string | null;
+      /** Effort */
+      effort?: number | null;
+      /** Expected Version */
+      expected_version?: number | null;
+      /** Kpi Dimension */
+      kpi_dimension?: string | null;
+      /** Kpi Dimension Value */
+      kpi_dimension_value?: string | null;
+      /** Kpi Key */
+      kpi_key?:
+        | (
+            | 'mttr'
+            | 'mtta'
+            | 'fcr_rate'
+            | 'sla_response_compliance'
+            | 'sla_resolve_compliance'
+            | 'backlog'
+            | 'reopen_rate'
+            | 'automation_rate'
+            | 'ai_triage_acceptance'
+            | 'change_success_rate'
+            | 'emergency_change_share'
+            | 'problem_known_error_lead_time'
+          )
+        | null;
+      /** Measure Days */
+      measure_days?: number | null;
+      /** Owner */
+      owner?: string | null;
+      /** Target Value */
+      target_value?: number | null;
+      /** Title */
+      title?: string | null;
     };
     /**
      * InboxOutcome
@@ -2493,6 +3466,122 @@ export interface components {
       | 'resolved'
       | 'closed'
       | 'cancelled';
+    /** KPIDefinitionRead */
+    KPIDefinitionRead: {
+      /**
+       * Better
+       * @enum {string}
+       */
+      better: 'lower' | 'higher';
+      /** Formula */
+      formula: string;
+      /** Key */
+      key: string;
+      /** Name */
+      name: string;
+      /**
+       * Unit
+       * @enum {string}
+       */
+      unit: 'hours' | 'percent' | 'count';
+    };
+    /**
+     * KPIGroupStat
+     * @description Bir kırılım satırı (ör. öncelik=P2): değer ve payda (örneklem) büyüklüğü.
+     */
+    KPIGroupStat: {
+      /** Count */
+      count: number;
+      /** Key */
+      key: string | null;
+      /** Value */
+      value: number | null;
+    };
+    /** KPIReportRead */
+    KPIReportRead: {
+      /**
+       * Generated At
+       * Format: date-time
+       */
+      generated_at: string;
+      /** Kpis */
+      kpis: components['schemas']['KPIValueRead'][];
+      previous_window: components['schemas']['KPIWindowRead'];
+      window: components['schemas']['KPIWindowRead'];
+    };
+    /** KPIValueRead */
+    KPIValueRead: {
+      /**
+       * Better
+       * @enum {string}
+       */
+      better: 'lower' | 'higher';
+      /** Breakdown */
+      breakdown?: {
+        [key: string]: components['schemas']['KPIGroupStat'][];
+      };
+      /**
+       * Count
+       * @description Payda / örneklem büyüklüğü
+       */
+      count: number;
+      /**
+       * Delta
+       * @description value - previous
+       */
+      delta: number | null;
+      /**
+       * Delta Pct
+       * @description (value - previous) / previous * 100
+       */
+      delta_pct: number | null;
+      /** Details */
+      details?: {
+        [key: string]: unknown;
+      };
+      /** Key */
+      key: string;
+      /** Name */
+      name: string;
+      /**
+       * Previous
+       * @description Önceki (eşit uzunlukta) pencerede değer
+       */
+      previous: number | null;
+      /** Previous Count */
+      previous_count: number;
+      /**
+       * Trend
+       * @enum {string}
+       */
+      trend: 'improved' | 'worsened' | 'flat' | 'n/a';
+      /**
+       * Unit
+       * @enum {string}
+       */
+      unit: 'hours' | 'percent' | 'count';
+      /**
+       * Value
+       * @description Geçerli pencerede değer (veri yoksa null)
+       */
+      value: number | null;
+    };
+    /**
+     * KPIWindowRead
+     * @description Yarı açık pencere [start, end), UTC.
+     */
+    KPIWindowRead: {
+      /**
+       * End
+       * Format: date-time
+       */
+      end: string;
+      /**
+       * Start
+       * Format: date-time
+       */
+      start: string;
+    };
     /**
      * LinkedActionRead
      * @description Talebe bağlı eylem isteğinin özeti (ham argümanlar yok).
@@ -2732,6 +3821,17 @@ export interface components {
       /** Expected Version */
       expected_version?: number | null;
     };
+    /** ReviewRead */
+    ReviewRead: {
+      /** Measured */
+      measured: number;
+      /** Pending Approval */
+      pending_approval: number;
+      /** Proposed */
+      proposed: number;
+      /** Signals */
+      signals: number;
+    };
     /**
      * RiskClass
      * @description Araç risk sınıfı (ürün sahibiyle tasarlanan katalog).
@@ -2944,6 +4044,70 @@ export interface components {
       form_values: {
         [key: string]: unknown;
       };
+    };
+    /** SignalRead */
+    SignalRead: {
+      /** Baseline Value */
+      baseline_value: number | null;
+      /** Benefit Estimate */
+      benefit_estimate: number;
+      /** Change Id */
+      change_id: string | null;
+      /** Confidence */
+      confidence: number;
+      /** Effort */
+      effort: number;
+      /** Evidence */
+      evidence: {
+        [key: string]: unknown;
+      };
+      /** Key */
+      key: string;
+      /** Kind */
+      kind: string;
+      /** Kpi Dimension */
+      kpi_dimension: string | null;
+      /** Kpi Dimension Value */
+      kpi_dimension_value: string | null;
+      /** Kpi Key */
+      kpi_key: string | null;
+      /** Problem Id */
+      problem_id: string | null;
+      source: components['schemas']['ImprovementSource'];
+      /** Summary */
+      summary: string;
+      /** Target Value */
+      target_value: number | null;
+      /** Title */
+      title: string;
+    };
+    /** SignalsRead */
+    SignalsRead: {
+      /** Signals */
+      signals: components['schemas']['SignalRead'][];
+      /** Window Days */
+      window_days: number;
+    };
+    /** SignalsRequest */
+    SignalsRequest: {
+      /**
+       * Window Days
+       * @default 30
+       */
+      window_days: number;
+    };
+    /** SilenceRequest */
+    SilenceRequest: {
+      /**
+       * Comment
+       * @description Gerekçe
+       */
+      comment: string;
+      /**
+       * Minutes
+       * @description Susturma süresi (dk, en fazla 7 gün)
+       */
+      minutes: number;
     };
     /** SyncEventOut */
     SyncEventOut: {
@@ -3171,6 +4335,40 @@ export interface components {
     VerifyOut: {
       /** Valid */
       valid: boolean;
+    };
+    /** WebhookResult */
+    WebhookResult: {
+      /** Actions */
+      actions?: {
+        [key: string]: unknown;
+      }[];
+      /**
+       * Created
+       * @default 0
+       */
+      created: number;
+      /**
+       * Duplicate
+       * @default false
+       */
+      duplicate: boolean;
+      /** Group Ids */
+      group_ids?: string[];
+      /**
+       * Ignored
+       * @default 0
+       */
+      ignored: number;
+      /**
+       * Received
+       * @default 0
+       */
+      received: number;
+      /**
+       * Updated
+       * @default 0
+       */
+      updated: number;
     };
   };
   responses: never;
@@ -4443,6 +5641,217 @@ export interface operations {
       };
     };
   };
+  list_events_events_get: {
+    parameters: {
+      query?: {
+        status?: components['schemas']['EventStatus'] | null;
+        severity?: components['schemas']['EventSeverity'] | null;
+        group_id?: string | null;
+        ci_id?: string | null;
+        source?: string | null;
+        limit?: number;
+        offset?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['EventListRead'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  alertmanager_webhook_events_alertmanager_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WebhookResult'];
+        };
+      };
+    };
+  };
+  generic_webhook_events_generic_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WebhookResult'];
+        };
+      };
+    };
+  };
+  list_groups_events_groups_get: {
+    parameters: {
+      query?: {
+        state?: components['schemas']['EventGroupState'] | null;
+        limit?: number;
+        offset?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['EventGroupListRead'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  get_group_events_groups__group_id__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        group_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['EventGroupDetailRead'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  acknowledge_group_events_groups__group_id__acknowledge_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        group_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['AcknowledgeRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AgentResultRead'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  silence_group_events_groups__group_id__silence_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        group_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['SilenceRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AgentResultRead'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
   health_health_get: {
     parameters: {
       query?: never;
@@ -4461,6 +5870,431 @@ export interface operations {
           'application/json': {
             [key: string]: string;
           };
+        };
+      };
+    };
+  };
+  list_improvements_improvements_get: {
+    parameters: {
+      query?: {
+        state?: components['schemas']['ImprovementState'] | null;
+        source?: components['schemas']['ImprovementSource'] | null;
+        kpi_key?:
+          | (
+              | 'mttr'
+              | 'mtta'
+              | 'fcr_rate'
+              | 'sla_response_compliance'
+              | 'sla_resolve_compliance'
+              | 'backlog'
+              | 'reopen_rate'
+              | 'automation_rate'
+              | 'ai_triage_acceptance'
+              | 'change_success_rate'
+              | 'emergency_change_share'
+              | 'problem_known_error_lead_time'
+            )
+          | null;
+        owner?: string | null;
+        q?: string | null;
+        open_only?: boolean;
+        limit?: number;
+        offset?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ImprovementRead'][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  create_improvement_improvements_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ImprovementCreate'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ImprovementRead'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  review_improvements_review_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ReviewRead'];
+        };
+      };
+    };
+  };
+  detect_signals_improvements_signals_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['SignalsRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SignalsRead'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  get_improvement_improvements__improvement_id__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        improvement_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ImprovementRead'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  update_improvement_improvements__improvement_id__patch: {
+    parameters: {
+      query?: never;
+      header?: {
+        'if-match'?: string | null;
+      };
+      path: {
+        improvement_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ImprovementUpdate'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ImprovementRead'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  approve_improvements__improvement_id__approve_post: {
+    parameters: {
+      query?: never;
+      header?: {
+        'if-match'?: string | null;
+      };
+      path: {
+        improvement_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ImprovementNote'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ImprovementRead'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  close_improvements__improvement_id__close_post: {
+    parameters: {
+      query?: never;
+      header?: {
+        'if-match'?: string | null;
+      };
+      path: {
+        improvement_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ImprovementNote'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ImprovementRead'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  implemented_improvements__improvement_id__implemented_post: {
+    parameters: {
+      query?: never;
+      header?: {
+        'if-match'?: string | null;
+      };
+      path: {
+        improvement_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ImplementedRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ImprovementRead'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  measure_improvements__improvement_id__measure_post: {
+    parameters: {
+      query?: never;
+      header?: {
+        'if-match'?: string | null;
+      };
+      path: {
+        improvement_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ImprovementRead'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  reject_improvements__improvement_id__reject_post: {
+    parameters: {
+      query?: never;
+      header?: {
+        'if-match'?: string | null;
+      };
+      path: {
+        improvement_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ImprovementNote'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ImprovementRead'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  start_improvements__improvement_id__start_post: {
+    parameters: {
+      query?: never;
+      header?: {
+        'if-match'?: string | null;
+      };
+      path: {
+        improvement_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ImprovementNote'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ImprovementRead'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
         };
       };
     };
@@ -5230,6 +7064,62 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  kpi_report_kpi_get: {
+    parameters: {
+      query?: {
+        /** @description Pencere uzunluğu (gün) */
+        days?: number;
+        /** @description Pencere sonu (hariç); saat dilimsiz değer UTC kabul edilir, boşsa şimdi */
+        end?: string | null;
+        /** @description Tekrarlanabilir KPI anahtarı; boşsa tümü */
+        kpi?: string[] | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['KPIReportRead'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  kpi_definitions_kpi_definitions_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['KPIDefinitionRead'][];
         };
       };
     };
@@ -6118,6 +8008,109 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['ServiceRequestRead'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  sla_forecast_list_sla_forecast_get: {
+    parameters: {
+      query?: {
+        assignment_group?: string | null;
+        min_probability?: number | null;
+        limit?: number;
+        lookback_days?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ForecastReportRead'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  sla_forecast_backtest_sla_forecast_backtest_get: {
+    parameters: {
+      query: {
+        /** @description Eğitim/test bölme anı */
+        split_at: string;
+        /** @description Pencere sonu (hariç); saat dilimsiz değer UTC kabul edilir, boşsa şimdi */
+        end?: string | null;
+        lookback_days?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['BacktestRead'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  sla_report_sla_report_get: {
+    parameters: {
+      query?: {
+        /** @description Pencere uzunluğu (gün) */
+        days?: number;
+        /** @description Pencere sonu (hariç); saat dilimsiz değer UTC kabul edilir, boşsa şimdi */
+        end?: string | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['KPIReportRead'];
         };
       };
       /** @description Validation Error */

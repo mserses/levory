@@ -212,3 +212,62 @@ class RCAMethod(StrEnum):
 
     FIVE_WHY = "5_why"  # 5 Neden: her adım soru + yanıt
     TIMELINE = "timeline"  # Zaman çizelgesi: her adım zaman + olay
+
+
+# --- Faz 4: kalıcı bildirim kuyruğu (notification_outbox) ---------------------------------
+
+
+class NotificationState(StrEnum):
+    PENDING = "pending"  # Gönderilecek (ilk deneme ya da kira süresi dolmuş)
+    SENT = "sent"
+    FAILED = "failed"  # Son deneme başarısız; next_attempt_at'te yeniden denenir
+    DEAD = "dead"  # En fazla deneme aşıldı; artık gönderilmez (denetimde)
+
+
+# --- Faz 4: izleme ve olay (event) yönetimi ------------------------------------------------
+
+
+class EventStatus(StrEnum):
+    """İzleme uyarısının durumu (Alertmanager `status`)."""
+
+    FIRING = "firing"
+    RESOLVED = "resolved"
+
+
+class EventSeverity(StrEnum):
+    """Normalleştirilmiş önem derecesi (kaynak etiketleri `normalize_severity` ile eşlenir)."""
+
+    CRITICAL = "critical"
+    HIGH = "high"
+    WARNING = "warning"
+    INFO = "info"
+
+
+class EventGroupState(StrEnum):
+    OPEN = "open"  # En az bir uyarı ateşleniyor
+    RESOLVED = "resolved"  # Tüm uyarılar çözüldü
+    MERGED = "merged"  # Kök nedeni açıklayan başka bir gruba katıldı (merged_into_id)
+
+
+# --- Faz 4: sürekli iyileştirme (CSI kaydı) ------------------------------------------------
+
+
+class ImprovementSource(StrEnum):
+    """İyileştirme fikrinin kaynağı."""
+
+    KPI = "kpi"  # KPI eğilimi / SLA tahmini
+    PROBLEM = "problem"  # Sorun / bilinen hata
+    PIR = "pir"  # Uygulama sonrası gözden geçirme (değişiklik)
+    MANUAL = "manual"  # İnsan önerisi
+    AI = "ai"  # Yapay zekâ performansı (triage kabulü, KB önerileri)
+
+
+class ImprovementState(StrEnum):
+    """idea -> approved -> in_progress -> measured -> closed; her açık durumdan rejected."""
+
+    IDEA = "idea"
+    APPROVED = "approved"
+    IN_PROGRESS = "in_progress"
+    MEASURED = "measured"
+    CLOSED = "closed"
+    REJECTED = "rejected"

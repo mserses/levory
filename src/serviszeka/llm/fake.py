@@ -22,6 +22,8 @@ _KB_SECTION = "Bilgi bankası sonuçları"
 _RISK_SECTION = "Deterministik risk değerlendirmesi:"
 # agents/problem.rca_prompt bu başlıkla sorun + bağlı olayları verir
 _RCA_SECTION = "Sorun kaydı (kök neden analizi taslağı):"
+# agents/improvement.narrative_prompt bu başlıkla sinyal + kanıtı verir
+_CSI_SECTION = "Sürekli iyileştirme önerisi (anlatı):"
 
 # (anahtar kelimeler, kategori, hizmet, grup) — ilk eşleşen kazanır
 _RULES: tuple[tuple[tuple[str, ...], str, str, str], ...] = (
@@ -195,6 +197,15 @@ def draft_rca(user: str) -> dict[str, Any]:
     }
 
 
+def csi_narrative(user: str) -> dict[str, Any]:
+    """Sürekli iyileştirme ajanı için deterministik gerekçe (sayılar özetten aynen)."""
+    summary = _line_value(user, "Özet:") or "Sinyal tespit edildi."
+    return {
+        "narrative": f"[fake] {summary} Kök nedenler gözden geçirilip ölçülebilir bir "
+        "iyileştirme denenmeli."
+    }
+
+
 class DeterministicFakeLLM:
     """`SZ_LLM_PROVIDER=fake` istemcisi: ağ çağrısı yapmaz, istemi yine maskeler."""
 
@@ -208,6 +219,8 @@ class DeterministicFakeLLM:
             return assess_change_risk(masked)
         if _RCA_SECTION in masked:
             return draft_rca(masked)
+        if _CSI_SECTION in masked:
+            return csi_narrative(masked)
         return classify(masked)
 
 

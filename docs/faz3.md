@@ -277,7 +277,8 @@ kipinde `messaging` bağlayıcısı `SlackNotifier` olur (`setup._with_slack`; y
 posta/lisans/bildirim Keycloak'ta yok — `messaging` için Slack ayarlanabilir). Zorunlu:
 `SZ_KEYCLOAK_SERVER_URL` (Keycloak <17: `.../auth`), `SZ_KEYCLOAK_REALM`, `SZ_KEYCLOAK_CLIENT_ID`,
 `SZ_KEYCLOAK_CLIENT_SECRET` (`SecretStr`); isteğe bağlı `SZ_KEYCLOAK_MANAGER_ATTRIBUTE` (varsayılan
-`manager`). Testler `tests/test_keycloak_connector.py` (`MockTransport`).
+`manager`) ve `SZ_KEYCLOAK_SECONDARY_EMAIL_ATTRIBUTE` (varsayılan `secondary_email`). Testler
+`tests/test_keycloak_connector.py` (`MockTransport`), `tests/test_smtp_connector.py`.
 
 - Belirteç: hizmet hesabı **client credentials**, `POST {server}/realms/{realm}/protocol/openid-connect/token`;
   süresinden ≤60 sn önceye kadar önbellek, Admin API 401'de bir kez yenileme. Gizli anahtar/belirteç
@@ -294,8 +295,21 @@ posta/lisans/bildirim Keycloak'ta yok — `messaging` için Slack ayarlanabilir)
   Entra'dan farklı).
 - Parola sıfırlama varsayılanı geçici paroladır (`temporary=true`); `execute-actions-email`
   (UPDATE_PASSWORD) seçilmedi: bağlantıyı birincil e-postaya gönderir (ele geçirilmiş hesapta saldırgan
-  okur) ve arayüzün geçici parola sözleşmesini karşılamaz. Keycloak'ta ikincil e-posta alanı olmadığından
-  `other_mails` boştur: hassas teslimat (geçici parola bildirimi) bu sağlayıcıyla yapılamaz.
+  okur) ve arayüzün geçici parola sözleşmesini karşılamaz.
+- **Geçici parola teslimi (ürün sahibi kararı).** Keycloak'ta yerleşik ikincil e-posta yok: `DirectoryUser.other_mails`
+  yapılandırılabilir kullanıcı özniteliğinden (`SZ_KEYCLOAK_SECONDARY_EMAIL_ATTRIBUTE`, varsayılan
+  `secondary_email`) doldurulur. Yalnızca e-posta biçimli, birincil `email`'den farklı (harf duyarsız), tekil
+  değerler alınır; boş ayar özniteliği kapatır. Arama sonucu öznitelik taşımıyorsa kullanıcı `GET /users/{id}`
+  tam gösteriminden okunur. Keycloak e-posta göndermez: teslimat **SMTP bildiricisi** (`connectors/smtp.py`,
+  `SZ_SMTP_HOST` + `SZ_SMTP_SENDER`, isteğe bağlı `SZ_SMTP_PORT`=587, `SZ_SMTP_USERNAME`, `SZ_SMTP_PASSWORD`
+  (gizli), `SZ_SMTP_STARTTLS`=true) ile yapılır: hassas bildirim yalnızca `other_mails[0]`'a (yoksa
+  `ConnectorError`, birincil posta kutusuna asla), diğer bildirimler birincil e-postaya; kanal mesajı
+  desteklenmez. Keycloak + SMTP'de `messaging` SMTP'dir; Slack ayarlıysa `messaging` Slack olur ve hassas
+  bildirim SMTP'ye devredilir. SMTP hatası yalnızca istisna türünü taşır (sunucu yanıtı/parola/mesaj yok).
+  SMTP ayarlı değilse açılışta uyarı loglanır ve `identity.reset_password` başarısız olur.
+  **Doğrulanmalı (K11):** öznitelik Keycloak 24+ kullanıcı profilinde tanımlı ve **yalnızca yöneticilerce**
+  düzenlenebilir olmalı (kullanıcı kendi hesap konsolunda değiştirebilirse ele geçirilmiş hesapta saldırgan
+  geçici parolayı kendi adresine yönlendirir); adresin doğrulanması (ör. kayıt sırasında) kurum sürecidir.
 - Yönetici: yerleşik ilişki yok; `SZ_KEYCLOAK_MANAGER_ATTRIBUTE` özniteliği yöneticinin **kullanıcı adını**
   taşır (yalnızca kullanıcı adıyla tam eşleşme). Birden fazla farklı değer → hata; bulunamayan/kendisi → `None`
   (talep yalnızca admin onayına düşer).
@@ -348,13 +362,13 @@ eksik ayarların **adını** yazar (değer, gizli bilgi yok). Boş gizli değer 
 | `SZ_NOTIFIER_PROVIDER` | `messaging` | Zorunlu |
 |---|---|---|
 | `teams` | `TeamsGraphNotifier` (Graph `sendMail` + Teams webhook); Slack ayarlı olsa da Teams | kimlik `graph` + `SZ_GRAPH_SENDER_MAILBOX` |
-| `slack` | `SlackNotifier`; hassas bildirim kimlik yığınının temel bildiricisine devredilir (Graph: `otherMails`, `memory`: dizin, Keycloak: **yok** → `ConnectorError`) | `SZ_SLACK_BOT_TOKEN` ya da `SZ_SLACK_WEBHOOK_URL` |
+| `slack` | `SlackNotifier`; hassas bildirim kimlik yığınının temel bildiricisine devredilir (Graph: `otherMails`, `memory`: dizin, Keycloak: SMTP ayarlıysa SMTP → ikincil e-posta özniteliği, değilse `ConnectorError`) | `SZ_SLACK_BOT_TOKEN` ya da `SZ_SLACK_WEBHOOK_URL` |
 | `log` | kaydedilmez (`notify.send_*`, `identity.reset_password` 503) | — |
 | boş | eski davranış: temel bildirici, Slack ayarlıysa Slack | |
 
 Nöbetçi uyarısı (`notifications.get_notifier`): `SZ_ONCALL_WEBHOOK_URL` her zaman öncelikli; açık
 `teams` ya da `log` seçiminde Slack kullanılmaz (log), `slack` ya da boşta önceki Slack sırası.
-Hassas bildirimin teslim edilemeyeceği bileşimlerde (kimlik `keycloak`; ya da `graph` +
+Hassas bildirimin teslim edilemeyeceği bileşimlerde (kimlik `keycloak` + SMTP ayarsız ya da bildirim `log`; ya da `graph` +
 `SZ_GRAPH_SENDER_MAILBOX` boş) açılışta uyarı loglanır (açılış engellenmez). Testler
 `tests/test_connector_selection.py`.
 
@@ -367,10 +381,11 @@ sahte dizin, gerçek bağlayıcının **belgelenmiş** kısıtlarıyla sarılır
 - `memory`: `InMemoryDirectory` (varsayılan; davranış değişmedi).
 - `entra`: `EntraShapedDirectory` — `unlock_account` ve `grant_shared_access` `connectors.graph` ile aynı
   `ConnectorNotSupportedError` (dry_run dahil).
-- `keycloak`: `KeycloakShapedDirectory` (kilit açma desteklenir; `other_mails` her zaman boş) yalnızca
-  `identity`; `messaging` **gerçek** `SlackNotifier`, Slack Web API'si `FakeSlackWorkspace`
-  (`httpx.MockTransport`: `users.lookupByEmail`, `conversations.open`, `chat.postMessage`); `mail` ve
-  `license` kayıtlı değil (`install_stack` yığında olmayan türleri kayıttan çıkarır).
+- `keycloak`: `KeycloakShapedDirectory` (kilit açma desteklenir; `other_mails` ikincil e-posta özniteliğinin
+  değeri sayılır) yalnızca `identity`; `messaging` **gerçek** `SlackNotifier`, Slack Web API'si
+  `FakeSlackWorkspace` (`httpx.MockTransport`: `users.lookupByEmail`, `conversations.open`,
+  `chat.postMessage`); hassas bildirim SMTP bildiricisinin karşılığına (dizinin ikincil adrese gönderimi)
+  devredilir; `mail` ve `license` kayıtlı değil (`install_stack` yığında olmayan türleri kayıttan çıkarır).
 
 Ölçüm (200 talep, 155 kapanan standart talep; üçünde de yanlış insansız 0, ihlal 0, LLM çağrısı 0):
 
@@ -378,7 +393,7 @@ sahte dizin, gerçek bağlayıcının **belgelenmiş** kısıtlarıyla sarılır
 |---|---|---|
 | `memory` | 134 / 155 (%86,5) — GEÇTİ | |
 | `entra` | 113 / 155 (%72,9) — GEÇTİ | `account_unlock` 0/25 (`failed`: bulutta kilit açma yok); `shared_mailbox_access` ve `new_employee_account` `failed` (posta kutusu izni yok) |
-| `keycloak` | 83 / 155 (%53,5) — GEÇTİ (pay %3,5) | `account_unlock` 21/25 çalışır; `password_reset` 0/40 (geçici parola teslim edilemez: ikincil adres yok, Slack'e gönderilmez); `m365_license` 0/20 (lisans sağlayıcısı yok) |
+| `keycloak` | 117 / 155 (%75,5) — GEÇTİ | `account_unlock` 21/25 çalışır; `password_reset` 34/40 (geçici parola ikincil e-posta özniteliğine SMTP ile; önceki ölçüm 83/155, %53,5 — teslim kanalı yoktu); `m365_license` 0/20 (lisans sağlayıcısı yok) |
 
 **Yığınlar — doğrulanmalı / sınırlar:**
 
@@ -388,9 +403,9 @@ sahte dizin, gerçek bağlayıcının **belgelenmiş** kısıtlarıyla sarılır
   sonucu bu yüzden üst sınırdır.
 - **Y2.** Etiketler (`expected_touchless`) yığından bağımsız yazıldı; `entra`/`keycloak` "kaçırılan
   otomasyon" listesi yığın kısıtından gelir, etiket hatası değildir.
-- **Y3.** Keycloak + Slack yığınında parola sıfırlama için ikincil teslim kanalı yok: doğrulanmış ikincil
-  e-posta özniteliği (KC 24+ kullanıcı profili) ya da SMS bağlayıcısı tasarlanmadan bu katalog öğesi
-  insansız çözülemez. Keycloak'ta `m365_license` / `shared_mailbox_access` öğeleri devre dışı
+- **Y3.** (Çözüldü — ürün sahibi kararı) Keycloak'ta geçici parola ikincil e-posta özniteliğine
+  (`SZ_KEYCLOAK_SECONDARY_EMAIL_ATTRIBUTE`) SMTP ile gider; özniteliğin yönetici-yalnız düzenlenebilirliği
+  K11'de doğrulanmalı. Keycloak'ta `m365_license` / `shared_mailbox_access` öğeleri devre dışı
   bırakılmalı ya da ayrı bir M365 bağlayıcısı eklenmeli.
 - **Y4.** `SZ_NOTIFIER_PROVIDER=teams` için `SZ_GRAPH_SENDER_MAILBOX` zorunlu tutuldu (kullanıcı bildirimi
   onsuz çalışmaz); `SZ_TEAMS_WEBHOOK_URLS` isteğe bağlı (boşsa kanal mesajı `ConnectorNotFoundError`).
@@ -405,10 +420,14 @@ sahte dizin, gerçek bağlayıcının **belgelenmiş** kısıtlarıyla sarılır
 | cmdb | `search_ci`, `get_ci`, `impact_analysis` | | |
 | sla | `get_status`, `list_at_risk` | | |
 | notify | | `oncall_page` (mesaj maskelenir, commit sonrası) | |
-| audit | `verify_chain`, `search` (yalnızca admin) | | |
+| audit | `verify_chain`, `search` (yalnızca admin; **yapay zekâya kapalı**) | | |
 
 İnsan rolleri: olay/KB okuma agent+approver, yazma agent; değişiklik/CMDB okuma agent+cab+change_manager,
-değişiklik yazma agent+change_manager; denetim admin. Hizmet aramaları için `services.incidents.list_incidents`
+değişiklik yazma agent+change_manager; denetim admin. **Ürün sahibi kararı:** yapay zekâ yalnızca admin
+olmayan bir insan rolünün de çağırabildiği araçları çağırır (`tools.executor.ai_callable`: `ai_allowed` ve
+rollerde admin dışı bir rol). Admin-yalnız okumalar (`audit.search`, `audit.verify_chain`) `ai_allowed=False`;
+bayrak unutulsa da yapısal kural geçerlidir, MCP listesinde görünmezler (kapı
+`test_gate_tools_ai_never_calls_admin_only_tools`). Hizmet aramaları için `services.incidents.list_incidents`
 ve `services.changes.list_changes` `q` (numara/başlık metin araması) parametresi aldı.
 
 ## Hizmet kataloğu ve hizmet talepleri
@@ -431,10 +450,10 @@ seçici), `boolean`; `required`, `default`), `approval_policy` (`none` | `manage
 |---|---|---|---|
 | Şifre sıfırlama (`password_reset`) | evet | yok | verify_requester (R0), reset_password (R1 self, aksi R2) |
 | Hesap kilidi açma (`account_unlock`) | evet | yok | verify_requester, unlock_account (doğrulanmış self-servis R1, aksi R2), bildirim (R1) |
-| Standart yazılım grubu (`standard_software_group`) | evet | yok | add_to_group (izin listesinde R1, aksi R3), bildirim |
+| Standart yazılım grubu (`standard_software_group`) | evet | yok | add_to_group (izin listesinde + doğrulanmış self-servis R1, başkası adına/devre dışı R2, listede yok R3), bildirim |
 | Teams ekip kanalı (`teams_channel_access`) | evet | yok | add_to_group, bildirim |
 | VPN erişim grubu (`vpn_access`) | evet | yok | add_to_group, bildirim |
-| M365 lisans talebi (`m365_license`) | evet | yok | check_available (R0), license.assign (R1), bildirim |
+| M365 lisans talebi (`m365_license`) | evet | yok | check_available (R0), license.assign (doğrulanmış self-servis R1, aksi R2), bildirim |
 | Paylaşılan posta kutusu (`shared_mailbox_access`) | hayır | yönetici | grant_shared_access (R2) |
 | Yeni çalışan hesabı (`new_employee_account`) | hayır | grup (İK) | lisans, gruplar, posta kutusu (R2), ek yetki (R3) |
 | Yetkili grup erişimi (`privileged_group_access`) | hayır | yönetici | add_to_group ayrıcalıklı → R3 |
@@ -496,8 +515,9 @@ gerekçeyle reddeder (`expected_version`; 409'da "Talep değişti").
 | `identity.get_user`, `identity.verify_requester`, `license.check_available` | R0 | |
 | `identity.reset_password` | R1 / R2 | R1 yalnızca talep hesabın sahibince kendi oturumuyla açılmış, karşılanıyor, planda bu adım var ve dizin eşleşiyorsa; geçici parola hiçbir sonuç/denetim/istekte yer almaz, yalnızca ikincil adrese gider |
 | `identity.unlock_account` | R1 / R2 | `reset_password` ile aynı self-servis doğrulaması: başkası adına / talepsiz / devre dışı ya da dizinde olmayan hesapta R2 (Faz 3 kapı ölçümü bu açığı yakaladı) |
-| `license.assign`, `notify.send_to_user`, `notify.post_to_channel` | R1 | kanal mesajı PII maskeli |
-| `identity.add_to_group` | R1 / R3 | R1 yalnızca `SZ_IDENTITY_STANDARD_GROUPS`'ta ve ayrıcalıklı değilse; ayrıcalıklı/bilinmeyen R3 |
+| `license.assign` | R1 / R2 | Ürün sahibi kararı: `reset_password` ile aynı self-servis doğrulaması (`verify_self_service`, planda `license.assign` adımı); başkası adına / talepsiz / devre dışı hesapta R2 |
+| `notify.send_to_user`, `notify.post_to_channel` | R1 | kanal mesajı PII maskeli |
+| `identity.add_to_group` | R1 / R2 / R3 | Listede olmayan / ayrıcalıklı / bilinmeyen grup R3; `SZ_IDENTITY_STANDARD_GROUPS`'taki ayrıcalıksız grup doğrulanmış self-servis talepte R1, başkası adına / talepsiz / devre dışı hesapta R2 (ürün sahibi kararı) |
 | `identity.reset_mfa`, `identity.remove_from_group`, `identity.revoke_sessions`, `mailbox.grant_shared_access` | R2 | |
 | `identity.disable_user` | R3 | |
 
@@ -529,7 +549,8 @@ indeksli). Aynı idempotent üslup; enum sütunları VARCHAR.
   sorunlar `/problemler`. Açık: el ile adım/yeniden deneme (agent) ve dizin araması (kullanıcı/grup seçici) ekranı.
 - Graph bağlayıcısı gerçek kiracıda doğrulanmadı (yukarıdaki "Doğrulanmalı" listesi). Hesap kilidi açma
   (şirket içi AD/LDAP) ve paylaşılan posta kutusu izni (Exchange Online) için bağlayıcı yok.
-- Keycloak + Slack yığınında geçici parola teslim kanalı yok (Y3); kapı bu yığında %53,5 ile sınırda.
+- Keycloak'ta geçici parola SMTP ile ikincil e-posta özniteliğine gider (kapı bu yığında %75,5); SMTP
+  bağlayıcısı ve özniteliğin yönetici-yalnız olması gerçek kurulumda doğrulanmalı (K11).
 - Self-servis doğrulaması oturum kimliğine dayanır; MFA adım yükseltme / Verified ID gibi güçlü doğrulama yok.
 - Bekleyen P1/P2 `incident.set_priority` / `incident.create` isteğinde nöbetçi uyarısı (triage'daki
   gibi) henüz yok; ajan `notify.oncall_page` ile ayrıca uyarabilir.

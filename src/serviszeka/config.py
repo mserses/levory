@@ -4,8 +4,28 @@ import json
 from functools import lru_cache
 from typing import Annotated, Any, Literal
 
-from pydantic import Field, SecretStr, field_validator
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
+
+
+class EventCIRule(BaseModel):
+    """İzleme etiketi -> CMDB CI eşleme kuralı (bkz. services/events.resolve_ci)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    label: str = Field(min_length=1, max_length=100)
+    match: Literal["id", "name", "external_ref", "attribute"] = "name"
+    key: str | None = Field(default=None, max_length=100)
+    strip_port: bool = False
+
+
+DEFAULT_EVENT_CI_RULES: list[dict[str, Any]] = [
+    {"label": "ci_id", "match": "id"},
+    {"label": "ci", "match": "name"},
+    {"label": "instance", "match": "name", "strip_port": True},
+    {"label": "service", "match": "name"},
+    {"label": "job", "match": "name"},
+]
 
 
 class Settings(BaseSettings):
@@ -74,6 +94,18 @@ class Settings(BaseSettings):
     keycloak_client_secret: SecretStr | None = None
     # Yöneticinin kullanıcı adını taşıyan kullanıcı özniteliği (Keycloak'ta yerleşik yönetici yok)
     keycloak_manager_attribute: str = "manager"
+    # İkincil (kişisel) e-posta adresini taşıyan kullanıcı özniteliği: geçici parola yalnızca bu
+    # adrese gider (birincil e-postayla aynı ya da e-posta biçiminde olmayan değerler yok sayılır)
+    keycloak_secondary_email_attribute: str = "secondary_email"
+    # SMTP e-posta bildiricisi (connectors/smtp.py): posta sağlayıcısı olmayan kimlik yığınında
+    # (Keycloak) kullanıcı bildirimi ve geçici parolanın ikincil adrese teslimi. Host + gönderen
+    # doluysa etkin; parola gizli (yalnızca ortamdan).
+    smtp_host: str | None = None
+    smtp_port: int = Field(default=587, ge=1, le=65535)
+    smtp_sender: str | None = None
+    smtp_username: str | None = None
+    smtp_password: SecretStr | None = None
+    smtp_starttls: bool = True
     # Slack (connectors/slack.py): bot belirteci (xoxb-..., gizli) varsa `messaging` bağlayıcısı
     # Slack olur (kanal mesajı + DM); hassas bildirim yine ikincil adrese (Graph/sahte) gider.
     slack_bot_token: SecretStr | None = None
@@ -98,6 +130,48 @@ class Settings(BaseSettings):
 
     # Nöbetçi bildirim webhook'u (boşsa bildirimler yalnızca loglanır)
     oncall_webhook_url: str | None = None
+    # Kalıcı bildirim kuyruğu (notification_outbox): en fazla gönderim denemesi (sonra "dead") ve
+    # üstel geri çekilme tabanı (sn; deneme n için taban * 2^(n-1), en fazla 1 saat)
+    notification_max_attempts: int = Field(default=5, ge=1, le=50)
+    notification_backoff_seconds: float = Field(default=30.0, gt=0)
+    # Arka plan zamanlayıcısı (scheduler.py; FastAPI lifespan): kuyruk gönderimi, eylem isteği süre
+    # aşımı, SLA ihlal/risk uyarısı, bekleyen hizmet talepleri. Birden fazla kopyada her işi tek
+    # kopya çalıştırır (scheduler_leases). Testlerde kapalı.
+    scheduler_enabled: bool = True
+    scheduler_tick_seconds: float = Field(default=15.0, gt=0)
+    # İş onayı bekleyen hizmet talebinin geçerlilik süresi (saat); dolunca talep reddedilir
+    request_approval_ttl_hours: int = Field(default=168, ge=1, le=2160)
+
+    # Faz 4 izleme / olay yönetimi (services/events.py, POST /events/alertmanager|generic).
+    # Paylaşılan gizli: `Authorization: Bearer <gizli>` / `X-ServisZeka-Token` ya da HMAC-SHA256
+    # imza (`X-ServisZeka-Signature: sha256=<hex>`, `X-ServisZeka-Timestamp`). Boşsa webhook kapalı.
+    events_webhook_secret: SecretStr | None = None
+    events_max_body_bytes: int = Field(default=1_048_576, ge=1024, le=20_971_520)
+    # Zaman damgası penceresi ve yinelenen teslimat (gövde özeti) saklama süresi (saniye)
+    events_replay_window_seconds: int = Field(default=300, ge=10, le=86_400)
+    # Etiket -> CI eşleme kuralları (sırayla, ilk eşleşen kazanır), JSON dizisi:
+    # [{"label": "instance", "match": "name", "strip_port": true}, ...]; match: id | name |
+    # external_ref (key = external_refs anahtarı) | attribute (key = CI özniteliği)
+    events_ci_mapping: list[EventCIRule] = Field(
+        default_factory=lambda: [EventCIRule(**r) for r in DEFAULT_EVENT_CI_RULES]
+    )
+    # Bağıntı penceresi (dk): bu süre içinde olay görmüş açık gruplar aday
+    events_correlation_window_minutes: int = Field(default=30, ge=1, le=1440)
+    # Çırpınma: aynı parmak izi pencere içinde bu kadar kez ateşlenirse bastırılır
+    events_flap_threshold: int = Field(default=4, ge=2, le=100)
+    events_flap_window_minutes: int = Field(default=60, ge=1, le=1440)
+    # Bu önem ve üstündeki grup olay açar (P1/P2 olacaksa insan onayı)
+    events_incident_min_severity: Literal["critical", "high", "warning", "info"] = "high"
+    # Olay fırtınası sınırı: olay ajanı son bir saatte izlemeden bu kadar olay açıldıysa yenisini
+    # açmaz (gruplar açık kalır; yeniden gönderimde, sınırın altına inince açılır)
+    events_max_incidents_per_hour: int = Field(default=20, ge=1, le=10_000)
+
+    # Faz 4 sürekli iyileştirme (CSI; agents/improvement.py, zamanlayıcı işi `csi_review`):
+    # sinyal penceresi (gün; önceki eşit pencereyle karşılaştırılır), uygulama sonrası ölçüm
+    # penceresi (gün) ve reddedilen/kapanan sinyalin yeniden önerilmeden bekleme süresi (gün)
+    csi_window_days: int = Field(default=30, ge=7, le=180)
+    csi_measure_days: int = Field(default=30, ge=1, le=366)
+    csi_cooldown_days: int = Field(default=30, ge=0, le=365)
 
     # Çalışma ortamı. Güvenli varsayılan: production (geliştirme kipi kimlik doğrulaması kapalı).
     environment: Literal["development", "test", "staging", "production"] = "production"

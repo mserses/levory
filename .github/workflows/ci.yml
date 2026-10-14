@@ -50,6 +50,26 @@ jobs:
           uv run alembic upgrade head
           uv run alembic check
 
+      - name: Göçler (Faz 3 şemasından Faz 4'e yükseltme ve geri alma)
+        env:
+          SZ_DATABASE_URL: sqlite+aiosqlite:///./ci-faz4.db
+        run: |
+          uv run alembic upgrade 0009
+          uv run alembic upgrade head
+          uv run alembic check
+          uv run alembic downgrade 0009
+          uv run alembic upgrade head
+          uv run alembic check
+
+      - name: Faz kapıları (LLM'siz, ağ yok)
+        run: |
+          uv run python evals/run_eval.py --oracle
+          uv run python evals/run_request_eval.py
+          for stack in memory entra keycloak; do
+            uv run python evals/run_automation_eval.py --stack "$stack"
+          done
+          uv run python evals/run_mttr_evidence.py
+
   portal:
     name: portal (typecheck, lint, test, build, E2E)
     runs-on: ubuntu-latest

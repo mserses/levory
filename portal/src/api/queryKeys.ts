@@ -9,7 +9,11 @@ import type {
   ChangeListQuery,
   CIListQuery,
   DecisionInboxQuery,
+  EventGroupListQuery,
+  ForecastQuery,
+  ImprovementListQuery,
   IncidentListQuery,
+  KPIReportQuery,
   ProblemListQuery,
   ServiceRequestListQuery,
 } from './types';
@@ -85,6 +89,26 @@ export const queryKeys = {
     list: (query: ProblemListQuery) => ['problems', 'list', query] as const,
     detail: (id: string) => ['problems', 'detail', id] as const,
     trends: (windowDays: number) => ['problems', 'trends', windowDays] as const,
+  },
+  kpi: {
+    all: ['kpi'] as const,
+    report: (query: KPIReportQuery) => ['kpi', 'report', query] as const,
+    definitions: ['kpi', 'definitions'] as const,
+  },
+  sla: {
+    all: ['sla'] as const,
+    forecast: (query: ForecastQuery) => ['sla', 'forecast', query] as const,
+  },
+  events: {
+    all: ['events'] as const,
+    groups: (query: EventGroupListQuery) => ['events', 'groups', query] as const,
+    group: (id: string) => ['events', 'group', id] as const,
+  },
+  improvements: {
+    all: ['improvements'] as const,
+    lists: ['improvements', 'list'] as const,
+    list: (query: ImprovementListQuery) => ['improvements', 'list', query] as const,
+    detail: (id: string) => ['improvements', 'detail', id] as const,
   },
   integrations: {
     all: ['integrations'] as const,

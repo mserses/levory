@@ -26,7 +26,7 @@ Fonksiyonlar flush eder, commit etmez.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import and_, func, or_, select
@@ -818,6 +818,66 @@ async def cancel(
     await _touch(session, req, now)
     await _audit(session, req, user.username, "cancel", reason=reason)
     return req
+
+
+# --- zamanlayıcı: bekleyen talepler ---------------------------------------------------------------
+
+SCHEDULER_ACTOR = "system:scheduler"
+
+
+async def expire_waiting(
+    session: AsyncSession, *, now: datetime | None = None, settings: Settings | None = None
+) -> dict[str, int]:
+    """Bekleyen talepleri ilerletir/kapatır (zamanlayıcı işi; flush eder, commit etmez).
+
+    - İş onayı `SZ_REQUEST_APPROVAL_TTL_HOURS` içinde verilmeyen talep **reddedilir** (iş onayı
+      `rejected`; `failed` değil — yeniden deneme iş onayını atlayamasın). İnsansız sayılmaz.
+    - Karşılamada beklediği eylem isteği sonuçlanmış (yürütülmüş/reddedilmiş/başarısız/süresi
+      dolmuş) ama kancası kaçmış talep sonucu işlenir (`on_action_resolved`).
+    """
+    settings = settings or get_settings()
+    now = now or _now()
+    cutoff = now - timedelta(hours=settings.request_approval_ttl_hours)
+    expired = 0
+    stale = list(
+        (
+            await session.scalars(
+                select(ServiceRequest).where(
+                    ServiceRequest.state == RS.AWAITING_APPROVAL,
+                    ServiceRequest.created_at <= cutoff,
+                )
+            )
+        ).all()
+    )
+    for req in stale:
+        req.approval_state = BA.REJECTED
+        req.state = RS.REJECTED
+        req.closed_at = now
+        req.touchless = False
+        req.touchless_reason = "İş onayı süresi doldu."
+        req.error = (
+            f"İş onayı {settings.request_approval_ttl_hours} saat içinde verilmedi (süre doldu)."
+        )
+        await _touch(session, req, now)
+        await _audit(session, req, SCHEDULER_ACTOR, "approval_expired",
+                     ttl_hours=settings.request_approval_ttl_hours, approver=req.approver)
+        expired += 1
+    resumed = 0
+    terminal = [ActionRequestState.EXECUTED, ActionRequestState.REJECTED,
+                ActionRequestState.FAILED, ActionRequestState.EXPIRED]
+    waiting = list(
+        (
+            await session.execute(
+                select(ServiceRequest, ActionRequest)
+                .join(ActionRequest, ActionRequest.id == ServiceRequest.waiting_action_id)
+                .where(ServiceRequest.state == RS.FULFILLING, ActionRequest.state.in_(terminal))
+            )
+        ).all()
+    )
+    for _req, ar in waiting:
+        await on_action_resolved(session, ar, now=now, settings=settings)
+        resumed += 1
+    return {"approval_expired": expired, "resumed": resumed}
 
 
 # --- erişim -------------------------------------------------------------------------------------------

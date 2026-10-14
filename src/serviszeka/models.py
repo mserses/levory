@@ -33,9 +33,15 @@ from serviszeka.domain.enums import (
     CIRelationshipType,
     CIStatus,
     DecisionOutcome,
+    EventGroupState,
+    EventSeverity,
+    EventStatus,
     ExternalSystem,
     Impact,
+    ImprovementSource,
+    ImprovementState,
     IncidentStatus,
+    NotificationState,
     OnHoldReason,
     Priority,
     ProblemState,
@@ -83,8 +89,9 @@ class Incident(Base):
     # SLA hedefleri (öncelikten hesaplanır)
     response_due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     resolve_due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    responded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Faz 4: KPI pencere sorguları (MTTA/MTTR, SLA uyumu) için indeksli (göç 0011)
+    responded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
     # Bekleme nedeni ve SLA duraklatma (yalnızca arayan/tedarikçi beklemesi saati durdurur)
     on_hold_reason: Mapped[OnHoldReason | None] = mapped_column(Enum(OnHoldReason))
     sla_paused_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -152,7 +159,10 @@ class AuditLog(Base):
     __tablename__ = "audit_log"
 
     seq: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    # Faz 4: KPI geçmiş okumaları (yeniden açılma, FCR, AI kabulü) pencereyle süzer (göç 0011)
+    occurred_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, index=True
+    )
     actor: Mapped[str] = mapped_column(String(200))  # kullanıcı veya "ai:<ajan>"
     action: Mapped[str] = mapped_column(String(100))
     entity_type: Mapped[str] = mapped_column(String(50))
@@ -675,3 +685,222 @@ class Problem(Base):
     @property
     def change_ids(self) -> list[str]:
         return [c.id for c in self.changes]
+
+
+# --- Faz 4: kalıcı bildirim kuyruğu ve zamanlayıcı kiraları -----------------------------------
+
+
+class NotificationOutbox(Base):
+    """Kalıcı bildirim kuyruğu (transactional outbox).
+
+    `notifications.stage` satırı kaydı oluşturan işlemle **aynı işlemde** yazar: rollback olursa
+    bildirim de yoktur. Gönderici (`notifications.dispatch_due` / `send_pending`) yalnızca commit
+    edilmiş satırları en az bir kez gönderir; `idempotency_key` alıcıya iletilir (tekrar gönderimde
+    alıcı yinelemeyi ayıklar) ve tekildir (SLA uyarısında olay+durum başına tek kayıt). `payload`
+    PII maskeli, `last_error` gizli bilgisiz (URL'ler ayıklanır).
+    """
+
+    __tablename__ = "notification_outbox"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    idempotency_key: Mapped[str] = mapped_column(String(200), unique=True)
+    event: Mapped[str] = mapped_column(String(100), index=True)
+    # Alıcı türü (bugün yalnızca nöbetçi: notifications.get_notifier)
+    target: Mapped[str] = mapped_column(String(50), default="oncall")
+    payload: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    # Gönderim sonrası denetim kaydı bilgileri
+    actor: Mapped[str] = mapped_column(String(200))
+    entity_type: Mapped[str] = mapped_column(String(50))
+    entity_id: Mapped[str] = mapped_column(String(100), index=True)
+    details: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    state: Mapped[NotificationState] = mapped_column(
+        _str_enum(NotificationState, 20), default=NotificationState.PENDING, index=True
+    )
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    next_attempt_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, index=True
+    )
+    last_error: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class SchedulerLease(Base):
+    """Zamanlayıcı iş kirası: birden fazla kopyada her işi tek kopya çalıştırır.
+
+    Kira, `lease_until` karşılaştırmalı güncellemeyle (compare-and-set) alınır: yalnızca süresi
+    dolmuş kirayı tek bir kopya güncelleyebilir (PostgreSQL ve SQLite'ta aynı). İş bitince
+    `lease_until` bir sonraki çalışma zamanına çekilir (aralık da kira ile korunur).
+    """
+
+    __tablename__ = "scheduler_leases"
+
+    job: Mapped[str] = mapped_column(String(100), primary_key=True)
+    owner: Mapped[str] = mapped_column(String(200))
+    lease_until: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    last_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_status: Mapped[str | None] = mapped_column(String(20))
+    last_error: Mapped[str | None] = mapped_column(Text)
+    runs: Mapped[int] = mapped_column(Integer, default=0)
+
+
+# --- Faz 4: izleme ve olay (event) yönetimi ----------------------------------------------------
+
+
+class EventGroup(Base):
+    """Bağıntılı uyarı grubu: kök CI'daki (bağımlılık) uyarı, bağımlılarındaki uyarıları açıklar.
+
+    Grup başına en fazla bir olay (`incident_id`) açılır; aynı gruba gelen yeni/çözülen uyarılar
+    olaya çalışma notu olarak eklenir (`noted_at` son not). Bkz. services/events.py.
+    """
+
+    __tablename__ = "event_groups"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    number: Mapped[str] = mapped_column(String(20), unique=True, index=True)  # EVG0000001
+    state: Mapped[EventGroupState] = mapped_column(
+        _str_enum(EventGroupState, 20), default=EventGroupState.OPEN, index=True
+    )
+    title: Mapped[str] = mapped_column(String(300))
+    # Kök CI (CMDB); CI çözülemeyen uyarılarda boş, grup parmak iziyle tutulur
+    root_ci_id: Mapped[str | None] = mapped_column(ForeignKey("configuration_items.id"), index=True)
+    fingerprint: Mapped[str | None] = mapped_column(String(200), index=True)
+    # Bastırılmamış uyarılar içindeki en yüksek önem
+    severity: Mapped[EventSeverity] = mapped_column(
+        _str_enum(EventSeverity, 20), default=EventSeverity.INFO
+    )
+    event_count: Mapped[int] = mapped_column(Integer, default=0)
+    first_event_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    last_event_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    # Bastırılmamış bir üyenin son anlamlı değişikliği (yeni uyarı, çözülme, önem); not tetikler
+    last_change_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    flapping: Mapped[bool] = mapped_column(Boolean, default=False)
+    incident_id: Mapped[str | None] = mapped_column(ForeignKey("incidents.id"), index=True)
+    noted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    merged_into_id: Mapped[str | None] = mapped_column(String(36))
+    acknowledged_by: Mapped[str | None] = mapped_column(String(200))
+    acknowledged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    silenced_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    silenced_by: Mapped[str | None] = mapped_column(String(200))
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
+
+
+class Event(Base):
+    """İzleme uyarısı (Prometheus Alertmanager ya da genel JSON webhook).
+
+    (source, fingerprint, starts_at) tekildir: aynı uyarının tekrar gönderimi yeni satır açmaz
+    (`received_count` artar), çözülen uyarı yeniden "firing" olamaz (yeniden ateşleme yeni
+    `starts_at` ile yeni satırdır). Etiket/açıklamalar PII maskeli, gizli görünen anahtarlar
+    gizlenmiş saklanır. `suppressed`: `flapping` / `silenced` (olay açma ve not tetiklemez).
+    """
+
+    __tablename__ = "events"
+    __table_args__ = (UniqueConstraint("source", "fingerprint", "starts_at"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    source: Mapped[str] = mapped_column(String(50))
+    fingerprint: Mapped[str] = mapped_column(String(200), index=True)
+    status: Mapped[EventStatus] = mapped_column(_str_enum(EventStatus, 20), index=True)
+    severity: Mapped[EventSeverity] = mapped_column(_str_enum(EventSeverity, 20))
+    title: Mapped[str] = mapped_column(String(300))
+    labels: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    annotations: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    ci_id: Mapped[str | None] = mapped_column(ForeignKey("configuration_items.id"), index=True)
+    # Hangi eşleme kuralı CI'ı buldu (ör. "instance:name")
+    ci_rule: Mapped[str | None] = mapped_column(String(100))
+    group_id: Mapped[str | None] = mapped_column(ForeignKey("event_groups.id"), index=True)
+    suppressed: Mapped[str | None] = mapped_column(String(20))
+    received_count: Mapped[int] = mapped_column(Integer, default=1)
+    # Son anlamlı değişiklik (açılış, çözülme, önem); yalnızca tekrar gönderim değiştirmez
+    changed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    last_received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
+
+
+class EventDelivery(Base):
+    """Webhook teslimatı tekilleştirme (yeniden oynatma koruması): `dedup_key` tekildir."""
+
+    __tablename__ = "event_deliveries"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    dedup_key: Mapped[str] = mapped_column(String(64), unique=True)
+    source: Mapped[str] = mapped_column(String(50))
+    received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+
+
+# --- Faz 4: sürekli iyileştirme (ITIL 4 CSI kaydı) ---------------------------------------------
+
+
+class Improvement(Base):
+    """Sürekli iyileştirme kaydı (CSI0000001): fikir -> onay -> uygulama -> ölçüm -> kapanış.
+
+    Bağlı KPI (`kpi_key`, isteğe bağlı kırılım `kpi_dimension` = `kpi_dimension_value`) için taban
+    değeri kayıtta `[baseline_start, baseline_end)` penceresinden hesaplanır; uygulama bitince
+    (`implemented_at`) `[implemented_at, implemented_at + measure_days)` penceresi ölçülür ve
+    `measured_value`, `target_met`, `measurement` (önce/sonra pencereleri, fark) yazılır.
+    Yapay zekâ (`ai:csi`) yalnızca fikir açar ve ölçer; onay, başlatma, kapatma ve red insandır.
+    """
+
+    __tablename__ = "improvements"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    number: Mapped[str] = mapped_column(String(20), unique=True, index=True)
+    title: Mapped[str] = mapped_column(String(300))
+    description: Mapped[str] = mapped_column(Text, default="")
+    source: Mapped[ImprovementSource] = mapped_column(
+        _str_enum(ImprovementSource, 20), default=ImprovementSource.MANUAL, index=True
+    )
+    state: Mapped[ImprovementState] = mapped_column(
+        _str_enum(ImprovementState, 20), default=ImprovementState.IDEA, index=True
+    )
+    kpi_key: Mapped[str | None] = mapped_column(String(64), index=True)
+    kpi_dimension: Mapped[str | None] = mapped_column(String(50))
+    kpi_dimension_value: Mapped[str | None] = mapped_column(String(100))
+    baseline_value: Mapped[float | None] = mapped_column(Float)
+    baseline_start: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    baseline_end: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    target_value: Mapped[float | None] = mapped_column(Float)
+    measured_value: Mapped[float | None] = mapped_column(Float)
+    measured_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    target_met: Mapped[bool | None] = mapped_column(Boolean)
+    measurement: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    measure_days: Mapped[int] = mapped_column(Integer, default=30)
+    owner: Mapped[str | None] = mapped_column(String(200), index=True)
+    # Fayda ve efor 1-5; öncelik puanı = fayda / efor * 20 (4-100)
+    benefit_estimate: Mapped[int] = mapped_column(Integer, default=3)
+    effort: Mapped[int] = mapped_column(Integer, default=3)
+    priority_score: Mapped[float] = mapped_column(Float, default=20.0)
+    problem_id: Mapped[str | None] = mapped_column(ForeignKey("problems.id"), index=True)
+    change_id: Mapped[str | None] = mapped_column(ForeignKey("change_requests.id"), index=True)
+    # Sinyal kanıtı (deterministik sayılar) ve tekilleştirme anahtarı (CSI ajanı)
+    evidence: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    signal_key: Mapped[str | None] = mapped_column(String(200), index=True)
+    detected_by: Mapped[str] = mapped_column(String(200), default="")
+    created_by: Mapped[str] = mapped_column(String(200), default="")
+    approved_by: Mapped[str | None] = mapped_column(String(200))
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    implemented_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    closed_by: Mapped[str | None] = mapped_column(String(200))
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Kapanış ya da red notu
+    resolution: Mapped[str | None] = mapped_column(Text)
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )

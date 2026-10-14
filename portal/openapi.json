@@ -127,6 +127,19 @@
         "title": "AIDecisionRead",
         "type": "object"
       },
+      "AcknowledgeRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "note": {
+            "default": "",
+            "maxLength": 500,
+            "title": "Note",
+            "type": "string"
+          }
+        },
+        "title": "AcknowledgeRequest",
+        "type": "object"
+      },
       "ActionApprovalRead": {
         "properties": {
           "approver": {
@@ -997,6 +1010,256 @@
         "title": "AuditPage",
         "type": "object"
       },
+      "BacktestRead": {
+        "properties": {
+          "baseline_brier": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Sabit oran (eğitim ihlal oranı) tahmini",
+            "title": "Baseline Brier"
+          },
+          "baseline_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseline Rate"
+          },
+          "brier": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Brier"
+          },
+          "calibration": {
+            "items": {
+              "$ref": "#/components/schemas/CalibrationBin"
+            },
+            "title": "Calibration",
+            "type": "array"
+          },
+          "end": {
+            "format": "date-time",
+            "title": "End",
+            "type": "string"
+          },
+          "lookback_days": {
+            "title": "Lookback Days",
+            "type": "integer"
+          },
+          "skill": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "1 - brier / baseline_brier (pozitif: daha iyi)",
+            "title": "Skill"
+          },
+          "skipped": {
+            "description": "Örneklem yetersiz olduğu için tahmin yapılamayan test olayı",
+            "title": "Skipped",
+            "type": "integer"
+          },
+          "split_at": {
+            "format": "date-time",
+            "title": "Split At",
+            "type": "string"
+          },
+          "test_size": {
+            "description": "Tahmin yapılabilen (yeterli örneklemli) test olayı sayısı",
+            "title": "Test Size",
+            "type": "integer"
+          },
+          "train_size": {
+            "title": "Train Size",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "split_at",
+          "end",
+          "lookback_days",
+          "train_size",
+          "test_size",
+          "skipped",
+          "brier",
+          "baseline_brier",
+          "baseline_rate",
+          "skill",
+          "calibration"
+        ],
+        "title": "BacktestRead",
+        "type": "object"
+      },
+      "BreachForecastRead": {
+        "properties": {
+          "assignment_group": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assignment Group"
+          },
+          "basis": {
+            "enum": [
+              "priority_group",
+              "priority",
+              "none",
+              "breached"
+            ],
+            "title": "Basis",
+            "type": "string"
+          },
+          "elapsed_hours": {
+            "description": "Duraklatma hariç geçen süre",
+            "title": "Elapsed Hours",
+            "type": "number"
+          },
+          "expected_resolve_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Resolve At"
+          },
+          "incident_id": {
+            "title": "Incident Id",
+            "type": "string"
+          },
+          "load_ratio": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Grubun şu anki açık kaydı / olağan ortalaması",
+            "title": "Load Ratio"
+          },
+          "number": {
+            "title": "Number",
+            "type": "string"
+          },
+          "paused": {
+            "title": "Paused",
+            "type": "boolean"
+          },
+          "priority": {
+            "title": "Priority",
+            "type": "string"
+          },
+          "probability": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Çözüm SLA'sının ihlal olasılığı (0-1)",
+            "title": "Probability"
+          },
+          "reasons": {
+            "items": {
+              "$ref": "#/components/schemas/ForecastReason"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "remaining_hours": {
+            "description": "Duraklatma hariç kalan hedef süre (negatif: geçti)",
+            "title": "Remaining Hours",
+            "type": "number"
+          },
+          "resolve_due_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolve Due At"
+          },
+          "sample_censored": {
+            "description": "Hâlâ açık (sansürlü, Kaplan–Meier) olay sayısı",
+            "title": "Sample Censored",
+            "type": "integer"
+          },
+          "sample_resolved": {
+            "title": "Sample Resolved",
+            "type": "integer"
+          },
+          "sample_size": {
+            "description": "Karşılaştırılan olay sayısı (çözülen + açık)",
+            "title": "Sample Size",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "target_hours": {
+            "title": "Target Hours",
+            "type": "number"
+          }
+        },
+        "required": [
+          "incident_id",
+          "number",
+          "priority",
+          "assignment_group",
+          "status",
+          "paused",
+          "resolve_due_at",
+          "probability",
+          "expected_resolve_at",
+          "elapsed_hours",
+          "remaining_hours",
+          "target_hours",
+          "basis",
+          "sample_size",
+          "sample_resolved",
+          "sample_censored",
+          "load_ratio",
+          "reasons"
+        ],
+        "title": "BreachForecastRead",
+        "type": "object"
+      },
       "BusinessApprovalState": {
         "enum": [
           "not_required",
@@ -1519,6 +1782,53 @@
           "freeze_windows"
         ],
         "title": "CalendarRead",
+        "type": "object"
+      },
+      "CalibrationBin": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "lower": {
+            "title": "Lower",
+            "type": "number"
+          },
+          "mean_predicted": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean Predicted"
+          },
+          "observed_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observed Rate"
+          },
+          "upper": {
+            "title": "Upper",
+            "type": "number"
+          }
+        },
+        "required": [
+          "lower",
+          "upper",
+          "count",
+          "mean_predicted",
+          "observed_rate"
+        ],
+        "title": "CalibrationBin",
         "type": "object"
       },
       "CatalogApprovalPolicy": {
@@ -2387,6 +2697,76 @@
         "title": "ChangeType",
         "type": "string"
       },
+      "CorrelatedMember": {
+        "properties": {
+          "ci_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ci Id"
+          },
+          "ci_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ci Name"
+          },
+          "event_id": {
+            "title": "Event Id",
+            "type": "string"
+          },
+          "path": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Path",
+            "type": "array"
+          },
+          "severity": {
+            "$ref": "#/components/schemas/EventSeverity"
+          },
+          "status": {
+            "$ref": "#/components/schemas/EventStatus"
+          },
+          "suppressed": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suppressed"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "event_id",
+          "title",
+          "status",
+          "severity",
+          "suppressed",
+          "ci_id",
+          "ci_name",
+          "path"
+        ],
+        "title": "CorrelatedMember",
+        "type": "object"
+      },
       "DecisionInboxItem": {
         "description": "Onay kutusu satırı: karar + bağlı olayın numarası/başlığı.",
         "properties": {
@@ -2579,6 +2959,456 @@
         "title": "DecisionOutcome",
         "type": "string"
       },
+      "EventGroupDetailRead": {
+        "properties": {
+          "actionable": {
+            "title": "Actionable",
+            "type": "boolean"
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/EventRead"
+            },
+            "title": "Events",
+            "type": "array"
+          },
+          "group": {
+            "$ref": "#/components/schemas/EventGroupRead"
+          },
+          "members": {
+            "items": {
+              "$ref": "#/components/schemas/CorrelatedMember"
+            },
+            "title": "Members",
+            "type": "array"
+          },
+          "pending_action_request_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pending Action Request Id"
+          },
+          "proposed_priority": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proposed Priority"
+          },
+          "root_ci_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Root Ci Name"
+          }
+        },
+        "required": [
+          "group",
+          "root_ci_name",
+          "members",
+          "actionable",
+          "proposed_priority",
+          "pending_action_request_id",
+          "events"
+        ],
+        "title": "EventGroupDetailRead",
+        "type": "object"
+      },
+      "EventGroupListRead": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/EventGroupRead"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "EventGroupListRead",
+        "type": "object"
+      },
+      "EventGroupRead": {
+        "properties": {
+          "acknowledged_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Acknowledged At"
+          },
+          "acknowledged_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Acknowledged By"
+          },
+          "event_count": {
+            "title": "Event Count",
+            "type": "integer"
+          },
+          "fingerprint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fingerprint"
+          },
+          "first_event_at": {
+            "format": "date-time",
+            "title": "First Event At",
+            "type": "string"
+          },
+          "flapping": {
+            "title": "Flapping",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "incident_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Incident Id"
+          },
+          "last_change_at": {
+            "format": "date-time",
+            "title": "Last Change At",
+            "type": "string"
+          },
+          "last_event_at": {
+            "format": "date-time",
+            "title": "Last Event At",
+            "type": "string"
+          },
+          "merged_into_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Merged Into Id"
+          },
+          "noted_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Noted At"
+          },
+          "number": {
+            "title": "Number",
+            "type": "string"
+          },
+          "resolved_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolved At"
+          },
+          "root_ci_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Root Ci Id"
+          },
+          "severity": {
+            "$ref": "#/components/schemas/EventSeverity"
+          },
+          "silenced_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Silenced By"
+          },
+          "silenced_until": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Silenced Until"
+          },
+          "state": {
+            "$ref": "#/components/schemas/EventGroupState"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "state",
+          "title",
+          "root_ci_id",
+          "fingerprint",
+          "severity",
+          "event_count",
+          "first_event_at",
+          "last_event_at",
+          "last_change_at",
+          "resolved_at",
+          "flapping",
+          "incident_id",
+          "noted_at",
+          "merged_into_id",
+          "acknowledged_by",
+          "acknowledged_at",
+          "silenced_until",
+          "silenced_by",
+          "version"
+        ],
+        "title": "EventGroupRead",
+        "type": "object"
+      },
+      "EventGroupState": {
+        "enum": [
+          "open",
+          "resolved",
+          "merged"
+        ],
+        "title": "EventGroupState",
+        "type": "string"
+      },
+      "EventListRead": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/EventRead"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "EventListRead",
+        "type": "object"
+      },
+      "EventRead": {
+        "properties": {
+          "annotations": {
+            "additionalProperties": true,
+            "title": "Annotations",
+            "type": "object"
+          },
+          "changed_at": {
+            "format": "date-time",
+            "title": "Changed At",
+            "type": "string"
+          },
+          "ci_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ci Id"
+          },
+          "ci_rule": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ci Rule"
+          },
+          "ends_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ends At"
+          },
+          "fingerprint": {
+            "title": "Fingerprint",
+            "type": "string"
+          },
+          "group_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Id"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "labels": {
+            "additionalProperties": true,
+            "title": "Labels",
+            "type": "object"
+          },
+          "last_received_at": {
+            "format": "date-time",
+            "title": "Last Received At",
+            "type": "string"
+          },
+          "received_count": {
+            "title": "Received Count",
+            "type": "integer"
+          },
+          "severity": {
+            "$ref": "#/components/schemas/EventSeverity"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "starts_at": {
+            "format": "date-time",
+            "title": "Starts At",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/EventStatus"
+          },
+          "suppressed": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suppressed"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "source",
+          "fingerprint",
+          "status",
+          "severity",
+          "title",
+          "labels",
+          "annotations",
+          "starts_at",
+          "ends_at",
+          "ci_id",
+          "ci_rule",
+          "group_id",
+          "suppressed",
+          "received_count",
+          "last_received_at",
+          "changed_at"
+        ],
+        "title": "EventRead",
+        "type": "object"
+      },
+      "EventSeverity": {
+        "description": "Normalleştirilmiş önem derecesi (kaynak etiketleri `normalize_severity` ile eşlenir).",
+        "enum": [
+          "critical",
+          "high",
+          "warning",
+          "info"
+        ],
+        "title": "EventSeverity",
+        "type": "string"
+      },
+      "EventStatus": {
+        "description": "İzleme uyarısının durumu (Alertmanager `status`).",
+        "enum": [
+          "firing",
+          "resolved"
+        ],
+        "title": "EventStatus",
+        "type": "string"
+      },
       "ExternalSystem": {
         "enum": [
           "servicenow",
@@ -2586,6 +3416,67 @@
         ],
         "title": "ExternalSystem",
         "type": "string"
+      },
+      "ForecastReason": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "weight": {
+            "description": "Log-olasılık oranına katkının mutlak değeri (sıralama için)",
+            "title": "Weight",
+            "type": "number"
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "weight"
+        ],
+        "title": "ForecastReason",
+        "type": "object"
+      },
+      "ForecastReportRead": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "generated_at": {
+            "format": "date-time",
+            "title": "Generated At",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/BreachForecastRead"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "lookback_days": {
+            "title": "Lookback Days",
+            "type": "integer"
+          },
+          "min_sample": {
+            "title": "Min Sample",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "generated_at",
+          "lookback_days",
+          "min_sample",
+          "count",
+          "items"
+        ],
+        "title": "ForecastReportRead",
+        "type": "object"
       },
       "FreezeWindowCreate": {
         "properties": {
@@ -2798,6 +3689,827 @@
           "relationship"
         ],
         "title": "ImpactedCIRead",
+        "type": "object"
+      },
+      "ImplementedRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Uygulama bitişi; boşsa şimdi",
+            "title": "At"
+          },
+          "expected_version": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Version"
+          }
+        },
+        "title": "ImplementedRequest",
+        "type": "object"
+      },
+      "ImprovementCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "baseline_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Boşsa KPI'dan son pencere üzerinden hesaplanır",
+            "title": "Baseline Value"
+          },
+          "benefit_estimate": {
+            "default": 3,
+            "description": "Fayda tahmini 1-5",
+            "maximum": 5.0,
+            "minimum": 1.0,
+            "title": "Benefit Estimate",
+            "type": "integer"
+          },
+          "change_id": {
+            "anyOf": [
+              {
+                "maxLength": 36,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change Id"
+          },
+          "description": {
+            "default": "",
+            "maxLength": 20000,
+            "title": "Description",
+            "type": "string"
+          },
+          "effort": {
+            "default": 3,
+            "description": "Efor 1-5",
+            "maximum": 5.0,
+            "minimum": 1.0,
+            "title": "Effort",
+            "type": "integer"
+          },
+          "evidence": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence"
+          },
+          "kpi_dimension": {
+            "anyOf": [
+              {
+                "maxLength": 50,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kpi Dimension"
+          },
+          "kpi_dimension_value": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kpi Dimension Value"
+          },
+          "kpi_key": {
+            "anyOf": [
+              {
+                "enum": [
+                  "mttr",
+                  "mtta",
+                  "fcr_rate",
+                  "sla_response_compliance",
+                  "sla_resolve_compliance",
+                  "backlog",
+                  "reopen_rate",
+                  "automation_rate",
+                  "ai_triage_acceptance",
+                  "change_success_rate",
+                  "emergency_change_share",
+                  "problem_known_error_lead_time"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Bağlı KPI (services/kpi.py)",
+            "title": "Kpi Key"
+          },
+          "measure_days": {
+            "anyOf": [
+              {
+                "maximum": 366.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Ölçüm penceresi",
+            "title": "Measure Days"
+          },
+          "owner": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner"
+          },
+          "problem_id": {
+            "anyOf": [
+              {
+                "maxLength": 36,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Problem Id"
+          },
+          "signal_key": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signal Key"
+          },
+          "source": {
+            "$ref": "#/components/schemas/ImprovementSource",
+            "default": "manual"
+          },
+          "target_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Value"
+          },
+          "title": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "title": "ImprovementCreate",
+        "type": "object"
+      },
+      "ImprovementNote": {
+        "additionalProperties": false,
+        "description": "Durum adımı gövdesi (onay / red / başlatma / kapatma); red için not zorunlu.",
+        "properties": {
+          "expected_version": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Version"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 10000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "title": "ImprovementNote",
+        "type": "object"
+      },
+      "ImprovementRead": {
+        "properties": {
+          "approved_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approved At"
+          },
+          "approved_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approved By"
+          },
+          "baseline_end": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseline End"
+          },
+          "baseline_start": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseline Start"
+          },
+          "baseline_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseline Value"
+          },
+          "benefit_estimate": {
+            "title": "Benefit Estimate",
+            "type": "integer"
+          },
+          "change_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change Id"
+          },
+          "closed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Closed At"
+          },
+          "closed_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Closed By"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "created_by": {
+            "title": "Created By",
+            "type": "string"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "detected_by": {
+            "title": "Detected By",
+            "type": "string"
+          },
+          "effort": {
+            "title": "Effort",
+            "type": "integer"
+          },
+          "evidence": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "implemented_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Implemented At"
+          },
+          "kpi_dimension": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kpi Dimension"
+          },
+          "kpi_dimension_value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kpi Dimension Value"
+          },
+          "kpi_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kpi Key"
+          },
+          "measure_days": {
+            "title": "Measure Days",
+            "type": "integer"
+          },
+          "measured_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measured At"
+          },
+          "measured_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measured Value"
+          },
+          "measurement": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measurement"
+          },
+          "number": {
+            "title": "Number",
+            "type": "string"
+          },
+          "owner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner"
+          },
+          "priority_score": {
+            "title": "Priority Score",
+            "type": "number"
+          },
+          "problem_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Problem Id"
+          },
+          "resolution": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolution"
+          },
+          "signal_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signal Key"
+          },
+          "source": {
+            "$ref": "#/components/schemas/ImprovementSource"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "state": {
+            "$ref": "#/components/schemas/ImprovementState"
+          },
+          "target_met": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Met"
+          },
+          "target_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Value"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "title",
+          "description",
+          "source",
+          "state",
+          "kpi_key",
+          "kpi_dimension",
+          "kpi_dimension_value",
+          "baseline_value",
+          "baseline_start",
+          "baseline_end",
+          "target_value",
+          "measured_value",
+          "measured_at",
+          "target_met",
+          "measurement",
+          "measure_days",
+          "owner",
+          "benefit_estimate",
+          "effort",
+          "priority_score",
+          "problem_id",
+          "change_id",
+          "evidence",
+          "signal_key",
+          "detected_by",
+          "created_by",
+          "approved_by",
+          "approved_at",
+          "started_at",
+          "implemented_at",
+          "closed_by",
+          "closed_at",
+          "resolution",
+          "version",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ImprovementRead",
+        "type": "object"
+      },
+      "ImprovementSource": {
+        "description": "İyileştirme fikrinin kaynağı.",
+        "enum": [
+          "kpi",
+          "problem",
+          "pir",
+          "manual",
+          "ai"
+        ],
+        "title": "ImprovementSource",
+        "type": "string"
+      },
+      "ImprovementState": {
+        "description": "idea -> approved -> in_progress -> measured -> closed; her açık durumdan rejected.",
+        "enum": [
+          "idea",
+          "approved",
+          "in_progress",
+          "measured",
+          "closed",
+          "rejected"
+        ],
+        "title": "ImprovementState",
+        "type": "string"
+      },
+      "ImprovementUpdate": {
+        "additionalProperties": false,
+        "description": "Kısmi güncelleme. KPI tanımı, taban ve hedef yalnızca onaydan önce (idea) değişir.",
+        "properties": {
+          "baseline_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseline Value"
+          },
+          "benefit_estimate": {
+            "anyOf": [
+              {
+                "maximum": 5.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Benefit Estimate"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 20000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "effort": {
+            "anyOf": [
+              {
+                "maximum": 5.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effort"
+          },
+          "expected_version": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Version"
+          },
+          "kpi_dimension": {
+            "anyOf": [
+              {
+                "maxLength": 50,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kpi Dimension"
+          },
+          "kpi_dimension_value": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kpi Dimension Value"
+          },
+          "kpi_key": {
+            "anyOf": [
+              {
+                "enum": [
+                  "mttr",
+                  "mtta",
+                  "fcr_rate",
+                  "sla_response_compliance",
+                  "sla_resolve_compliance",
+                  "backlog",
+                  "reopen_rate",
+                  "automation_rate",
+                  "ai_triage_acceptance",
+                  "change_success_rate",
+                  "emergency_change_share",
+                  "problem_known_error_lead_time"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kpi Key"
+          },
+          "measure_days": {
+            "anyOf": [
+              {
+                "maximum": 366.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measure Days"
+          },
+          "owner": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner"
+          },
+          "target_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Value"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "maxLength": 300,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "title": "ImprovementUpdate",
         "type": "object"
       },
       "InboxOutcome": {
@@ -3351,6 +5063,263 @@
         ],
         "title": "IncidentStatus",
         "type": "string"
+      },
+      "KPIDefinitionRead": {
+        "properties": {
+          "better": {
+            "enum": [
+              "lower",
+              "higher"
+            ],
+            "title": "Better",
+            "type": "string"
+          },
+          "formula": {
+            "title": "Formula",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "unit": {
+            "enum": [
+              "hours",
+              "percent",
+              "count"
+            ],
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "name",
+          "unit",
+          "better",
+          "formula"
+        ],
+        "title": "KPIDefinitionRead",
+        "type": "object"
+      },
+      "KPIGroupStat": {
+        "description": "Bir kırılım satırı (ör. öncelik=P2): değer ve payda (örneklem) büyüklüğü.",
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "key",
+          "value",
+          "count"
+        ],
+        "title": "KPIGroupStat",
+        "type": "object"
+      },
+      "KPIReportRead": {
+        "properties": {
+          "generated_at": {
+            "format": "date-time",
+            "title": "Generated At",
+            "type": "string"
+          },
+          "kpis": {
+            "items": {
+              "$ref": "#/components/schemas/KPIValueRead"
+            },
+            "title": "Kpis",
+            "type": "array"
+          },
+          "previous_window": {
+            "$ref": "#/components/schemas/KPIWindowRead"
+          },
+          "window": {
+            "$ref": "#/components/schemas/KPIWindowRead"
+          }
+        },
+        "required": [
+          "window",
+          "previous_window",
+          "generated_at",
+          "kpis"
+        ],
+        "title": "KPIReportRead",
+        "type": "object"
+      },
+      "KPIValueRead": {
+        "properties": {
+          "better": {
+            "enum": [
+              "lower",
+              "higher"
+            ],
+            "title": "Better",
+            "type": "string"
+          },
+          "breakdown": {
+            "additionalProperties": {
+              "items": {
+                "$ref": "#/components/schemas/KPIGroupStat"
+              },
+              "type": "array"
+            },
+            "title": "Breakdown",
+            "type": "object"
+          },
+          "count": {
+            "description": "Payda / örneklem büyüklüğü",
+            "title": "Count",
+            "type": "integer"
+          },
+          "delta": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "value - previous",
+            "title": "Delta"
+          },
+          "delta_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "(value - previous) / previous * 100",
+            "title": "Delta Pct"
+          },
+          "details": {
+            "additionalProperties": true,
+            "title": "Details",
+            "type": "object"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "previous": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Önceki (eşit uzunlukta) pencerede değer",
+            "title": "Previous"
+          },
+          "previous_count": {
+            "title": "Previous Count",
+            "type": "integer"
+          },
+          "trend": {
+            "enum": [
+              "improved",
+              "worsened",
+              "flat",
+              "n/a"
+            ],
+            "title": "Trend",
+            "type": "string"
+          },
+          "unit": {
+            "enum": [
+              "hours",
+              "percent",
+              "count"
+            ],
+            "title": "Unit",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Geçerli pencerede değer (veri yoksa null)",
+            "title": "Value"
+          }
+        },
+        "required": [
+          "key",
+          "name",
+          "unit",
+          "better",
+          "value",
+          "count",
+          "previous",
+          "previous_count",
+          "delta",
+          "delta_pct",
+          "trend"
+        ],
+        "title": "KPIValueRead",
+        "type": "object"
+      },
+      "KPIWindowRead": {
+        "description": "Yarı açık pencere [start, end), UTC.",
+        "properties": {
+          "end": {
+            "format": "date-time",
+            "title": "End",
+            "type": "string"
+          },
+          "start": {
+            "format": "date-time",
+            "title": "Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "start",
+          "end"
+        ],
+        "title": "KPIWindowRead",
+        "type": "object"
       },
       "LinkedActionRead": {
         "description": "Talebe bağlı eylem isteğinin özeti (ham argümanlar yok).",
@@ -4079,6 +6048,34 @@
         "title": "RequestDecisionBody",
         "type": "object"
       },
+      "ReviewRead": {
+        "properties": {
+          "measured": {
+            "title": "Measured",
+            "type": "integer"
+          },
+          "pending_approval": {
+            "title": "Pending Approval",
+            "type": "integer"
+          },
+          "proposed": {
+            "title": "Proposed",
+            "type": "integer"
+          },
+          "signals": {
+            "title": "Signals",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "signals",
+          "proposed",
+          "measured",
+          "pending_approval"
+        ],
+        "title": "ReviewRead",
+        "type": "object"
+      },
       "RiskClass": {
         "description": "Araç risk sınıfı (ürün sahibiyle tasarlanan katalog).\n\nR0 okuma (yapay zekâ serbest); R1 düşük riskli yazma (yapay zekâ yalnızca politika izin\nverirse: gölge mod kapalı + güven >= eşik); R2 orta (her zaman insan onayı); R3 kritik\n(insan onayı + ikinci onaylayan ya da CAB onaylı değişiklik).",
         "enum": [
@@ -4594,6 +6591,203 @@
           "form_values"
         ],
         "title": "ServiceRequestUpdate",
+        "type": "object"
+      },
+      "SignalRead": {
+        "properties": {
+          "baseline_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseline Value"
+          },
+          "benefit_estimate": {
+            "title": "Benefit Estimate",
+            "type": "integer"
+          },
+          "change_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change Id"
+          },
+          "confidence": {
+            "title": "Confidence",
+            "type": "number"
+          },
+          "effort": {
+            "title": "Effort",
+            "type": "integer"
+          },
+          "evidence": {
+            "additionalProperties": true,
+            "title": "Evidence",
+            "type": "object"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "kpi_dimension": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kpi Dimension"
+          },
+          "kpi_dimension_value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kpi Dimension Value"
+          },
+          "kpi_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kpi Key"
+          },
+          "problem_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Problem Id"
+          },
+          "source": {
+            "$ref": "#/components/schemas/ImprovementSource"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "target_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Value"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "kind",
+          "source",
+          "title",
+          "kpi_key",
+          "kpi_dimension",
+          "kpi_dimension_value",
+          "baseline_value",
+          "target_value",
+          "benefit_estimate",
+          "effort",
+          "confidence",
+          "problem_id",
+          "change_id",
+          "evidence",
+          "summary"
+        ],
+        "title": "SignalRead",
+        "type": "object"
+      },
+      "SignalsRead": {
+        "properties": {
+          "signals": {
+            "items": {
+              "$ref": "#/components/schemas/SignalRead"
+            },
+            "title": "Signals",
+            "type": "array"
+          },
+          "window_days": {
+            "title": "Window Days",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "window_days",
+          "signals"
+        ],
+        "title": "SignalsRead",
+        "type": "object"
+      },
+      "SignalsRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "window_days": {
+            "default": 30,
+            "maximum": 180.0,
+            "minimum": 7.0,
+            "title": "Window Days",
+            "type": "integer"
+          }
+        },
+        "title": "SignalsRequest",
+        "type": "object"
+      },
+      "SilenceRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "comment": {
+            "description": "Gerekçe",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Comment",
+            "type": "string"
+          },
+          "minutes": {
+            "description": "Susturma süresi (dk, en fazla 7 gün)",
+            "maximum": 10080.0,
+            "minimum": 5.0,
+            "title": "Minutes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "minutes",
+          "comment"
+        ],
+        "title": "SilenceRequest",
         "type": "object"
       },
       "SyncEventOut": {
@@ -5218,6 +7412,52 @@
           "valid"
         ],
         "title": "VerifyOut",
+        "type": "object"
+      },
+      "WebhookResult": {
+        "properties": {
+          "actions": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Actions",
+            "type": "array"
+          },
+          "created": {
+            "default": 0,
+            "title": "Created",
+            "type": "integer"
+          },
+          "duplicate": {
+            "default": false,
+            "title": "Duplicate",
+            "type": "boolean"
+          },
+          "group_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Group Ids",
+            "type": "array"
+          },
+          "ignored": {
+            "default": 0,
+            "title": "Ignored",
+            "type": "integer"
+          },
+          "received": {
+            "default": 0,
+            "title": "Received",
+            "type": "integer"
+          },
+          "updated": {
+            "default": 0,
+            "title": "Updated",
+            "type": "integer"
+          }
+        },
+        "title": "WebhookResult",
         "type": "object"
       }
     },
@@ -7528,6 +9768,434 @@
         ]
       }
     },
+    "/events": {
+      "get": {
+        "operationId": "list_events_events_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/EventStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "severity",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/EventSeverity"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Severity"
+            }
+          },
+          {
+            "in": "query",
+            "name": "group_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 36,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Group Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "ci_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 36,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Ci Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "source",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 50,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventListRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Events",
+        "tags": [
+          "events"
+        ]
+      }
+    },
+    "/events/alertmanager": {
+      "post": {
+        "description": "Prometheus Alertmanager webhook (v4). Kimlik: paylaşılan gizli ya da HMAC imza.",
+        "operationId": "alertmanager_webhook_events_alertmanager_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Alertmanager Webhook",
+        "tags": [
+          "events"
+        ]
+      }
+    },
+    "/events/generic": {
+      "post": {
+        "description": "Genel JSON olay gövdesi (`{\"events\": [...]}`, bkz. docs/faz4.md).",
+        "operationId": "generic_webhook_events_generic_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Generic Webhook",
+        "tags": [
+          "events"
+        ]
+      }
+    },
+    "/events/groups": {
+      "get": {
+        "operationId": "list_groups_events_groups_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/EventGroupState"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "State"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventGroupListRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Groups",
+        "tags": [
+          "events"
+        ]
+      }
+    },
+    "/events/groups/{group_id}": {
+      "get": {
+        "operationId": "get_group_events_groups__group_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "group_id",
+            "required": true,
+            "schema": {
+              "title": "Group Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventGroupDetailRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Group",
+        "tags": [
+          "events"
+        ]
+      }
+    },
+    "/events/groups/{group_id}/acknowledge": {
+      "post": {
+        "description": "Grubu üstlenir (`event.acknowledge`, R1; kullanıcının kimliğiyle hemen çalışır).",
+        "operationId": "acknowledge_group_events_groups__group_id__acknowledge_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "group_id",
+            "required": true,
+            "schema": {
+              "title": "Group Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcknowledgeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentResultRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Acknowledge Group",
+        "tags": [
+          "events"
+        ]
+      }
+    },
+    "/events/groups/{group_id}/silence": {
+      "post": {
+        "description": "Susturma isteği (`event.silence`, R2): bekleyen eylem isteği açılır, başka bir onaylayan\n`/actions/{id}/approve` ile onaylayınca grup susturulur.",
+        "operationId": "silence_group_events_groups__group_id__silence_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "group_id",
+            "required": true,
+            "schema": {
+              "title": "Group Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SilenceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentResultRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Silence Group",
+        "tags": [
+          "events"
+        ]
+      }
+    },
     "/health": {
       "get": {
         "operationId": "health_health_get",
@@ -7548,6 +10216,847 @@
           }
         },
         "summary": "Health"
+      }
+    },
+    "/improvements": {
+      "get": {
+        "operationId": "list_improvements_improvements_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ImprovementState"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "State"
+            }
+          },
+          {
+            "in": "query",
+            "name": "source",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ImprovementSource"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source"
+            }
+          },
+          {
+            "in": "query",
+            "name": "kpi_key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "mttr",
+                    "mtta",
+                    "fcr_rate",
+                    "sla_response_compliance",
+                    "sla_resolve_compliance",
+                    "backlog",
+                    "reopen_rate",
+                    "automation_rate",
+                    "ai_triage_acceptance",
+                    "change_success_rate",
+                    "emergency_change_share",
+                    "problem_known_error_lead_time"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Kpi Key"
+            }
+          },
+          {
+            "in": "query",
+            "name": "owner",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Owner"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          },
+          {
+            "in": "query",
+            "name": "open_only",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Open Only",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ImprovementRead"
+                  },
+                  "title": "Response List Improvements Improvements Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Improvements",
+        "tags": [
+          "improvements"
+        ]
+      },
+      "post": {
+        "operationId": "create_improvement_improvements_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImprovementCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImprovementRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Improvement",
+        "tags": [
+          "improvements"
+        ]
+      }
+    },
+    "/improvements/review": {
+      "post": {
+        "description": "CSI ajanını şimdi çalıştırır (`ai:csi`; zamanlayıcı işi `csi_review` ile aynı).",
+        "operationId": "review_improvements_review_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Review",
+        "tags": [
+          "improvements"
+        ]
+      }
+    },
+    "/improvements/signals": {
+      "post": {
+        "description": "Deterministik iyileştirme sinyalleri (salt okuma, hiçbir şey yazmaz).",
+        "operationId": "detect_signals_improvements_signals_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SignalsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignalsRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Detect Signals",
+        "tags": [
+          "improvements"
+        ]
+      }
+    },
+    "/improvements/{improvement_id}": {
+      "get": {
+        "operationId": "get_improvement_improvements__improvement_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "improvement_id",
+            "required": true,
+            "schema": {
+              "title": "Improvement Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImprovementRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Improvement",
+        "tags": [
+          "improvements"
+        ]
+      },
+      "patch": {
+        "operationId": "update_improvement_improvements__improvement_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "improvement_id",
+            "required": true,
+            "schema": {
+              "title": "Improvement Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "if-match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImprovementUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImprovementRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Update Improvement",
+        "tags": [
+          "improvements"
+        ]
+      }
+    },
+    "/improvements/{improvement_id}/approve": {
+      "post": {
+        "description": "Fikri onaylar (approver / admin).",
+        "operationId": "approve_improvements__improvement_id__approve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "improvement_id",
+            "required": true,
+            "schema": {
+              "title": "Improvement Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "if-match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImprovementNote"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImprovementRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Approve",
+        "tags": [
+          "improvements"
+        ]
+      }
+    },
+    "/improvements/{improvement_id}/close": {
+      "post": {
+        "description": "Ölçülen iyileştirmeyi kapatır (approver / admin).",
+        "operationId": "close_improvements__improvement_id__close_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "improvement_id",
+            "required": true,
+            "schema": {
+              "title": "Improvement Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "if-match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImprovementNote"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImprovementRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Close",
+        "tags": [
+          "improvements"
+        ]
+      }
+    },
+    "/improvements/{improvement_id}/implemented": {
+      "post": {
+        "description": "Uygulamanın bittiği anı kaydeder (ölçüm penceresi buradan başlar).",
+        "operationId": "implemented_improvements__improvement_id__implemented_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "improvement_id",
+            "required": true,
+            "schema": {
+              "title": "Improvement Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "if-match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImplementedRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImprovementRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Implemented",
+        "tags": [
+          "improvements"
+        ]
+      }
+    },
+    "/improvements/{improvement_id}/measure": {
+      "post": {
+        "description": "Önce/sonra KPI ölçümü (pencere dolmadıysa 409).",
+        "operationId": "measure_improvements__improvement_id__measure_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "improvement_id",
+            "required": true,
+            "schema": {
+              "title": "Improvement Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "if-match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImprovementRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Measure",
+        "tags": [
+          "improvements"
+        ]
+      }
+    },
+    "/improvements/{improvement_id}/reject": {
+      "post": {
+        "description": "Reddeder / iptal eder; gerekçe zorunlu (approver / admin).",
+        "operationId": "reject_improvements__improvement_id__reject_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "improvement_id",
+            "required": true,
+            "schema": {
+              "title": "Improvement Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "if-match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImprovementNote"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImprovementRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Reject",
+        "tags": [
+          "improvements"
+        ]
+      }
+    },
+    "/improvements/{improvement_id}/start": {
+      "post": {
+        "description": "Onaylı iyileştirmenin uygulamasını başlatır.",
+        "operationId": "start_improvements__improvement_id__start_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "improvement_id",
+            "required": true,
+            "schema": {
+              "title": "Improvement Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "if-match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImprovementNote"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImprovementRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Start",
+        "tags": [
+          "improvements"
+        ]
       }
     },
     "/incidents": {
@@ -9002,6 +12511,129 @@
         "summary": "Search Articles",
         "tags": [
           "knowledge"
+        ]
+      }
+    },
+    "/kpi": {
+      "get": {
+        "description": "KPI'lar: geçerli pencere ve önceki eşit pencereye göre eğilim.",
+        "operationId": "kpi_report_kpi_get",
+        "parameters": [
+          {
+            "description": "Pencere uzunluğu (gün)",
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "description": "Pencere uzunluğu (gün)",
+              "maximum": 366,
+              "minimum": 1,
+              "title": "Days",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Pencere sonu (hariç); saat dilimsiz değer UTC kabul edilir, boşsa şimdi",
+            "in": "query",
+            "name": "end",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Pencere sonu (hariç); saat dilimsiz değer UTC kabul edilir, boşsa şimdi",
+              "title": "End"
+            }
+          },
+          {
+            "description": "Tekrarlanabilir KPI anahtarı; boşsa tümü",
+            "in": "query",
+            "name": "kpi",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Tekrarlanabilir KPI anahtarı; boşsa tümü",
+              "title": "Kpi"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KPIReportRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Kpi Report",
+        "tags": [
+          "kpi"
+        ]
+      }
+    },
+    "/kpi/definitions": {
+      "get": {
+        "operationId": "kpi_definitions_kpi_definitions_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/KPIDefinitionRead"
+                  },
+                  "title": "Response Kpi Definitions Kpi Definitions Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Kpi Definitions",
+        "tags": [
+          "kpi"
         ]
       }
     },
@@ -10645,6 +14277,258 @@
         "summary": "Retry Request",
         "tags": [
           "requests"
+        ]
+      }
+    },
+    "/sla/forecast": {
+      "get": {
+        "description": "Açık olayların çözüm SLA'sı ihlal olasılığı, beklenen çözüm zamanı ve gerekçeleri.",
+        "operationId": "sla_forecast_list_sla_forecast_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "assignment_group",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 100,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Assignment Group"
+            }
+          },
+          {
+            "in": "query",
+            "name": "min_probability",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 1.0,
+                  "minimum": 0.0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Min Probability"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "lookback_days",
+            "required": false,
+            "schema": {
+              "default": 180,
+              "maximum": 366,
+              "minimum": 7,
+              "title": "Lookback Days",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForecastReportRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Sla Forecast List",
+        "tags": [
+          "sla"
+        ]
+      }
+    },
+    "/sla/forecast/backtest": {
+      "get": {
+        "description": "Tahmin kalibrasyonu: zaman tabanlı bölmeyle Brier skoru ve kalibrasyon tablosu.",
+        "operationId": "sla_forecast_backtest_sla_forecast_backtest_get",
+        "parameters": [
+          {
+            "description": "Eğitim/test bölme anı",
+            "in": "query",
+            "name": "split_at",
+            "required": true,
+            "schema": {
+              "description": "Eğitim/test bölme anı",
+              "format": "date-time",
+              "title": "Split At",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Pencere sonu (hariç); saat dilimsiz değer UTC kabul edilir, boşsa şimdi",
+            "in": "query",
+            "name": "end",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Pencere sonu (hariç); saat dilimsiz değer UTC kabul edilir, boşsa şimdi",
+              "title": "End"
+            }
+          },
+          {
+            "in": "query",
+            "name": "lookback_days",
+            "required": false,
+            "schema": {
+              "default": 180,
+              "maximum": 366,
+              "minimum": 7,
+              "title": "Lookback Days",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BacktestRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Sla Forecast Backtest",
+        "tags": [
+          "sla"
+        ]
+      }
+    },
+    "/sla/report": {
+      "get": {
+        "description": "Yanıt ve çözüm SLA uyumu (öncelik / grup kırılımı, önceki pencereye göre eğilim).",
+        "operationId": "sla_report_sla_report_get",
+        "parameters": [
+          {
+            "description": "Pencere uzunluğu (gün)",
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "description": "Pencere uzunluğu (gün)",
+              "maximum": 366,
+              "minimum": 1,
+              "title": "Days",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Pencere sonu (hariç); saat dilimsiz değer UTC kabul edilir, boşsa şimdi",
+            "in": "query",
+            "name": "end",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Pencere sonu (hariç); saat dilimsiz değer UTC kabul edilir, boşsa şimdi",
+              "title": "End"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KPIReportRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Sla Report",
+        "tags": [
+          "sla"
         ]
       }
     }

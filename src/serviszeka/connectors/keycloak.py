@@ -19,8 +19,12 @@ Eşleme ve kararlar (davranış uydurulmadı; belirsiz olanlar "doğrulanmalı" 
   (`GET /users?email=..&exact=true`). Sunucu sonucu yine istemcide tam eşleşmeyle süzülür;
   farklı kullanıcılara çıkan eşleşme `AmbiguousReferenceError` (asla ilkini seçmez).
 - `DirectoryUser.user_principal_name` = Keycloak `username`, `mail` = `email`,
-  `display_name` = `firstName lastName`. Keycloak'ta ikincil (doğrulanmış) e-posta alanı yoktur:
-  `other_mails` boştur (hassas bildirim bu sağlayıcıyla teslim edilemez).
+  `display_name` = `firstName lastName`. Keycloak'ta yerleşik ikincil e-posta alanı yoktur:
+  `other_mails` yapılandırılabilir kullanıcı özniteliğinden (`SZ_KEYCLOAK_SECONDARY_EMAIL_ATTRIBUTE`,
+  varsayılan `secondary_email`) okunur — yalnızca e-posta biçimli ve birincil e-postadan farklı
+  değerler (geçici parola asla birincil posta kutusuna gitmez). Öznitelik boşsa `other_mails` boştur
+  ve hassas bildirim teslim edilemez. Teslimatı Keycloak yapmaz: hassas bildirim SMTP bildiricisiyle
+  (`connectors.smtp`, `SZ_SMTP_*`) ikincil adrese gider.
 - Yönetici: Keycloak'ta yerleşik yönetici ilişkisi yok. Yapılandırılabilir kullanıcı özniteliği
   (`SZ_KEYCLOAK_MANAGER_ATTRIBUTE`, varsayılan `manager`) yöneticinin **kullanıcı adını** taşır;
   birden fazla farklı değer belirsizdir (hata), bulunamayan ya da kendisini gösteren değer `None`
@@ -251,7 +255,28 @@ def _translate(resp: httpx.Response, not_found: str | None) -> ConnectorError:
     return ConnectorError(f"Keycloak hatası (HTTP {resp.status_code}{suffix}).")
 
 
-def _user(data: dict[str, Any]) -> DirectoryUser:
+_EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+def _attribute_values(data: dict[str, Any], name: str | None) -> list[str]:
+    attrs = data.get("attributes") if name else None
+    raw = attrs.get(name) if isinstance(attrs, dict) else None
+    values = [raw] if isinstance(raw, str) else list(raw or []) if isinstance(raw, list) else []
+    return [v.strip() for v in values if isinstance(v, str) and v.strip()]
+
+
+def _secondary_mails(data: dict[str, Any], attribute: str | None) -> list[str]:
+    """İkincil e-posta özniteliği: e-posta biçimli, birincil e-postadan farklı, tekil değerler."""
+    primary = str(data.get("email") or "").strip().casefold()
+    out: list[str] = []
+    for value in _attribute_values(data, attribute):
+        key = value.casefold()
+        if _EMAIL.match(value) and key != primary and key not in {o.casefold() for o in out}:
+            out.append(value)
+    return out
+
+
+def _user(data: dict[str, Any], secondary_attribute: str | None = None) -> DirectoryUser:
     display = " ".join(p for p in (data.get("firstName"), data.get("lastName")) if p)
     return DirectoryUser(
         id=str(data["id"]),
@@ -259,6 +284,7 @@ def _user(data: dict[str, Any]) -> DirectoryUser:
         display_name=display or data.get("username") or "",
         mail=data.get("email") or None,
         account_enabled=bool(data.get("enabled", True)),
+        other_mails=_secondary_mails(data, secondary_attribute),
     )
 
 
@@ -284,8 +310,10 @@ class KeycloakIdentityProvider:
         *,
         privileged_groups: Iterable[str] | None = None,
         manager_attribute: str = "manager",
+        secondary_email_attribute: str | None = "secondary_email",
     ) -> None:
         self.client = client
+        self.secondary_email_attribute = (secondary_email_attribute or "").strip() or None
         self.privileged_groups = {normalize_ref(g) for g in (privileged_groups or ()) if g.strip()}
         # Kimlikle yapılandırılmış girdiler (alt grup denetimi için ham hâl; yol girdileri hariç)
         self._privileged_refs = sorted(
@@ -348,12 +376,20 @@ class KeycloakIdentityProvider:
         return found
 
     async def _require_user(self, user: str) -> DirectoryUser:
-        return _user(await self._require_user_rep(user))
+        return self._to_user(await self._require_user_rep(user))
+
+    def _to_user(self, data: dict[str, Any]) -> DirectoryUser:
+        return _user(data, self.secondary_email_attribute)
 
     async def get_user(self, user: str) -> DirectoryUser | None:
         """Kimlik, kullanıcı adı ya da e-posta (tam eşleşme); yoksa None, belirsizse hata."""
         found = await self._find_user_rep(user)
-        return _user(found) if found is not None else None
+        if found is None:
+            return None
+        if self.secondary_email_attribute and "attributes" not in found:
+            # Kısa arama gösterimi öznitelik taşımayabilir: ikincil adres tam gösterimden okunur
+            found = await self._user_by_id(str(found["id"])) or found
+        return self._to_user(found)
 
     async def get_manager(self, user: str) -> DirectoryUser | None:
         """Kullanıcı özniteliğindeki (`manager_attribute`) kullanıcı adıyla yöneticiyi bulur."""
@@ -373,7 +409,7 @@ class KeycloakIdentityProvider:
         manager = await self._find_user_rep(next(iter(names.values())), by_id=False)
         if manager is None or str(manager["id"]) == str(full["id"]):
             return None
-        return _user(manager)
+        return self._to_user(manager)
 
     # --- gruplar ---------------------------------------------------------------------------------
 
@@ -664,5 +700,8 @@ def build_keycloak(
         client,
         privileged_groups=settings.identity_privileged_groups,
         manager_attribute=settings.keycloak_manager_attribute,
+        secondary_email_attribute=getattr(
+            settings, "keycloak_secondary_email_attribute", "secondary_email"
+        ),
     )
     return {IDENTITY: identity}

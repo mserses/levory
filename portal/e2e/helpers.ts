@@ -1,4 +1,8 @@
 import { expect, type APIRequestContext, type Browser, type Page } from '@playwright/test';
+import { execFileSync } from 'node:child_process';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const ALL_ROLES = ['requester', 'agent', 'approver', 'change_manager', 'cab', 'admin'] as const;
 export type E2ERole = (typeof ALL_ROLES)[number];
@@ -8,6 +12,39 @@ export const API = `http://127.0.0.1:${process.env.E2E_API_PORT ?? '8765'}`;
 
 /** Faz 3 backend'i (gölge mod kapalı, sahte Entra ID / M365 dizini): `faz3-*.spec.ts` senaryoları */
 export const FAZ3_API = `http://127.0.0.1:${process.env.E2E_FAZ3_API_PORT ?? '8766'}`;
+
+/** Faz 4 backend'i (gölge mod kapalı, olay webhook gizlisi, SENTETİK geçmiş): `faz4-*.spec.ts` */
+const FAZ4_PORT = process.env.E2E_FAZ4_API_PORT ?? '8767';
+export const FAZ4_API = `http://127.0.0.1:${FAZ4_PORT}`;
+
+/** `e2e/start-backend.mjs` faz4 profilindeki paylaşılan webhook gizlisi */
+export const FAZ4_EVENTS_SECRET = process.env.E2E_EVENTS_SECRET ?? 'e2e-olay-gizli-anahtar';
+
+/**
+ * Faz 4 senaryo saati: iyileştirmenin ölçüm penceresinin (`measure_days`) geçtiğini simüle eder
+ * (`e2e/faz4_data.py time-travel`; hedef grubun sentetik olayları ve iyileştirmenin zaman damgaları
+ * `days` gün geri kayar, uygulama sonrası pencereye hızlı çözülen olaylar eklenir).
+ */
+export function faz4TimeTravel(improvementId: string, days: number): void {
+  const root = fileURLToPath(new URL('../..', import.meta.url));
+  const db = join(tmpdir(), `serviszeka-e2e-${FAZ4_PORT}`, 'e2e.db');
+  execFileSync(
+    'uv',
+    [
+      'run',
+      'python',
+      'portal/e2e/faz4_data.py',
+      'time-travel',
+      '--db',
+      db,
+      '--improvement',
+      improvementId,
+      '--days',
+      String(days),
+    ],
+    { cwd: root, stdio: 'inherit' },
+  );
+}
 
 /** Dev kimlik doğrulaması belirteci: `Bearer dev:<kullanıcı>:<roller>` */
 export const bearer = (user: string, roles: string) => ({

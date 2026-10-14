@@ -17,6 +17,8 @@ def _dev_auth(monkeypatch):
     """
     monkeypatch.setenv("SZ_AUTH_MODE", "dev")
     monkeypatch.setenv("SZ_ENVIRONMENT", "development")
+    # Arka plan zamanlayıcısı testlerde kapalı; işler testlerde sahte saatle doğrudan sürülür
+    monkeypatch.setenv("SZ_SCHEDULER_ENABLED", "false")
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()

@@ -402,6 +402,10 @@ def _direct_cases(fx):
         ),
         "audit.verify_chain": (ADMIN, {}),
         "audit.search": (ADMIN, {"action": "incident.create"}),
+        # Faz 4 raporlama (R0)
+        "kpi.report": (AGENT, {"days": 30, "kpis": ["mttr", "backlog"]}),
+        "sla.report": (AGENT, {"days": 7}),
+        "sla.forecast": (AGENT, {"assignment_group": "network_ops"}),
         # Sorun yönetimi (fx.problem_id: _with_problem)
         "problem.search": (AGENT, {"q": "VPN"}),
         "problem.detect_trends": (AGENT, {"window_days": 30}),
@@ -444,7 +448,10 @@ async def test_every_r0_r1_handler_runs_against_services(session, directory):
     from serviszeka import notifications
 
     fx = await _with_problem(session, await seed(session))
-    cases = {**_direct_cases(fx), **await _connector_cases(session)}
+    cases = {
+        **_direct_cases(fx), **await _connector_cases(session), **await _event_cases(session),
+        **await _csi_cases(session),
+    }
     direct = {n for n in registry.names() if registry.get(n).risk_class in (RiskClass.R0, RiskClass.R1)}
     assert set(cases) == direct
     for name, (actor, args) in cases.items():
@@ -465,6 +472,45 @@ async def test_every_r0_r1_handler_runs_against_services(session, directory):
     assert inc.status == IncidentStatus.ON_HOLD and inc.service == "vpn" and inc.ci_ids == [fx.ci_id]
 
 
+
+async def _csi_cases(session):
+    """Faz 4 sürekli iyileştirme araçları: ölçüm penceresi dolmuş, uygulanmış bir iyileştirme."""
+    from datetime import UTC, datetime, timedelta
+
+    from serviszeka.services import improvements
+    from serviszeka.services.improvement_schemas import ImprovementCreate
+
+    past = datetime.now(UTC) - timedelta(days=40)
+    approver = CurrentUser("sef.ali", frozenset({"approver"}))
+    imp = await improvements.create_improvement(
+        session, ImprovementCreate(title="Backlog azaltma", kpi_key="backlog", measure_days=1),
+        AGENT, now=past,
+    )  # fmt: skip
+    await improvements.approve(session, imp.id, approver, now=past)
+    await improvements.start(session, imp.id, AGENT, now=past)
+    await improvements.mark_implemented(session, imp.id, AGENT, at=past, now=past)
+    await session.commit()
+    return {
+        "csi.list": (AGENT, {"open_only": True}),
+        "csi.detect_signals": (AGENT, {"window_days": 30}),
+        "csi.create_improvement": (
+            AGENT, {"title": "MTTR düşürme", "kpi_key": "mttr", "source": "manual"}
+        ),
+        "csi.measure_improvement": (AGENT, {"improvement_id": imp.id}),
+    }
+
+
+async def _event_cases(session):
+    """Faz 4 izleme araçları: P4 olacak bir uyarı grubu (event.create_incident R1)."""
+    from _events import seed_low_group
+
+    group_id = await seed_low_group(session)
+    return {
+        "event.list_alerts": (AGENT, {"status": "firing"}),
+        "event.correlate": (AGENT, {"group_id": group_id}),
+        "event.acknowledge": (AGENT, {"group_id": group_id, "note": "Bakıyorum"}),
+        "event.create_incident": (AGENT, {"group_id": group_id}),
+    }
 TOOL_SETTINGS = Settings(
     ai_shadow_mode=True, identity_standard_groups=["sg-yazilim-standart", "sg-vpn-kullanicilari"]
 )
@@ -488,6 +534,17 @@ async def _connector_cases(session):
         opened_by=ali, form_values={}, settings=TOOL_SETTINGS,
     )
     assert unlock.state == "fulfilling" and unlock.waiting_action_id
+    # Standart grup ve lisans da yalnızca doğrulanmış self-servis talepte R1 (aksi R2)
+    group = await requests.create_request(
+        session, await catalog.get_item(session, "standard_software_group"), requester="ali",
+        opened_by=ali, form_values={"group": "sg-yazilim-standart"}, settings=TOOL_SETTINGS,
+    )
+    assert group.state == "fulfilling" and group.waiting_action_id
+    lic = await requests.create_request(
+        session, await catalog.get_item(session, "m365_license"), requester="ali",
+        opened_by=ali, form_values={"sku": "SPE_E3"}, settings=TOOL_SETTINGS,
+    )
+    assert lic.state == "fulfilling" and lic.waiting_action_id
     manual_item = await catalog.create_item(
         session,
         catalog.CatalogItemInput(
@@ -515,9 +572,11 @@ async def _connector_cases(session):
         "identity.verify_requester": (AGENT, {"request_id": reset.id, "user": "ali"}),
         "identity.reset_password": (AGENT, {"user": "ali", "request_id": reset.id}),
         "identity.unlock_account": (AGENT, {"user": "ali", "request_id": unlock.id}),
-        "identity.add_to_group": (AGENT, {"user": "ali", "group": "sg-yazilim-standart"}),
+        "identity.add_to_group": (
+            AGENT, {"user": "ali", "group": "sg-yazilim-standart", "request_id": group.id}
+        ),
         "license.check_available": (AGENT, {"sku": "SPE_E3"}),
-        "license.assign": (AGENT, {"user": "ali", "sku": "spe_e3"}),
+        "license.assign": (AGENT, {"user": "ali", "sku": "spe_e3", "request_id": lic.id}),
         "notify.send_to_user": (AGENT, {"user": "ali", "subject": "Bilgi", "message": "Merhaba"}),
         "notify.post_to_channel": (
             AGENT, {"channel": "servis-masasi", "message": "Duyuru ali@ornek.com"}
@@ -591,6 +650,10 @@ async def test_every_r2_handler_runs_after_human_approval(session, directory):
             "mailbox.grant_shared_access": {"mailbox": "muhasebe", "user": "ali"},
         }
     )
+    from _events import seed_low_group
+
+    silence_group = await seed_low_group(session)
+    cases["event.silence"] = {"group_id": silence_group, "minutes": 60, "comment": "Bakım"}
     risky = {n for n in registry.names() if registry.get(n).risk_class == RiskClass.R2}
     assert set(cases) == risky
     for name, args in cases.items():
@@ -605,6 +668,10 @@ async def test_every_r2_handler_runs_after_human_approval(session, directory):
 
     problem = await session.get(Problem, fx.problem_id)
     assert problem.state == "closed" and problem.known_error_article_id
+    from serviszeka.models import EventGroup
+
+    silenced = await session.get(EventGroup, silence_group)
+    assert silenced.silenced_until is not None and silenced.silenced_by == CM_APPROVER.username
 
 
 def test_change_schemas_accept_null_assignee():

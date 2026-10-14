@@ -24,6 +24,7 @@ from serviszeka.main import app
 from serviszeka.mcp_server import gateway
 from serviszeka.models import ActionRequest, AuditLog
 from serviszeka.tools import registry
+from serviszeka.tools.executor import ai_callable
 
 AI_H = dev_headers("copilot", "ai_agent")
 
@@ -64,7 +65,9 @@ async def test_mcp_requires_bearer_token(mcp_app):
 async def test_mcp_lists_every_tool_with_schema_and_risk(mcp_app, mode):
     async with mcp_client(AI_H, mode) as c:
         tools = {t.name: t for t in (await c.list_tools()).tools}
-    assert set(tools) == set(registry.names())
+    # Admin-yalnız araçlar (denetim günlüğü) yapay zekâya listelenmez
+    assert set(tools) == {n for n in registry.names() if ai_callable(registry.get(n))}
+    assert "audit.search" not in tools and "audit.verify_chain" not in tools
     for name, tool in tools.items():
         spec = registry.get(name)
         assert f"[{spec.risk_class.value}" in tool.description, tool.description

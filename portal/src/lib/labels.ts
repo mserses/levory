@@ -11,8 +11,13 @@ import type {
   CIRelationshipType,
   CIStatus,
   DecisionOutcome,
+  EventGroupState,
+  EventSeverity,
+  EventStatus,
   ExternalSystem,
   Impact,
+  ImprovementSource,
+  ImprovementState,
   IncidentStatus,
   OnHoldReason,
   Priority,
@@ -280,3 +285,64 @@ export function sameIdentity(a: string | null | undefined, b: string | null | un
   if (a === null || a === undefined || b === null || b === undefined) return false;
   return a.trim().toLowerCase() === b.trim().toLowerCase();
 }
+
+// Faz 4: izleme / olay yönetimi, tahmine dayalı SLA, sürekli iyileştirme
+
+export const EVENT_SEVERITY_LABELS: Record<EventSeverity, string> = {
+  critical: 'Kritik',
+  high: 'Yüksek',
+  warning: 'Uyarı',
+  info: 'Bilgi',
+};
+
+export const EVENT_STATUS_LABELS: Record<EventStatus, string> = {
+  firing: 'Etkin',
+  resolved: 'Çözüldü',
+};
+
+export const EVENT_GROUP_STATE_LABELS: Record<EventGroupState, string> = {
+  open: 'Açık',
+  resolved: 'Çözüldü',
+  merged: 'Birleştirildi',
+};
+
+/** Uyarının bastırılma nedeni (`EventRead.suppressed`) */
+export const EVENT_SUPPRESSED_LABELS: Record<string, string> = {
+  flapping: 'Çırpınıyor (bastırıldı)',
+  silenced: 'Susturuldu',
+};
+
+/** Tahmin dayanağı (`BreachForecastRead.basis`) */
+export const FORECAST_BASIS_LABELS: Record<string, string> = {
+  priority_group: 'Aynı öncelik ve grup',
+  priority: 'Yalnızca aynı öncelik',
+  none: 'Örneklem yetersiz',
+  breached: 'Hedef süre geçti',
+};
+
+export const IMPROVEMENT_STATE_LABELS: Record<ImprovementState, string> = {
+  idea: 'Fikir',
+  approved: 'Onaylandı',
+  in_progress: 'Uygulanıyor',
+  measured: 'Ölçüldü',
+  closed: 'Kapandı',
+  rejected: 'Reddedildi',
+};
+
+export const IMPROVEMENT_SOURCE_LABELS: Record<ImprovementSource, string> = {
+  kpi: 'KPI eğilimi',
+  problem: 'Sorun / bilinen hata',
+  pir: 'Değişiklik sonrası gözden geçirme',
+  manual: 'İnsan önerisi',
+  ai: 'Yapay zekâ performansı',
+};
+
+/** KPI kırılım boyutları (`services/kpi.py` breakdown anahtarları) */
+export const KPI_DIMENSION_LABELS: Record<string, string> = {
+  priority: 'Öncelik',
+  assignment_group: 'Çözüm grubu',
+  category: 'Kategori',
+  service: 'Hizmet',
+  item_key: 'Katalog öğesi',
+  change_type: 'Değişiklik türü',
+};
